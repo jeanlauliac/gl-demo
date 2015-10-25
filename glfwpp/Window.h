@@ -1,4 +1,7 @@
+#pragma once
 #include <GLFW/glfw3.h>
+
+namespace glfwpp {
 
 class Window {
 public:
@@ -11,3 +14,5 @@ private:
   Window(const Window&);
   GLFWwindow* handle_;
 };
+
+}

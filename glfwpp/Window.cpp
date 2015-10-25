@@ -1,6 +1,8 @@
 #include <stdexcept>
 #include "Window.h"
 
+namespace glfwpp {
+
 Window::Window() {
   handle_ = glfwCreateWindow(640, 480, "Simple example", NULL, NULL);
   if (!handle_) {
@@ -10,4 +12,6 @@ Window::Window() {
 
 Window::~Window() {
   glfwDestroyWindow(handle_);
+}
+
 }

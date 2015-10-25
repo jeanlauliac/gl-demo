@@ -1,0 +1,3 @@
+clang++ -o gl-demo -framework OpenGL /usr/local/lib/libglfw3.dylib \
+  -Wall \
+  main.cpp window.cpp

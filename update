@@ -1,4 +1,4 @@
 
 clang++ -o gl-demo -framework OpenGL -Wall -std=c++14 \
   -lglew -lglfw3 \
-  main.cpp glfwpp/*.cpp
+  main.cpp glfwpp/*.cpp glpp/*.cpp

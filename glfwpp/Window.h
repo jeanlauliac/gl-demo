@@ -11,7 +11,7 @@ public:
     return handle_;
   }
 private:
-  Window(const Window&);
+  Window(Window&);
   GLFWwindow* handle_;
 };
 

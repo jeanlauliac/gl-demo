@@ -22,7 +22,7 @@ public:
   }
 
 private:
-  Context(const Context&);
+  Context(Context&);
 };
 
 }

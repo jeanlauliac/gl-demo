@@ -1,8 +1,13 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <fstream>
 #include <iostream>
+#include <sstream>
+#include <vector>
 #include "glfwpp/Context.h"
 #include "glfwpp/Window.h"
+#include "glpp/Program.h"
+#include "glpp/Shader.h"
 
 static void errorCallback(int error, const char* description)
 {
@@ -16,6 +21,66 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
   }
 }
 
+GLfloat VERTEX_DATA[24] = {
+  0.0, 0.0,
+  0.5, 0.0,
+  0.5, 0.5,
+
+  0.0, 0.0,
+  0.0, 0.5,
+  -0.5, 0.5,
+
+  0.0, 0.0,
+  -0.5, 0.0,
+  -0.5, -0.5,
+
+  0.0, 0.0,
+  0.0, -0.5,
+  0.5, -0.5,
+};
+
+glpp::Shader getShaderFromFile(std::string filePath, GLenum shaderType) {
+  std::ifstream ifs(filePath);
+  std::string str(
+    (std::istreambuf_iterator<char>(ifs)),
+    std::istreambuf_iterator<char>()
+  );
+
+  glpp::Shader shader(shaderType);
+  const char* cstr = str.c_str();
+  shader.source(1, &cstr, nullptr);
+  shader.compile();
+  GLint status;
+  shader.getShaderiv(GL_COMPILE_STATUS, &status);
+  if (!status) {
+    std::ostringstream errorMessage;
+    errorMessage << "shader compilation failed:" << std::endl;
+    GLint logLength;
+    shader.getShaderiv(GL_INFO_LOG_LENGTH, &logLength);
+    std::vector<char> log(logLength);
+    shader.getInfoLog(log.size(), nullptr, &log[0]);
+    errorMessage << &log[0] << std::endl;
+    throw std::runtime_error(errorMessage.str());
+  }
+  return shader;
+}
+
+glpp::Program getProgramFromFiles(
+  std::string vertexShaderPath,
+  std::string fragmentShaderPath
+) {
+  glpp::Program program;
+  program.attachShader(
+    getShaderFromFile(vertexShaderPath, GL_VERTEX_SHADER)
+  );
+  program.attachShader(
+    getShaderFromFile(fragmentShaderPath, GL_FRAGMENT_SHADER)
+  );
+  program.link();
+  program.use();
+  return program;
+}
+
 int main() {
   glfwSetErrorCallback(errorCallback);
 
@@ -26,7 +91,6 @@ int main() {
   context.windowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
   glfwpp::Window window;
-  std::cout << "OpenGL " << glGetString(GL_VERSION) << std::endl;
 
   glewExperimental = GL_TRUE;
   if(glewInit() != GLEW_OK) {
@@ -35,6 +99,14 @@ int main() {
 
   context.makeContextCurrent(window);
   context.setKeyCallback(window, keyCallback);
+
+  // Create a Vector Buffer Object that will store the vertices on video memory
+  GLuint vbo;
+  glGenBuffers(1, &vbo);
+
+  // Allocate space and upload the data from CPU to GPU
+  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(VERTEX_DATA), VERTEX_DATA, GL_STATIC_DRAW);
 
   while (!glfwWindowShouldClose(window.handle()))
   {

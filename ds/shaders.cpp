@@ -4,7 +4,7 @@
 #include <vector>
 #include "shaders.h"
 
-namespace demoscene {
+namespace ds {
 
 glpp::Shader loadAndCompileShader(std::string filePath, GLenum shaderType) {
   std::ifstream ifs(filePath);
@@ -21,7 +21,7 @@ glpp::Shader loadAndCompileShader(std::string filePath, GLenum shaderType) {
   shader.getShaderiv(GL_COMPILE_STATUS, &status);
   if (!status) {
     std::ostringstream errorMessage;
-    errorMessage << "shader compilation failed:" << std::endl;
+    errorMessage << filePath << ": shader compilation failed:" << std::endl;
     GLint logLength;
     shader.getShaderiv(GL_INFO_LOG_LENGTH, &logLength);
     std::vector<char> log(logLength);

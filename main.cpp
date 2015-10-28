@@ -8,7 +8,7 @@
 #include "glfwpp/Window.h"
 #include "glpp/Program.h"
 #include "glpp/Shader.h"
-#include "demoscene/shaders.h"
+#include "ds/shaders.h"
 
 static void errorCallback(int error, const char* description)
 {
@@ -22,7 +22,7 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
   }
 }
 
-GLfloat VERTEX_DATA[24] = {
+GLfloat VERTEX_DATA[] = {
   0.0, 0.0,
   0.5, 0.0,
   0.5, 0.5,
@@ -67,17 +67,36 @@ int main() {
   glGenBuffers(1, &vbo);
 
   glpp::Program program = (
-    demoscene::loadAndLinkProgram("shaders/basic.vs", "shaders/basic.fs")
+    ds::loadAndLinkProgram("shaders/basic.vs", "shaders/basic.fs")
   );
   program.use();
 
+  GLfloat colorData[36];
+  srand(42);
+  int k = 0;
+  for(int i = 0; i < sizeof(colorData) / sizeof(float) / 3; ++i) {
+    float t = (float)rand()/(float)RAND_MAX;
+    colorData[k] = 9*(1-t)*t*t*t;
+    k++;
+    colorData[k] = 15*(1-t)*(1-t)*t*t;
+    k++;
+    colorData[k] = 8.5*(1-t)*(1-t)*(1-t)*t;
+    k++;
+  }
+
   // Allocate space and upload the data from CPU to GPU
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(VERTEX_DATA), VERTEX_DATA, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(VERTEX_DATA) + sizeof(colorData), nullptr, GL_STATIC_DRAW);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(VERTEX_DATA), VERTEX_DATA);
+  glBufferSubData(GL_ARRAY_BUFFER, sizeof(VERTEX_DATA), sizeof(colorData), colorData);
 
   GLint positionAttribute = program.getAttribLocation("position");
   glVertexAttribPointer(positionAttribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
   glEnableVertexAttribArray(positionAttribute);
+
+  GLint colorAttribute = program.getAttribLocation("color");
+  glVertexAttribPointer(colorAttribute, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)sizeof(VERTEX_DATA));
+  glEnableVertexAttribArray(colorAttribute);
 
   while (!window.shouldClose()) {
     glClear(GL_COLOR_BUFFER_BIT);

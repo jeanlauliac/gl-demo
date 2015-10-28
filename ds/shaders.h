@@ -2,7 +2,7 @@
 #include "../glpp/Shader.h"
 #include "../glpp/Program.h"
 
-namespace demoscene {
+namespace ds {
 
 glpp::Shader loadAndCompileShader(std::string filePath, GLenum shaderType);
 

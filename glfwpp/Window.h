@@ -7,6 +7,8 @@ class Window {
 public:
   Window();
   ~Window();
+  int shouldClose();
+  void swapBuffers();
   GLFWwindow* handle() const {
     return handle_;
   }

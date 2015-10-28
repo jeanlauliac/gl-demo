@@ -26,4 +26,12 @@ void Program::use() {
   glUseProgram(handle_);
 }
 
+GLint Program::getAttribLocation(const GLchar* name) {
+  return glGetAttribLocation(handle_, name);
+}
+
+void Program::getProgramiv(GLenum pname, GLint* params) {
+  glGetProgramiv(handle_, pname, params);
+}
+
 }

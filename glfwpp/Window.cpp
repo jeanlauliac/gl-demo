@@ -14,4 +14,12 @@ Window::~Window() {
   glfwDestroyWindow(handle_);
 }
 
+int Window::shouldClose() {
+  return glfwWindowShouldClose(handle_);
+}
+
+void Window::swapBuffers() {
+  glfwSwapBuffers(handle_);
+}
+
 }

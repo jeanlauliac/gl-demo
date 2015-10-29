@@ -3,8 +3,8 @@
 
 namespace glfwpp {
 
-Window::Window() {
-  handle_ = glfwCreateWindow(640, 480, "Simple example", NULL, NULL);
+Window::Window(int width, int height, const char *title, GLFWmonitor *monitor, GLFWwindow *share) {
+  handle_ = glfwCreateWindow(width, height, title, monitor, share);
   if (!handle_) {
     throw std::runtime_error("failed to create window");
   }
@@ -12,6 +12,10 @@ Window::Window() {
 
 Window::~Window() {
   glfwDestroyWindow(handle_);
+}
+
+void Window::getFramebufferSize(int* width, int* height) {
+  glfwGetFramebufferSize(handle_, width, height);
 }
 
 int Window::shouldClose() {

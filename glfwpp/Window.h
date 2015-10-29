@@ -5,8 +5,9 @@ namespace glfwpp {
 
 class Window {
 public:
-  Window();
+  Window(int width, int height, const char *title, GLFWmonitor *monitor, GLFWwindow *share);
   ~Window();
+  void getFramebufferSize(int* width, int* height);
   int shouldClose();
   void swapBuffers();
   GLFWwindow* handle() const {

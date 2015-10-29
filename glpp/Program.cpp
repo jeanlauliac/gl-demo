@@ -18,20 +18,24 @@ void Program::attachShader(const Shader& shader) {
   glAttachShader(handle_, shader.handle());
 }
 
-void Program::link() {
-  glLinkProgram(handle_);
-}
-
-void Program::use() {
-  glUseProgram(handle_);
-}
-
 GLint Program::getAttribLocation(const GLchar* name) {
   return glGetAttribLocation(handle_, name);
 }
 
 void Program::getProgramiv(GLenum pname, GLint* params) {
   glGetProgramiv(handle_, pname, params);
+}
+
+GLint Program::getUniformLocation(const GLchar* name) {
+  return glGetUniformLocation(handle_, name);
+}
+
+void Program::link() {
+  glLinkProgram(handle_);
+}
+
+void Program::use() {
+  glUseProgram(handle_);
 }
 
 }

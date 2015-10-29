@@ -1,5 +1,8 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -43,7 +46,7 @@ int main() {
   context.windowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   context.windowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
-  glfwpp::Window window;
+  glfwpp::Window window(800, 600, "Demo", nullptr, nullptr);
 
   glewExperimental = GL_TRUE;
   if(glewInit() != GLEW_OK) {
@@ -99,10 +102,27 @@ int main() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eab);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(INDICES), INDICES, GL_STATIC_DRAW);
 
+  GLint modelUniform = program.getUniformLocation("Model");
+  GLint viewUniform = program.getUniformLocation("View");
+  GLint projectionUniform = program.getUniformLocation("Projection");
+
+  glm::mat4 view;
+  glUniformMatrix4fv(viewUniform, 1, GL_FALSE, glm::value_ptr(view));
+
+  auto rot = 0.0f;
   while (!window.shouldClose()) {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glBindVertexArray(vao);
+    int width, height;
+    window.getFramebufferSize(&width, &height);
+    float ratio = static_cast<float>(width) / static_cast<float>(height);
+    glm::mat4 projection = glm::ortho(-ratio, ratio, -1.0f, 1.0f, -1.0f, 1.0f);
+    glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
+
+    glm::mat4 model = glm::rotate(glm::mat4(), rot, glm::vec3(0.0f, 0.0f, 1.0f));
+    glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
+    rot += 0.01f;
+
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
     window.swapBuffers();

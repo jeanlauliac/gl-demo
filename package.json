@@ -23,6 +23,8 @@
     "babel-plugin-transform-es2015-modules-commonjs": "^6.0.2",
     "babel-plugin-transform-flow-strip-types": "^6.0.2",
     "glob": "^5.0.15",
+    "immutable": "^3.7.5",
+    "mkdirp": "^0.5.1",
     "promisify-node": "^0.2.1"
   }
 }

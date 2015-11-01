@@ -1,2 +1,2 @@
 #!/bin/sh
-node_modules/.bin/babel-node ./upd_source/index.js --plugins transform-es2015-modules-commonjs,transform-flow-strip-types
+node_modules/.bin/babel-node ./upd_source/index.js --plugins transform-es2015-modules-commonjs,transform-flow-strip-types $@

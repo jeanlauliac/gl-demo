@@ -2,6 +2,8 @@
 
 'use strict'
 
+import {IndexedIterable} from 'immutable'
+
 import crypto from 'crypto'
 import glob from 'glob'
 import immutable from 'immutable'
@@ -48,17 +50,11 @@ type State = {
 
 type Event = {
   type: 'start',
-  sourceFilePaths: immutable.Iterable<string>,
+  sourceFilePaths: IndexedIterable<string>,
   programFilePath: string,
 } | {
   type: 'fileUpdated',
   filePath: string,
-}
-
-function verboseSpawn(cmd, args) {
-  const argsStr = args.map(escapeShellArg).join(' ')
-  console.log(`${cmd} ${argsStr}`)
-  return spawn(cmd, args)
 }
 
 function escapeShellArg(arg) {
@@ -101,61 +97,72 @@ class UpdAgent {
 
   constructor(opts: Object) {
     this._opts = opts
-    this._spawn = opts.verbose ? verboseSpawn : spawn
   }
 
-  _startUpdateObject(file: File, filePath: string) {
-    const clang = this._spawn(
+  _spawn(cmd: string, args: Array<string>) {
+    if (this._opts.verbose) {
+      const argsStr = args.map(escapeShellArg).join(' ')
+      console.log(`${cmd} ${argsStr}`)
+    }
+    return new Promise((resolve, reject) => {
+      const childProcess = spawn(cmd, args)
+      childProcess.on('exit', code => {
+        childProcess.stdout.pipe(process.stdout)
+        childProcess.stderr.pipe(process.stderr)
+        if (code === 0) {
+          return resolve()
+        }
+        reject(new Error('spawn program failed'))
+      })
+    })
+  }
+
+  _updateObject(file: File, filePath: string) {
+    return this._spawn(
       'clang++',
       [
         '-c', '-o', filePath,
         '-Wall', '-std=c++14', '-fcolor-diagnostics',
         '-MMD', '-MF', filePath + '.d',
       ].concat(file.predecessors.toArray())
-    ).on('exit', (code) => {
-      clang.stdout.pipe(process.stdout)
-      clang.stderr.pipe(process.stderr)
-      if (code === 0) {
-        return this.update({type: 'fileUpdated', filePath})
-      }
-      throw new Error('failed to build file')
-    })
+    )
   }
 
-  _startUpdateProgram(file: File, filePath: string) {
-    const clang = this._spawn(
+  _updateProgram(file: File, filePath: string): Promise {
+    return this._spawn(
       'clang++',
       [
         '-o', filePath, '-framework', 'OpenGL',
         '-Wall', '-std=c++14', '-lglew', '-lglfw3',
         '-fcolor-diagnostics',
       ].concat(file.predecessors.toArray())
-    ).on('exit', (code) => {
-      clang.stdout.pipe(process.stdout)
-      clang.stderr.pipe(process.stderr)
-      if (code === 0) {
-        return this.update({type: 'fileUpdated', filePath})
-      }
-      throw new Error('failed to build file')
-    })
+    )
   }
 
-  _startUpdateFile(file: File, filePath: string) {
+  _updateFile(file: File, filePath: string): Promise {
     switch (file.type) {
       case 'object':
-        return this._startUpdateObject(file, filePath)
+        return this._updateObject(file, filePath)
       case 'program':
-        return this._startUpdateProgram(file, filePath)
+        return this._updateProgram(file, filePath)
     }
     throw new Error(`don\'t know how to build '${filePath}'`)
   }
 
+  _startUpdateFile(file: File, filePath: string) {
+    this._updateFile(file, filePath).then(() => {
+      return this.update({type: 'fileUpdated', filePath})
+    }, error => process.nextTick(() => { throw error }))
+  }
+
   _reduceStart(
-    sourceFilePaths: immutable.Iterable<string>,
+    sourceFilePaths: IndexedIterable<string>,
     programFilePath: string
   ): State {
     mkdirp.sync(UPD_CACHE_PATH)
-    let files = immutable.Map({[programFilePath]: newFile('stale', 'program')})
+    let files = new immutable.Map([
+      [programFilePath, newFile('stale', 'program')]
+    ])
     sourceFilePaths.forEach(sourceFilePath => {
       const objectFilePath = path.join(UPD_CACHE_PATH, sha1(sourceFilePath))
       if (files.has(objectFilePath)) {
@@ -199,7 +206,7 @@ class UpdAgent {
     return {files}
   }
 
-  _reduce(state: ?State, event: Event): State {
+  _reduce(state: ?State, event: Event): ?State {
     switch (event.type) {
       case 'start':
         return this._reduceStart(event.sourceFilePaths, event.programFilePath)
@@ -227,7 +234,7 @@ class UpdAgent {
   const updAgent = new UpdAgent(opts);
   updAgent.update({
     programFilePath: 'gl-demo',
-    sourceFilePaths: immutable.Iterable(['main.cpp']
+    sourceFilePaths: (immutable: any).Iterable.Indexed(['main.cpp']
       .concat(glob.sync('glfwpp/*.cpp'))
       .concat(glob.sync('glpp/*.cpp'))
       .concat(glob.sync('ds/*.cpp'))

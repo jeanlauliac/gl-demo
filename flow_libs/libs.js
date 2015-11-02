@@ -9,7 +9,3 @@ declare module 'mkdirp' {
 declare module 'nopt' {
   declare function exports(opts: Object): Object;
 }
-
-declare module 'immutable' {
-
-}

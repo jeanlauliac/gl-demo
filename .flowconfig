@@ -4,6 +4,6 @@
 [include]
 
 [libs]
-upd_source/libs.js
+flow_libs/
 
 [options]

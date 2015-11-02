@@ -10,6 +10,7 @@ import immutable from 'immutable'
 import mkdirp from 'mkdirp'
 import nopt from 'nopt'
 import path from 'path'
+import readline from 'readline'
 import {spawn} from 'child_process'
 
 function sha1(data) {
@@ -46,6 +47,7 @@ type File = {
 
 type State = {
   files: immutable.Map<string, File>,
+  jobCount: number,
 }
 
 type Event = {
@@ -183,7 +185,10 @@ class UpdAgent {
         this._startUpdateFile(file, filePath)
       }
     })
-    return {files}
+    return {
+      files,
+      jobCount: files.toSeq().filter(file => file.freshness === 'stale').count()
+    }
   }
 
   _reduceFileUpdated(state: State, filePath: string): State {
@@ -203,7 +208,7 @@ class UpdAgent {
         this._startUpdateFile(successor, successorPath)
       }
     })
-    return {files}
+    return {files, jobCount: state.jobCount - 1}
   }
 
   _reduce(state: ?State, event: Event): ?State {
@@ -220,11 +225,30 @@ class UpdAgent {
     }
   }
 
+  _refresh(state: State) {
+    if (process.stdout.isTTY) {
+      ;(readline: any).clearLine(process.stdout, 0)
+      ;(readline: any).cursorTo(process.stdout, 0)
+    }
+    if (state.jobCount > 0) {
+      const complete = state.files.size - state.jobCount
+      process.stdout.write(
+        `updating [${complete}/${state.files.count()}]`,
+        'utf8'
+      )
+    }
+    if (!process.stdout.isTTY) {
+      process.stdout.write('\n', 'utf8')
+    }
+  }
+
   update(event: Event) {
     const nextState = this._reduce(this._state, event)
-    if (nextState) {
-      this._state = nextState
+    if (this._state === nextState) {
+      return
     }
+    this._state = nextState
+    this._refresh(nextState)
   }
 
 }

@@ -42,10 +42,10 @@ type File = {
    */
   predecessors: immutable.Set<string>,
   /**
-   * The nature of the file. IT'll use different stategies to update the file
+   * The nature of the file. It'll use different stategies to update the file
    * depending on its type.
    */
-  type: 'header' | 'program' | 'object' | 'source',
+  type: 'dep' | 'program' | 'object' | 'source',
 }
 
 type State = {
@@ -57,8 +57,9 @@ type Event = {
   sourceFilePaths: IndexedIterable<string>,
   programFilePath: string,
 } | {
-  type: 'fileUpdated',
+  depPaths: IndexedIterable<string>,
   filePath: string,
+  type: 'fileUpdated',
 }
 
 function escapeShellArg(arg) {
@@ -145,10 +146,10 @@ class UpdAgent {
           return reject(error)
         }
         // Ain't got no time for a true parser.
-        const chunks = content.split(/(?:\n| )/)
+        const depPaths = new immutable.List(content.split(/(?:\n| )/)
           .filter(chunk => chunk.endsWith('.h'))
-          .map(filePath => path.normalize(filePath))
-        resolve()
+          .map(filePath => path.normalize(filePath)))
+        resolve(depPaths)
       })
     }))
   }
@@ -161,7 +162,7 @@ class UpdAgent {
         '-Wall', '-std=c++14', '-lglew', '-lglfw3',
         '-fcolor-diagnostics',
       ].concat(file.predecessors.toArray())
-    )
+    ).then(() => new immutable.List())
   }
 
   _updateFile(file: File, filePath: string): Promise {
@@ -175,8 +176,8 @@ class UpdAgent {
   }
 
   _startUpdateFile(file: File, filePath: string): File {
-    this._updateFile(file, filePath).then(() => {
-      return this.update({type: 'fileUpdated', filePath})
+    this._updateFile(file, filePath).then((depPaths) => {
+      return this.update({type: 'fileUpdated', filePath, depPaths})
     }).catch(error => process.nextTick(() => { throw error }))
     return setFileFreshness(file, 'updating')
   }
@@ -215,13 +216,23 @@ class UpdAgent {
     }
   }
 
-  _reduceFileUpdated(state: State, filePath: string): State {
+  _reduceFileUpdated(
+    state: State,
+    filePath: string,
+    depPaths: IndexedIterable<string>
+  ): State {
     let file = state.files.get(filePath)
     if (file.freshness !== 'updating') {
       return state
     }
     file = setFileFreshness(file, 'fresh')
     let files = state.files.set(filePath, file)
+    depPaths.forEach(depPath => {
+      if (!files.has(depPath)) {
+        files = files.set(depPath, newFile('fresh', 'dep'))
+      }
+      files = addFileEdge(files, depPath, filePath);
+    })
     file.successors.forEach(successorPath => {
       const successor = files.get(successorPath)
       if (successor.predecessors.every(predecessorPath => (
@@ -246,7 +257,7 @@ class UpdAgent {
     }
     switch (event.type) {
       case 'fileUpdated':
-        return this._reduceFileUpdated(state, event.filePath)
+        return this._reduceFileUpdated(state, event.filePath, event.depPaths)
     }
   }
 

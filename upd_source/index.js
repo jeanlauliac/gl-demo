@@ -5,6 +5,7 @@
 import {IndexedIterable} from 'immutable'
 
 import crypto from 'crypto'
+import fs from 'fs'
 import glob from 'glob'
 import immutable from 'immutable'
 import mkdirp from 'mkdirp'
@@ -21,6 +22,8 @@ function sha1(data) {
 
 const UPD_CACHE_PATH = '.upd_cache'
 
+type FileFreshness = 'fresh' | 'updating' | 'stale';
+
 /**
  * Describes a file in the system that should be dealt with.
  */
@@ -29,7 +32,7 @@ type File = {
    * Does it need to be refreshed to complete the update? Stale files might not
    * even exist in the filesystem.
    */
-  freshness: 'fresh' | 'stale',
+  freshness: FileFreshness,
   /**
    * A set of files that depend on this one.
    */
@@ -47,7 +50,6 @@ type File = {
 
 type State = {
   files: immutable.Map<string, File>,
-  jobCount: number,
 }
 
 type Event = {
@@ -92,6 +94,15 @@ function addFileEdge(
   })
 }
 
+function setFileFreshness(file: File, freshness: FileFreshness): File {
+  return {
+    freshness,
+    successors: file.successors,
+    predecessors: file.predecessors,
+    type: file.type,
+  }
+}
+
 class UpdAgent {
 
   _state: ?State;
@@ -120,14 +131,26 @@ class UpdAgent {
   }
 
   _updateObject(file: File, filePath: string) {
+    const depFilePath = filePath + '.d'
     return this._spawn(
       'clang++',
       [
         '-c', '-o', filePath,
         '-Wall', '-std=c++14', '-fcolor-diagnostics',
-        '-MMD', '-MF', filePath + '.d',
+        '-MMD', '-MF', depFilePath,
       ].concat(file.predecessors.toArray())
-    )
+    ).then(() => new Promise((resolve, reject) => {
+      fs.readFile(depFilePath, 'utf8', (error, content) => {
+        if (error) {
+          return reject(error)
+        }
+        // Ain't got no time for a true parser.
+        const chunks = content.split(/(?:\n| )/)
+          .filter(chunk => chunk.endsWith('.h'))
+          .map(filePath => path.normalize(filePath))
+        resolve()
+      })
+    }))
   }
 
   _updateProgram(file: File, filePath: string): Promise {
@@ -148,13 +171,14 @@ class UpdAgent {
       case 'program':
         return this._updateProgram(file, filePath)
     }
-    throw new Error(`don\'t know how to build '${filePath}'`)
+    return Promise.reject(new Error(`don\'t know how to build '${filePath}'`))
   }
 
-  _startUpdateFile(file: File, filePath: string) {
+  _startUpdateFile(file: File, filePath: string): File {
     this._updateFile(file, filePath).then(() => {
       return this.update({type: 'fileUpdated', filePath})
-    }, error => process.nextTick(() => { throw error }))
+    }).catch(error => process.nextTick(() => { throw error }))
+    return setFileFreshness(file, 'updating')
   }
 
   _reduceStart(
@@ -175,40 +199,41 @@ class UpdAgent {
       files = addFileEdge(files, sourceFilePath, objectFilePath)
       files = addFileEdge(files, objectFilePath, programFilePath)
     })
-    files.forEach((file, filePath) => {
+    files = files.map((file, filePath) => {
       if (
         file.freshness === 'stale' &&
         file.predecessors.every(predecessorPath => (
           files.get(predecessorPath).freshness === 'fresh'
         ))
       ) {
-        this._startUpdateFile(file, filePath)
+        return this._startUpdateFile(file, filePath)
       }
+      return file
     })
     return {
       files,
-      jobCount: files.toSeq().filter(file => file.freshness === 'stale').count()
     }
   }
 
   _reduceFileUpdated(state: State, filePath: string): State {
     let file = state.files.get(filePath)
-    file = {
-      freshness: 'fresh',
-      successors: file.successors,
-      predecessors: file.predecessors,
-      type: file.type,
+    if (file.freshness !== 'updating') {
+      return state
     }
-    const files = state.files.set(filePath, file)
+    file = setFileFreshness(file, 'fresh')
+    let files = state.files.set(filePath, file)
     file.successors.forEach(successorPath => {
       const successor = files.get(successorPath)
       if (successor.predecessors.every(predecessorPath => (
         files.get(predecessorPath).freshness === 'fresh'
       ))) {
-        this._startUpdateFile(successor, successorPath)
+        files = files.set(
+          successorPath,
+          this._startUpdateFile(successor, successorPath)
+        )
       }
     })
-    return {files, jobCount: state.jobCount - 1}
+    return {files}
   }
 
   _reduce(state: ?State, event: Event): ?State {
@@ -225,20 +250,33 @@ class UpdAgent {
     }
   }
 
-  _refresh(state: State) {
+  _writeStatus(text: string) {
     if (process.stdout.isTTY) {
       ;(readline: any).clearLine(process.stdout, 0)
       ;(readline: any).cursorTo(process.stdout, 0)
     }
-    if (state.jobCount > 0) {
-      const complete = state.files.size - state.jobCount
-      process.stdout.write(
-        `updating [${complete}/${state.files.count()}]`,
-        'utf8'
-      )
-    }
-    if (!process.stdout.isTTY) {
+    process.stdout.write(text, 'utf8')
+    if (!process.stdout.isTTY && text.length > 0) {
       process.stdout.write('\n', 'utf8')
+    }
+  }
+
+  _refresh(state: ?State) {
+    if (state == null) {
+      return
+    }
+    const freshCount = (
+      state.files.toSeq().filter(file => file.freshness === 'fresh').count()
+    )
+    if (freshCount < state.files.size) {
+      this._writeStatus(`updating [${freshCount}/${state.files.size}]`)
+    } else {
+      if (!state.files.some(file => file.freshness === 'updating')) {
+        this._writeStatus('')
+      } else {
+        this._writeStatus('some files cannot be built')
+        process.exit(1)
+      }
     }
   }
 

@@ -426,6 +426,14 @@ declare module 'immutable' {
     update(key: K, notSetValue: V, updater: (value: V) => V): Map<K, V>;
 
     /**
+     * Overrides Iterable#map()
+     */
+    map<M>(
+      mapper: (value: V, key: K, iter: /*this*/Iterable<K, V>) => M,
+      context?: any
+    ): /*this*/Map<K, M>;
+
+    /**
      * Returns a new Map resulting from merging the provided Iterables
      * (or JS objects) into this Map. In other words, this takes each entry of
      * each iterable and sets it on this Map.

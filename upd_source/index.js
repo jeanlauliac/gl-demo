@@ -5,6 +5,7 @@
 import {IndexedIterable} from 'immutable'
 
 import crypto from 'crypto'
+import chokidar from 'chokidar'
 import fs from 'fs'
 import glob from 'glob'
 import immutable from 'immutable'
@@ -60,6 +61,9 @@ type Event = {
   depPaths: IndexedIterable<string>,
   filePath: string,
   type: 'fileUpdated',
+} | {
+  filePath: string,
+  type: 'fileChanged',
 }
 
 function escapeShellArg(arg) {
@@ -107,7 +111,10 @@ function setFileFreshness(file: File, freshness: FileFreshness): File {
 class UpdAgent {
 
   _state: ?State;
-  _opts: {verbose: boolean};
+  _opts: {
+    once: boolean,
+    verbose: boolean,
+  };
 
   constructor(opts: Object) {
     this._opts = opts
@@ -131,7 +138,7 @@ class UpdAgent {
     })
   }
 
-  _updateObject(file: File, filePath: string) {
+  _updateObject(files: IndexedIterable<File>, file: File, filePath: string) {
     const depFilePath = filePath + '.d'
     return this._spawn(
       'clang++',
@@ -139,7 +146,9 @@ class UpdAgent {
         '-c', '-o', filePath,
         '-Wall', '-std=c++14', '-fcolor-diagnostics',
         '-MMD', '-MF', depFilePath,
-      ].concat(file.predecessors.toArray())
+      ].concat(file.predecessors.filter(predecessorPath => (
+        files.get(predecessorPath).type === 'source'
+      )).toArray())
     ).then(() => new Promise((resolve, reject) => {
       fs.readFile(depFilePath, 'utf8', (error, content) => {
         if (error) {
@@ -165,21 +174,36 @@ class UpdAgent {
     ).then(() => new immutable.List())
   }
 
-  _updateFile(file: File, filePath: string): Promise {
+  _updateFile(
+    files: IndexedIterable<File>,
+    file: File,
+    filePath: string
+  ): Promise {
     switch (file.type) {
       case 'object':
-        return this._updateObject(file, filePath)
+        return this._updateObject(files, file, filePath)
       case 'program':
         return this._updateProgram(file, filePath)
     }
     return Promise.reject(new Error(`don\'t know how to build '${filePath}'`))
   }
 
-  _startUpdateFile(file: File, filePath: string): File {
-    this._updateFile(file, filePath).then((depPaths) => {
+  _startUpdateFile(files: IndexedIterable<File>, filePath: string): File {
+    const file = files.get(filePath)
+    this._updateFile(files, file, filePath).then((depPaths) => {
       return this.update({type: 'fileUpdated', filePath, depPaths})
     }).catch(error => process.nextTick(() => { throw error }))
-    return setFileFreshness(file, 'updating')
+    return setFileFreshness(files.get(filePath), 'updating')
+  }
+
+  _startWatching() {
+    if (this._opts.once) {
+      return
+    }
+    chokidar.watch(['ds', 'glfwpp', 'glpp', 'main.cpp'])
+      .on('change', filePath => {
+        this.update({type: 'fileChanged', filePath})
+      })
   }
 
   _reduceStart(
@@ -187,6 +211,7 @@ class UpdAgent {
     programFilePath: string
   ): State {
     mkdirp.sync(UPD_CACHE_PATH)
+    this._startWatching()
     let files = new immutable.Map([
       [programFilePath, newFile('stale', 'program')]
     ])
@@ -207,13 +232,48 @@ class UpdAgent {
           files.get(predecessorPath).freshness === 'fresh'
         ))
       ) {
-        return this._startUpdateFile(file, filePath)
+        return this._startUpdateFile(files, filePath)
       }
       return file
     })
     return {
       files,
     }
+  }
+
+  _reduceFileChanged(
+    state: State,
+    filePath: string
+  ): State {
+    const file = state.files.get(filePath)
+    if (file.type !== 'source' && file.type !== 'dep') {
+      return state
+    }
+    let files = state.files
+    let successors = new immutable.List(file.successors)
+    while (successors.size > 0) {
+      const successorPath = successors.first()
+      successors = successors.shift()
+      let successor = files.get(successorPath)
+      if (successor.freshness === 'stale') {
+        continue
+      }
+      successor = setFileFreshness(successor, 'stale')
+      files = files.set(successorPath, successor)
+      successors = successors.concat(successor.successors)
+    }
+    files = files.map((file, filePath) => {
+      if (
+        file.freshness === 'stale' &&
+        file.predecessors.every(predecessorPath => (
+          files.get(predecessorPath).freshness === 'fresh'
+        ))
+      ) {
+        return this._startUpdateFile(files, filePath)
+      }
+      return file
+    })
+    return {files}
   }
 
   _reduceFileUpdated(
@@ -240,10 +300,15 @@ class UpdAgent {
       ))) {
         files = files.set(
           successorPath,
-          this._startUpdateFile(successor, successorPath)
+          this._startUpdateFile(files, successorPath)
         )
       }
     })
+    if (!this._opts.once) {
+      // TODO: watch predecessors if they're not already
+      // watch source as soon as we know them, so as to cancel the update if
+      // file change *during* updating (ideally, kill the compile process)
+    }
     return {files}
   }
 
@@ -256,6 +321,8 @@ class UpdAgent {
       return state
     }
     switch (event.type) {
+      case 'fileChanged':
+        return this._reduceFileChanged(state, event.filePath)
       case 'fileUpdated':
         return this._reduceFileUpdated(state, event.filePath, event.depPaths)
     }
@@ -303,7 +370,7 @@ class UpdAgent {
 }
 
 ;(() => {
-  const opts = nopt({'verbose': Boolean})
+  const opts = nopt({verbose: Boolean, once: Boolean})
   const updAgent = new UpdAgent(opts);
   updAgent.update({
     programFilePath: 'gl-demo',

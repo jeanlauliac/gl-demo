@@ -9,3 +9,7 @@ declare module 'mkdirp' {
 declare module 'nopt' {
   declare function exports(opts: Object): Object;
 }
+
+declare module 'chokidar' {
+  declare function watch(path: string|Array<string>): any;
+}

@@ -108,6 +108,15 @@ declare module 'immutable' {
     static <T>(iterable?: Iterable<number, T>): List<T>;
 
     /**
+     * Returns a new List with other values and
+     * iterable-like concatenated to this one.
+     *
+     * For Seqs, all entries will be present in
+     * the resulting iterable, even if they have the same key.
+     */
+    concat(...valuesOrIterables: any[]): /*this*/List<T>;
+
+    /**
      * True if the provided value is a List
      */
     static isList(maybeList: any): boolean;

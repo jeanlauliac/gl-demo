@@ -110,6 +110,7 @@ function setFileFreshness(file: File, freshness: FileFreshness): File {
 class UpdAgent {
 
   _state: ?State;
+  _statusText: string;
   _opts: {
     once: boolean,
     verbose: boolean,
@@ -117,6 +118,7 @@ class UpdAgent {
 
   constructor(opts: Object) {
     this._opts = opts
+    this._statusText = ''
   }
 
   _spawn(cmd: string, args: Array<string>) {
@@ -333,15 +335,36 @@ class UpdAgent {
     }
   }
 
-  _writeStatus(text: string) {
+  _log(text: string) {
+    const statusText = this._statusText
     if (process.stdout.isTTY) {
+      this._updateStatus('');
+    }
+    process.stdout.write(text + '\n', 'utf8')
+    if (process.stdout.isTTY) {
+      this._updateStatus(statusText);
+    }
+  }
+
+  _updateStatus(text: string) {
+    if (process.stdout.isTTY && this._statusText.length > 0) {
       ;(readline: any).clearLine(process.stdout, 0)
       ;(readline: any).cursorTo(process.stdout, 0)
     }
-    process.stdout.write(text, 'utf8')
+    if (text.length > 0) {
+      process.stdout.write(text, 'utf8')
+    }
     if (!process.stdout.isTTY && text.length > 0) {
       process.stdout.write('\n', 'utf8')
     }
+    this._statusText = text
+  }
+
+  _flushStatus() {
+    if (process.stdout.isTTY) {
+      process.stdout.write('\n', 'utf8')
+    }
+    this._statusText = ''
   }
 
   _refresh(state: ?State) {
@@ -352,12 +375,18 @@ class UpdAgent {
       state.files.toSeq().filter(file => file.freshness === 'fresh').count()
     )
     if (freshCount < state.files.size) {
-      this._writeStatus(`updating [${freshCount}/${state.files.size}]`)
+      const prc = Math.round((freshCount / state.files.size) * 100)
+      this._updateStatus(
+        `updating [${freshCount}/${state.files.size}] ${prc}%`
+      )
     } else {
-      if (!state.files.some(file => file.freshness === 'updating')) {
-        this._writeStatus('')
+      if (this._opts.once) {
+        this._updateStatus('');
       } else {
-        this._writeStatus('some files cannot be built')
+        this._updateStatus('watching...');
+      }
+      if (state.files.some(file => file.freshness === 'stale')) {
+        this._log('some files cannot be built')
         process.exit(1)
       }
     }

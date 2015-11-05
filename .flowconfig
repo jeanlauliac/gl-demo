@@ -4,6 +4,6 @@
 [include]
 
 [libs]
-flow_libs/
+flow_libs/*.js
 
 [options]

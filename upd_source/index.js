@@ -2,12 +2,11 @@
 
 'use strict'
 
-import {IndexedIterable} from 'immutable'
-
 import crypto from 'crypto'
 import chokidar from 'chokidar'
 import fs from 'fs'
 import glob from 'glob'
+import imc from './imc'
 import immutable from 'immutable'
 import mkdirp from 'mkdirp'
 import nopt from 'nopt'
@@ -37,11 +36,11 @@ type File = {
   /**
    * A set of files that depend on this one.
    */
-  successors: immutable.Set<string>,
+  successors: immutable._Set<string>,
   /**
    * A set of files this one depends on.
    */
-  predecessors: immutable.Set<string>,
+  predecessors: immutable._Set<string>,
   /**
    * The nature of the file. It'll use different stategies to update the file
    * depending on its type.
@@ -50,15 +49,15 @@ type File = {
 }
 
 type State = {
-  files: immutable.Map<string, File>,
+  files: immutable._Map<string, File>,
 }
 
 type Event = {
   type: 'start',
-  sourceFilePaths: IndexedIterable<string>,
+  sourceFilePaths: immutable._Iterable_Indexed<string>,
   programFilePath: string,
 } | {
-  depPaths: IndexedIterable<string>,
+  depPaths: immutable._Iterable_Indexed<string>,
   filePath: string,
   type: 'fileUpdated',
 } | {
@@ -80,10 +79,10 @@ function newFile(freshness, type): File {
 }
 
 function addFileEdge(
-  files: immutable.Map<string, File>,
+  files: immutable._Map<string, File>,
   fromPath: string,
   toPath: string
-): immutable.Map<string, File> {
+): immutable._Map<string, File> {
   const fromFile = files.get(fromPath)
   const toFile = files.get(toPath)
   return files.set(fromPath, {
@@ -138,7 +137,10 @@ class UpdAgent {
     })
   }
 
-  _updateObject(files: IndexedIterable<File>, file: File, filePath: string) {
+  _updateObject(
+    files: immutable._Iterable_Keyed<string, File>,
+    file: File, filePath: string
+  ) {
     const depFilePath = filePath + '.d'
     return this._spawn(
       'clang++',
@@ -175,7 +177,7 @@ class UpdAgent {
   }
 
   _updateFile(
-    files: IndexedIterable<File>,
+    files: immutable._Iterable_Keyed<string, File>,
     file: File,
     filePath: string
   ): Promise {
@@ -188,7 +190,10 @@ class UpdAgent {
     return Promise.reject(new Error(`don\'t know how to build '${filePath}'`))
   }
 
-  _startUpdateFile(files: IndexedIterable<File>, filePath: string): File {
+  _startUpdateFile(
+    files: immutable._Iterable_Keyed<string, File>,
+    filePath: string
+  ): File {
     const file = files.get(filePath)
     this._updateFile(files, file, filePath).then((depPaths) => {
       return this.update({type: 'fileUpdated', filePath, depPaths})
@@ -207,7 +212,7 @@ class UpdAgent {
   }
 
   _reduceStart(
-    sourceFilePaths: IndexedIterable<string>,
+    sourceFilePaths: immutable._Iterable_Indexed<string>,
     programFilePath: string
   ): State {
     mkdirp.sync(UPD_CACHE_PATH)
@@ -232,7 +237,7 @@ class UpdAgent {
           files.get(predecessorPath).freshness === 'fresh'
         ))
       ) {
-        return this._startUpdateFile(files, filePath)
+        return this._startUpdateFile(imc.toIterableKeyed(files), filePath)
       }
       return file
     })
@@ -269,7 +274,7 @@ class UpdAgent {
           files.get(predecessorPath).freshness === 'fresh'
         ))
       ) {
-        return this._startUpdateFile(files, filePath)
+        return this._startUpdateFile(imc.toIterableKeyed(files), filePath)
       }
       return file
     })
@@ -279,7 +284,7 @@ class UpdAgent {
   _reduceFileUpdated(
     state: State,
     filePath: string,
-    depPaths: IndexedIterable<string>
+    depPaths: immutable._Iterable_Indexed<string>
   ): State {
     let file = state.files.get(filePath)
     if (file.freshness !== 'updating') {
@@ -300,7 +305,7 @@ class UpdAgent {
       ))) {
         files = files.set(
           successorPath,
-          this._startUpdateFile(files, successorPath)
+          this._startUpdateFile(imc.toIterableKeyed(files), successorPath)
         )
       }
     })

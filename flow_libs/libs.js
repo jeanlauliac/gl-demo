@@ -16,7 +16,12 @@ declare module 'chokidar' {
 
 declare module 'immutable' {
 
-  declare interface __Common_KeyValue<K, V> {
+  declare interface __Common {
+    hashCode(): number;
+    equals(other: any): boolean;
+  }
+
+  declare interface __Common_KeyValue<K, V> extends __Common {
     count(): number;
     get(key: K): V;
     has(key: K): boolean;

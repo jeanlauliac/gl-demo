@@ -4,98 +4,143 @@
 
 import immutable from 'immutable'
 
-class _Node<K> {
+class _VertexData<K> {
   succ: immutable._Set<K>;
   pred: immutable._Set<K>;
 }
 
-const EMPTY_NODE = {succ: immutable.Set(), pred: immutable.Set()}
-function Node(): _Node {
-  return EMPTY_NODE
+const EMPTY_VERTEX_DATA: any = {succ: immutable.Set(), pred: immutable.Set()}
+function VertexData<K>(): _VertexData<K> {
+  return EMPTY_VERTEX_DATA
 }
 
 /**
- * Immutable Directed Graph.
+ * Immutable Directed Graph, with simple arcs and labeled vertices.
  */
 class _Digraph<K> {
 
-  _nodes: immutable._Map<K, _Node<K>>;
-  size: number;
+  _vertices: immutable._Map<K, _VertexData<K>>;
+  order: number;
 
-  constructor(nodes: immutable._Map<K, _Node<K>>) {
-    this._nodes = nodes;
-    Object.defineProperty(this, 'size', {get: function() {
+  constructor(vertices: immutable._Map<K, _VertexData<K>>) {
+    this._vertices = vertices;
+    // $FlowIssue: does not support accessors.
+    Object.defineProperty(this, 'order', {get: function() {
       return this.count()
     }})
     Object.freeze(this);
   }
 
   count(): number {
-    return this._nodes.count();
+    return this._vertices.count();
   }
 
   hashCode(): number {
-    return this._nodes.hashCode();
+    return this._vertices.hashCode();
   }
 
   equals(other: _Digraph<K>) {
-    return this._nodes.equals(other._nodes);
+    return other && this._vertices.equals(other._vertices);
   }
 
   /**
    * Add an isolated vertex. It does nothing if the vertex already exists.
    */
-  add(element: K): _Digraph<K> {
-    if (this._nodes.has(element)) {
+  add(vertex: K): _Digraph<K> {
+    if (this._vertices.has(vertex)) {
       return this
     }
-    return new _Digraph(this._nodes.set(element, Node()))
+    return new _Digraph(this._vertices.set(vertex, VertexData()))
   }
 
   /**
-   * Adds a new edge from one element to another.
+   * Check if a vertex exists.
+   */
+  has(vertex: K): boolean {
+    return this._vertices.has(vertex);
+  }
+
+  /**
+   * Remove a vertex and all links from/to it.
+   */
+  remove(vertex: K): _Digraph<K> {
+    if (!this.has(vertex)) {
+      return this
+    }
+    let graph = this.successorsOf(vertex).reduce((graph, successor) => (
+      graph.unlink(vertex, successor)
+    ), this)
+    graph = graph.predecessorsOf(vertex).reduce((graph, predecessor) => (
+      graph.unlink(predecessor, vertex)
+    ), graph)
+    return new _Digraph(graph._vertices.remove(vertex))
+  }
+
+  /**
+   * Add a new arc from one vertex to another. The vertices must already exist.
    */
   link(origin: K, target: K): _Digraph<K> {
-    let nodes = this._nodes
-    let originNode = nodes.get(origin) || Node()
-    originNode = {succ: originNode.succ.add(target), pred: originNode.pred}
-    let targetNode = nodes.get(target) || Node()
-    targetNode = {succ: targetNode.succ, pred: targetNode.pred.add(origin)}
-    return new _Digraph(nodes.set(origin, originNode).set(target, targetNode))
+    let vertices = this._vertices
+    let originVertex = vertices.get(origin)
+    if (originVertex == null) {
+      return this
+    }
+    let targetVertex = vertices.get(target)
+    if (targetVertex == null) {
+      return this
+    }
+    originVertex = {succ: originVertex.succ.add(target), pred: originVertex.pred}
+    targetVertex = {succ: targetVertex.succ, pred: targetVertex.pred.add(origin)}
+    return new _Digraph(
+      vertices.set(origin, originVertex).set(target, targetVertex)
+    )
   }
 
   /**
-   * Removes an edge from one element to another.
+   * Remove an arc from one vertex to another.
    */
   unlink(origin: K, target: K): _Digraph<K> {
-    // FIXME
+    let vertices = this._vertices
+    let originVertex = vertices.get(origin)
+    if (originVertex == null) {
+      return this
+    }
+    let targetVertex = vertices.get(target)
+    if (targetVertex == null) {
+      return this
+    }
+    originVertex = {succ: originVertex.succ.remove(target), pred: originVertex.pred}
+    targetVertex = {succ: targetVertex.succ, pred: targetVertex.pred.remove(origin)}
+    return new _Digraph(
+      vertices.set(origin, originVertex).set(target, targetVertex)
+    )
   }
 
   /**
    * Get all the successors of this element.
    */
   successorsOf(key: K): immutable._Set<K> {
-    const node = this._nodes.get(key)
-    if (node == null) {
+    const vertexData = this._vertices.get(key)
+    if (vertexData == null) {
       return immutable.Set()
     }
-    return node.succ
+    return vertexData.succ
   }
 
   /**
    * Get all the predecessors of this element.
    */
   predecessorsOf(key: K): immutable._Set<K> {
-    const node = this._nodes.get(key)
-    if (node == null) {
+    const vertexData = this._vertices.get(key)
+    if (vertexData == null) {
       return immutable.Set()
     }
-    return node.pred
+    return vertexData.pred
   }
 
 }
 
-export default function Digraph(): _Digraph {
+export default function Digraph<K>(): _Digraph {
   return new _Digraph(immutable.Map())
 }
 

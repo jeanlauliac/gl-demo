@@ -374,15 +374,13 @@ class UpdAgent {
     const freshCount = (
       state.files.toSeq().filter(file => file.freshness === 'fresh').count()
     )
-    if (freshCount < state.files.size) {
-      const prc = Math.round((freshCount / state.files.size) * 100)
-      this._updateStatus(
-        `updating [${freshCount}/${state.files.size}] ${prc}%`
-      )
-    } else {
-      if (this._opts.once) {
-        this._updateStatus('');
-      } else {
+    const prc = Math.round((freshCount / state.files.size) * 100)
+    this._updateStatus(
+      `updating [${freshCount}/${state.files.size}] ${prc}%`
+    )
+    if (freshCount === state.files.size) {
+      this._flushStatus();
+      if (!this._opts.once) {
         this._updateStatus('watching...');
       }
       if (state.files.some(file => file.freshness === 'stale')) {

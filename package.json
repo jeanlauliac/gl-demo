@@ -4,7 +4,7 @@
   "description": "Demoscene experiments",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node_modules/.bin/babel-node --plugins transform-es2015-modules-commonjs,transform-flow-strip-types ./test.js"
   },
   "repository": {
     "type": "git",
@@ -27,6 +27,7 @@
     "immutable": "^3.7.5",
     "mkdirp": "^0.5.1",
     "nopt": "^3.0.4",
-    "promisify-node": "^0.2.1"
+    "promisify-node": "^0.2.1",
+    "tap": "^2.2.0"
   }
 }

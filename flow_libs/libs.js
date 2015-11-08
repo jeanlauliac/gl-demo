@@ -14,6 +14,10 @@ declare module 'chokidar' {
   declare function watch(path: string|Array<string>): any;
 }
 
+declare module 'tap' {
+  declare function test(name: string, cb: (t: any) => void): void;
+}
+
 declare module 'immutable' {
 
   declare interface __Common {
@@ -38,6 +42,7 @@ declare module 'immutable' {
   declare class _Map<K, V> extends __Common_KeyValue<K, V> {
     filter(pred: (value: V, key?: K) => boolean): _Map<K, V>;
     map(iter: (value: V, key: K) => V): _Map<K, V>;
+    remove(key: K): _Map<K, V>; 
     set(key: K, value: V): _Map<K, V>;
     size: number;
   }
@@ -53,6 +58,8 @@ declare module 'immutable' {
     forEach(iter: (key: K) => ?boolean): void;
     has(key: K): boolean;
     filter(pred: (key: K) => boolean): _Set<K>;
+    reduce<R>(reducer: (reduction: R, key: K) => R, initialReduction: R): R;
+    remove(key: K): _Set<K>;
     toArray(): Array<K>;
   }
 

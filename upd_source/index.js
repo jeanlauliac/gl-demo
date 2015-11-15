@@ -2,6 +2,7 @@
 
 'use strict'
 
+import Digraph from './Digraph'
 import crypto from 'crypto'
 import chokidar from 'chokidar'
 import fs from 'fs'
@@ -34,14 +35,6 @@ type File = {
    */
   freshness: FileFreshness,
   /**
-   * A set of files that depend on this one.
-   */
-  successors: immutable._Set<string>,
-  /**
-   * A set of files this one depends on.
-   */
-  predecessors: immutable._Set<string>,
-  /**
    * The nature of the file. It'll use different stategies to update the file
    * depending on its type.
    */
@@ -49,7 +42,7 @@ type File = {
 }
 
 type State = {
-  files: immutable._Map<string, File>,
+  files: Digraph<string, File>,
 }
 
 type Event = {
@@ -72,37 +65,13 @@ function escapeShellArg(arg) {
 function newFile(freshness, type): File {
   return {
     freshness,
-    successors: immutable.Set(),
-    predecessors: immutable.Set(),
     type,
   }
-}
-
-function addFileEdge(
-  files: immutable._Map<string, File>,
-  fromPath: string,
-  toPath: string
-): immutable._Map<string, File> {
-  const fromFile = files.get(fromPath)
-  const toFile = files.get(toPath)
-  return files.set(fromPath, {
-    freshness: fromFile.freshness,
-    successors: fromFile.successors.add(toPath),
-    predecessors: fromFile.predecessors,
-    type: fromFile.type,
-  }).set(toPath, {
-    freshness: toFile.freshness,
-    successors: toFile.successors,
-    predecessors: toFile.predecessors.add(fromPath),
-    type: toFile.type,
-  })
 }
 
 function setFileFreshness(file: File, freshness: FileFreshness): File {
   return {
     freshness,
-    successors: file.successors,
-    predecessors: file.predecessors,
     type: file.type,
   }
 }
@@ -121,7 +90,7 @@ class UpdAgent {
     this._statusText = ''
   }
 
-  _spawn(cmd: string, args: Array<string>) {
+  _spawn(cmd: string, args: Array<string>): Promise<void> {
     if (this._opts.verbose) {
       const argsStr = args.map(escapeShellArg).join(' ')
       console.log(`${cmd} ${argsStr}`)
@@ -140,9 +109,10 @@ class UpdAgent {
   }
 
   _updateObject(
-    files: immutable._Iterable_Keyed<string, File>,
-    file: File, filePath: string
-  ) {
+    files: Digraph<string, File>,
+    file: File,
+    filePath: string
+  ): Promise<immutable._Iterable_Indexed<string>> {
     const depFilePath = filePath + '.d'
     return this._spawn(
       'clang++',
@@ -150,9 +120,9 @@ class UpdAgent {
         '-c', '-o', filePath,
         '-Wall', '-std=c++14', '-fcolor-diagnostics',
         '-MMD', '-MF', depFilePath,
-      ].concat(file.predecessors.filter(predecessorPath => (
-        files.get(predecessorPath).type === 'source'
-      )).toArray())
+      ].concat(files.preceding(filePath).filter(predecessor => (
+        predecessor.type === 'source'
+      )).keySeq().toArray())
     ).then(() => new Promise((resolve, reject) => {
       fs.readFile(depFilePath, 'utf8', (error, content) => {
         if (error) {
@@ -167,40 +137,44 @@ class UpdAgent {
     }))
   }
 
-  _updateProgram(file: File, filePath: string): Promise {
+  _updateProgram(
+    files: Digraph<string, File>,
+    file: File,
+    filePath: string
+  ): Promise<immutable._Iterable_Indexed<string>> {
     return this._spawn(
       'clang++',
       [
         '-o', filePath, '-framework', 'OpenGL',
         '-Wall', '-std=c++14', '-lglew', '-lglfw3',
         '-fcolor-diagnostics',
-      ].concat(file.predecessors.toArray())
+      ].concat(files.preceding(filePath).keySeq().toArray())
     ).then(() => new immutable.List())
   }
 
   _updateFile(
-    files: immutable._Iterable_Keyed<string, File>,
+    files: Digraph<string, File>,
     file: File,
     filePath: string
-  ): Promise {
+  ): Promise<immutable._Iterable_Indexed<string>> {
     switch (file.type) {
       case 'object':
         return this._updateObject(files, file, filePath)
       case 'program':
-        return this._updateProgram(file, filePath)
+        return this._updateProgram(files, file, filePath)
     }
     return Promise.reject(new Error(`don\'t know how to build '${filePath}'`))
   }
 
   _startUpdateFile(
-    files: immutable._Iterable_Keyed<string, File>,
+    files: Digraph<string, File>,
+    file: File,
     filePath: string
   ): File {
-    const file = files.get(filePath)
     this._updateFile(files, file, filePath).then((depPaths) => {
       return this.update({type: 'fileUpdated', filePath, depPaths})
     }).catch(error => process.nextTick(() => { throw error }))
-    return setFileFreshness(files.get(filePath), 'updating')
+    return setFileFreshness(file, 'updating')
   }
 
   _startWatching() {
@@ -219,9 +193,8 @@ class UpdAgent {
   ): State {
     mkdirp.sync(UPD_CACHE_PATH)
     this._startWatching()
-    let files = new immutable.Map([
-      [programFilePath, newFile('stale', 'program')]
-    ])
+    let files = Digraph.empty()
+      .set(programFilePath, newFile('stale', 'program'))
     sourceFilePaths.forEach(sourceFilePath => {
       const objectFilePath = path.join(UPD_CACHE_PATH, sha1(sourceFilePath))
       if (files.has(objectFilePath)) {
@@ -229,23 +202,21 @@ class UpdAgent {
       }
       files = files.set(sourceFilePath, newFile('fresh', 'source'))
         .set(objectFilePath, newFile('stale', 'object'))
-      files = addFileEdge(files, sourceFilePath, objectFilePath)
-      files = addFileEdge(files, objectFilePath, programFilePath)
+      files = files.link(sourceFilePath, objectFilePath)
+      files = files.link(objectFilePath, programFilePath)
     })
     files = files.map((file, filePath) => {
       if (
         file.freshness === 'stale' &&
-        file.predecessors.every(predecessorPath => (
-          files.get(predecessorPath).freshness === 'fresh'
+        files.preceding(filePath).every(predecessor => (
+          predecessor.freshness === 'fresh'
         ))
       ) {
-        return this._startUpdateFile(imc.toIterableKeyed(files), filePath)
+        return this._startUpdateFile(files, file, filePath)
       }
       return file
     })
-    return {
-      files,
-    }
+    return {files}
   }
 
   _reduceFileChanged(
@@ -257,26 +228,27 @@ class UpdAgent {
       return state
     }
     let files = state.files
-    let successors = new immutable.List(file.successors)
+    let successors = new immutable.List(
+      state.files.following(filePath).entrySeq()
+    )
     while (successors.size > 0) {
-      const successorPath = successors.first()
+      let [successorPath, successor] = successors.first()
       successors = successors.shift()
-      let successor = files.get(successorPath)
       if (successor.freshness === 'stale') {
         continue
       }
       successor = setFileFreshness(successor, 'stale')
       files = files.set(successorPath, successor)
-      successors = successors.concat(successor.successors)
+      successors = successors.concat(files.following(successorPath).entrySeq())
     }
     files = files.map((file, filePath) => {
       if (
         file.freshness === 'stale' &&
-        file.predecessors.every(predecessorPath => (
-          files.get(predecessorPath).freshness === 'fresh'
+        files.preceding(filePath).every(predecessor => (
+          predecessor.freshness === 'fresh'
         ))
       ) {
-        return this._startUpdateFile(imc.toIterableKeyed(files), filePath)
+        return this._startUpdateFile(files, file, filePath)
       }
       return file
     })
@@ -289,7 +261,7 @@ class UpdAgent {
     depPaths: immutable._Iterable_Indexed<string>
   ): State {
     let file = state.files.get(filePath)
-    if (file.freshness !== 'updating') {
+    if (file == null || file.freshness !== 'updating') {
       return state
     }
     file = setFileFreshness(file, 'fresh')
@@ -298,16 +270,15 @@ class UpdAgent {
       if (!files.has(depPath)) {
         files = files.set(depPath, newFile('fresh', 'dep'))
       }
-      files = addFileEdge(files, depPath, filePath);
+      files = files.link(depPath, filePath);
     })
-    file.successors.forEach(successorPath => {
-      const successor = files.get(successorPath)
-      if (successor.predecessors.every(predecessorPath => (
-        files.get(predecessorPath).freshness === 'fresh'
+    files.following(filePath).forEach((successor, successorPath) => {
+      if (files.preceding(successorPath).every(predecessor => (
+        predecessor.freshness === 'fresh'
       ))) {
         files = files.set(
           successorPath,
-          this._startUpdateFile(imc.toIterableKeyed(files), successorPath)
+          this._startUpdateFile(files, successor, successorPath)
         )
       }
     })
@@ -374,11 +345,11 @@ class UpdAgent {
     const freshCount = (
       state.files.toSeq().filter(file => file.freshness === 'fresh').count()
     )
-    const prc = Math.round((freshCount / state.files.size) * 100)
+    const prc = Math.round((freshCount / state.files.order) * 100)
     this._updateStatus(
-      `updating [${freshCount}/${state.files.size}] ${prc}%`
+      `updating [${freshCount}/${state.files.order}] ${prc}%`
     )
-    if (freshCount === state.files.size) {
+    if (freshCount === state.files.order) {
       this._flushStatus();
       if (!this._opts.once) {
         this._updateStatus('watching...');

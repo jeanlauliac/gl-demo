@@ -4,7 +4,7 @@
   "description": "Demoscene experiments",
   "main": "index.js",
   "scripts": {
-    "test": "node_modules/.bin/babel-node --plugins transform-es2015-modules-commonjs,transform-flow-strip-types ./test.js"
+    "test": "node_modules/.bin/babel-node --plugins transform-class-properties,transform-flow-strip-types --presets es2015 ./test.js"
   },
   "repository": {
     "type": "git",
@@ -17,17 +17,21 @@
   },
   "homepage": "https://github.com/jeanlauliac/gl-demo#readme",
   "devDependencies": {
-    "babel": "^6.0.2",
-    "babel-cli": "^6.0.2",
-    "babel-plugin-syntax-flow": "^6.0.2",
-    "babel-plugin-transform-es2015-modules-commonjs": "^6.0.2",
-    "babel-plugin-transform-flow-strip-types": "^6.0.2",
+    "babel": "^6.1.18",
+    "babel-cli": "^6.1.18",
+    "babel-plugin-syntax-class-properties": "^6.1.18",
+    "babel-plugin-syntax-flow": "^6.1.18",
+    "babel-plugin-transform-class-properties": "^6.1.20",
+    "babel-plugin-transform-es2015-destructuring": "^6.1.18",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.1.20",
+    "babel-plugin-transform-flow-strip-types": "^6.1.18",
+    "babel-preset-stage-2": "^6.1.18",
     "chokidar": "^1.2.0",
     "glob": "^5.0.15",
     "immutable": "^3.7.5",
     "mkdirp": "^0.5.1",
-    "nopt": "^3.0.4",
+    "nopt": "^3.0.6",
     "promisify-node": "^0.2.1",
-    "tap": "^2.2.0"
+    "tap": "^2.2.1"
   }
 }

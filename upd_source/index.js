@@ -3,6 +3,7 @@
 'use strict'
 
 import Digraph from './Digraph'
+import FileStatus from './FileStatus'
 import crypto from 'crypto'
 import chokidar from 'chokidar'
 import fs from 'fs'
@@ -22,26 +23,10 @@ function sha1(data) {
 
 const UPD_CACHE_PATH = '.upd_cache'
 
-type FileFreshness = 'fresh' | 'updating' | 'stale';
-
-/**
- * Describes a file in the system that should be dealt with.
- */
-type File = {
-  /**
-   * Does it need to be refreshed to complete the update? Stale files might not
-   * even exist in the filesystem.
-   */
-  freshness: FileFreshness,
-  /**
-   * The nature of the file. It'll use different stategies to update the file
-   * depending on its type.
-   */
-  type: 'dep' | 'program' | 'object' | 'source',
-}
+type FileGraph = Digraph<string, FileStatus>
 
 type State = {
-  files: Digraph<string, File>,
+  files: FileGraph,
 }
 
 type Event = {
@@ -59,20 +44,6 @@ type Event = {
 
 function escapeShellArg(arg) {
   return arg.replace(/( )/, '\\$1')
-}
-
-function newFile(freshness, type): File {
-  return {
-    freshness,
-    type,
-  }
-}
-
-function setFileFreshness(file: File, freshness: FileFreshness): File {
-  return {
-    freshness,
-    type: file.type,
-  }
 }
 
 class UpdAgent {
@@ -108,8 +79,8 @@ class UpdAgent {
   }
 
   _updateObject(
-    files: Digraph<string, File>,
-    file: File,
+    files: FileGraph,
+    file: FileStatus,
     filePath: string
   ): Promise<immutable._Iterable_Indexed<string>> {
     const depFilePath = filePath + '.d'
@@ -137,8 +108,8 @@ class UpdAgent {
   }
 
   _updateProgram(
-    files: Digraph<string, File>,
-    file: File,
+    files: FileGraph,
+    file: FileStatus,
     filePath: string
   ): Promise<immutable._Iterable_Indexed<string>> {
     return this._spawn(
@@ -152,8 +123,8 @@ class UpdAgent {
   }
 
   _updateFile(
-    files: Digraph<string, File>,
-    file: File,
+    files: FileGraph,
+    file: FileStatus,
     filePath: string
   ): Promise<immutable._Iterable_Indexed<string>> {
     switch (file.type) {
@@ -166,14 +137,14 @@ class UpdAgent {
   }
 
   _startUpdateFile(
-    files: Digraph<string, File>,
-    file: File,
+    files: FileGraph,
+    file: FileStatus,
     filePath: string
-  ): File {
+  ): FileStatus {
     this._updateFile(files, file, filePath).then((depPaths) => {
       return this.update({type: 'fileUpdated', filePath, depPaths})
     }).catch(error => process.nextTick(() => { throw error }))
-    return setFileFreshness(file, 'updating')
+    return file.setFreshness('updating')
   }
 
   _startWatching() {
@@ -193,14 +164,14 @@ class UpdAgent {
     mkdirp.sync(UPD_CACHE_PATH)
     this._startWatching()
     let files = Digraph.empty()
-      .set(programFilePath, newFile('stale', 'program'))
+      .set(programFilePath, FileStatus.create('stale', 'program'))
     sourceFilePaths.forEach(sourceFilePath => {
       const objectFilePath = path.join(UPD_CACHE_PATH, sha1(sourceFilePath))
       if (files.has(objectFilePath)) {
         throw new Error('object file hash collision')
       }
-      files = files.set(sourceFilePath, newFile('fresh', 'source'))
-        .set(objectFilePath, newFile('stale', 'object'))
+      files = files.set(sourceFilePath, FileStatus.create('fresh', 'source'))
+        .set(objectFilePath, FileStatus.create('stale', 'object'))
       files = files.link(sourceFilePath, objectFilePath)
       files = files.link(objectFilePath, programFilePath)
     })
@@ -236,7 +207,7 @@ class UpdAgent {
       if (successor.freshness === 'stale') {
         continue
       }
-      successor = setFileFreshness(successor, 'stale')
+      successor = successor.setFreshness('stale')
       files = files.set(successorPath, successor)
       successors = successors.concat(files.following(successorPath).entrySeq())
     }
@@ -263,11 +234,11 @@ class UpdAgent {
     if (file == null || file.freshness !== 'updating') {
       return state
     }
-    file = setFileFreshness(file, 'fresh')
+    file = file.setFreshness('fresh')
     let files = state.files.set(filePath, file)
     depPaths.forEach(depPath => {
       if (!files.has(depPath)) {
-        files = files.set(depPath, newFile('fresh', 'dep'))
+        files = files.set(depPath, FileStatus.create('fresh', 'dep'))
       }
       files = files.link(depPath, filePath);
     })

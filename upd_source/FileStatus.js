@@ -5,7 +5,7 @@
 import LightweightImmutable from './LightweightImmutable'
 
 type FileFreshness = 'fresh' | 'updating' | 'stale';
-type FileType = 'dep' | 'program' | 'object' | 'source';
+type FileType = 'program' | 'object' | 'none';
 
 /**
  * Describes the status of a file part of the update.

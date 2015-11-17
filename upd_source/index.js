@@ -23,7 +23,8 @@ function sha1(data) {
 
 const UPD_CACHE_PATH = '.upd_cache'
 
-type FileGraph = Digraph<string, FileStatus, void>
+type FileRelation = 'source' | 'dependency';
+type FileGraph = Digraph<string, FileStatus, FileRelation>
 
 type State = {
   files: FileGraph,
@@ -90,8 +91,8 @@ class UpdAgent {
         '-c', '-o', filePath,
         '-Wall', '-std=c++14', '-fcolor-diagnostics',
         '-MMD', '-MF', depFilePath,
-      ].concat(files.preceding(filePath).filter(predecessor => (
-        predecessor.origin.type === 'source'
+      ].concat(files.preceding(filePath).filter(link => (
+        link.value === 'source'
       )).keySeq().toArray())
     ).then(() => new Promise((resolve, reject) => {
       fs.readFile(depFilePath, 'utf8', (error, content) => {
@@ -170,10 +171,10 @@ class UpdAgent {
       if (files.has(objectFilePath)) {
         throw new Error('object file hash collision')
       }
-      files = files.set(sourceFilePath, FileStatus.create('fresh', 'source'))
+      files = files.set(sourceFilePath, FileStatus.create('fresh', 'none'))
         .set(objectFilePath, FileStatus.create('stale', 'object'))
-      files = files.link(sourceFilePath, objectFilePath)
-      files = files.link(objectFilePath, programFilePath)
+      files = files.link(sourceFilePath, objectFilePath, 'source')
+      files = files.link(objectFilePath, programFilePath, 'source')
     })
     files = files.map((file, filePath) => {
       if (
@@ -194,7 +195,7 @@ class UpdAgent {
     filePath: string
   ): State {
     const file = state.files.get(filePath)
-    if (file.type !== 'source' && file.type !== 'dep') {
+    if (!state.files.preceding(file).isEmpty()) {
       return state
     }
     let files = state.files
@@ -202,12 +203,12 @@ class UpdAgent {
       state.files.following(filePath).entrySeq()
     )
     while (successors.size > 0) {
-      let [successorPath, successor] = successors.first()
+      let [successorPath, link] = successors.first()
       successors = successors.shift()
-      if (successor.freshness === 'stale') {
+      if (link.target.freshness === 'stale') {
         continue
       }
-      successor = successor.setFreshness('stale')
+      const successor = link.target.setFreshness('stale')
       files = files.set(successorPath, successor)
       successors = successors.concat(files.following(successorPath).entrySeq())
     }
@@ -238,9 +239,9 @@ class UpdAgent {
     let files = state.files.set(filePath, file)
     depPaths.forEach(depPath => {
       if (!files.has(depPath)) {
-        files = files.set(depPath, FileStatus.create('fresh', 'dep'))
+        files = files.set(depPath, FileStatus.create('fresh', 'none'))
       }
-      files = files.link(depPath, filePath);
+      files = files.link(depPath, filePath, 'dependency');
     })
     files.following(filePath).forEach((successor, successorPath) => {
       if (files.preceding(successorPath).every(predecessor => (

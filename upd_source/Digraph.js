@@ -6,24 +6,24 @@ import LightweightImmutable from './LightweightImmutable'
 import immutable from 'immutable'
 import nullthrows from './nullthrows'
 
-class Vertex<K, V> extends LightweightImmutable {
+class Vertex<K, V, L> extends LightweightImmutable {
 
-  succ: immutable._Set<K>;
+  succ: immutable._Map<K, L>;
   pred: immutable._Set<K>;
   value: V;
 
-  static of(value: V): Vertex<K, V> {
-    return new Vertex({succ: immutable.Set(), pred: immutable.Set(), value});
+  static of(value: V): Vertex<K, V, L> {
+    return new Vertex({succ: immutable.Map(), pred: immutable.Set(), value});
   }
 
-  setValue(value: V): Vertex<K, V> {
+  setValue(value: V): Vertex<K, V, L> {
     if (value === this.value) {
       return this
     }
     return new Vertex({succ: this.succ, pred: this.pred, value})
   }
 
-  removeAllLinksTo(key: K): Vertex<K, V> {
+  removeAllLinksTo(key: K): Vertex<K, V, L> {
     const succ = this.succ.remove(key)
     const pred = this.pred.remove(key)
     if (succ === this.succ && pred === this.pred) {
@@ -32,28 +32,43 @@ class Vertex<K, V> extends LightweightImmutable {
     return new Vertex({succ, pred, value: this.value})
   }
 
-  linkTo(key: K): Vertex<K, V> {
+  linkTo(key: K, value: L): Vertex<K, V, L> {
     return new Vertex(
-      {succ: this.succ.add(key), pred: this.pred, value: this.value}
+      {succ: this.succ.set(key, value), pred: this.pred, value: this.value}
     )
   }
 
-  linkFrom(key: K): Vertex<K, V> {
+  linkFrom(key: K): Vertex<K, V, L> {
     return new Vertex(
       {succ: this.succ, pred: this.pred.add(key), value: this.value}
     )
   }
 
-  unlinkTo(key: K): Vertex<K, V> {
+  unlinkTo(key: K): Vertex<K, V, L> {
     return new Vertex(
       {succ: this.succ.remove(key), pred: this.pred, value: this.value}
     )
   }
 
-  unlinkFrom(key: K): Vertex<K, V> {
+  unlinkFrom(key: K): Vertex<K, V, L> {
     return new Vertex(
       {succ: this.succ, pred: this.pred.remove(key), value: this.value}
     )
+  }
+
+}
+
+/**
+ * A valued link linking two vertices together.
+ */
+class ValuedLink<V, L> extends LightweightImmutable {
+
+  origin: V;
+  target: V;
+  value: L;
+
+  constructor(origin: V, target: V, value: L) {
+    super({origin, target, value});
   }
 
 }
@@ -63,16 +78,16 @@ let emptyDigraph: any = null;
 /**
  * Immutable Directed Graph, with simple arcs and valued vertices.
  */
-export default class Digraph<K, V> extends LightweightImmutable {
+export default class Digraph<K, V, L> extends LightweightImmutable {
 
-  _vertices: immutable._Map<K, Vertex<K, V>>;
+  _vertices: immutable._Map<K, Vertex<K, V, L>>;
   order: number;
 
-  constructor(vertices: immutable._Map<K, Vertex<K, V>>) {
+  constructor(vertices: immutable._Map<K, Vertex<K, V, L>>) {
     super({_vertices: vertices, order: vertices.size})
   }
 
-  static empty(): Digraph<K, V> {
+  static empty(): Digraph<K, V, L> {
     if (emptyDigraph == null) {
       emptyDigraph = new Digraph(immutable.Map())
     }
@@ -82,7 +97,7 @@ export default class Digraph<K, V> extends LightweightImmutable {
   /**
    * Set a vertex value by its key.
    */
-  set(key: K, value: V): Digraph<K, V> {
+  set(key: K, value: V): Digraph<K, V, L> {
     const vertex = this._vertices.get(key);
     return new Digraph(this._vertices.set(key, (
       vertex != null ? vertex.setValue(value) : Vertex.of(value)
@@ -98,6 +113,18 @@ export default class Digraph<K, V> extends LightweightImmutable {
   }
 
   /**
+   * Get the value of a link between two vertices. Return `undefined` if there
+   * is no such link.
+   */
+  getLink(originKey: K, targetKey: K): ?L {
+    const vertex = this._vertices.get(originKey)
+    if (vertex == null) {
+      return undefined
+    }
+    return vertex.succ.get(targetKey)
+  }
+
+  /**
    * Check if a vertex exists by its key.
    */
   has(key: K): boolean {
@@ -105,9 +132,22 @@ export default class Digraph<K, V> extends LightweightImmutable {
   }
 
   /**
+   * Return `true` if there's a link between these two vertices. This is
+   * different from calling `getLink(a, b) !== undefiend ` because a link can
+   * have a value of `undefined`.
+   */
+  hasLink(originKey: K, targetKey: K): boolean {
+    const vertex = this._vertices.get(originKey)
+    if (vertex == null) {
+      return false
+    }
+    return vertex.succ.has(targetKey)
+  }
+
+  /**
    * Remove a vertex and all links from/to it.
    */
-  remove(key: K): Digraph<K, V> {
+  remove(key: K): Digraph<K, V, L> {
     if (!this._vertices.has(key)) {
       return this
     }
@@ -118,11 +158,11 @@ export default class Digraph<K, V> extends LightweightImmutable {
   _updateLinks(
     originKey: K,
     targetKey: K,
-    updater: (origin: Vertex<K, V>, target: Vertex<K, V>) => {
-      origin: Vertex<K, V>,
-      target: Vertex<K, V>,
+    updater: (origin: Vertex<K, V, L>, target: Vertex<K, V, L>) => {
+      origin: Vertex<K, V, L>,
+      target: Vertex<K, V, L>,
     }
-  ): Digraph<K, V> {
+  ): Digraph<K, V, L> {
     const vertices = this._vertices
     const origin = vertices.get(originKey)
     if (origin == null) {
@@ -142,16 +182,17 @@ export default class Digraph<K, V> extends LightweightImmutable {
   /**
    * Add a new arc from one vertex to another. The vertices must already exist.
    */
-  link(originKey: K, targetKey: K): Digraph<K, V> {
-    return this._updateLinks(originKey, targetKey, (origin, target) => (
-      {origin: origin.linkTo(targetKey), target: target.linkFrom(originKey)}
-    ))
+  link(originKey: K, targetKey: K, value: L): Digraph<K, V, L> {
+    return this._updateLinks(originKey, targetKey, (origin, target) => ({
+      origin: origin.linkTo(targetKey, value),
+      target: target.linkFrom(originKey),
+    }))
   }
 
   /**
    * Remove an arc from one vertex to another.
    */
-  unlink(originKey: K, targetKey: K): Digraph<K, V> {
+  unlink(originKey: K, targetKey: K): Digraph<K, V, L> {
     return this._updateLinks(originKey, targetKey, (origin, target) => (
       {origin: origin.unlinkTo(targetKey), target: target.unlinkFrom(originKey)}
     ))
@@ -160,40 +201,56 @@ export default class Digraph<K, V> extends LightweightImmutable {
   /**
    * Get all the successors of this element.
    */
-  following(key: K): immutable._Iterable_Keyed<K, V> {
+  following(key: K): immutable._Iterable_Keyed<K, ValuedLink<V, L>> {
     const vertexData = this._vertices.get(key)
     if (vertexData == null) {
       return immutable.Iterable.Keyed()
     }
-    return immutable.Iterable.Keyed(vertexData.succ.toSeq().map(
-      key => ([key, nullthrows(this._vertices.get(key)).value])
-    ))
+    return vertexData.succ.toSeq().map(
+      (value, targetKey) => {
+        const target = nullthrows(this._vertices.get(targetKey))
+        return new ValuedLink(
+          vertexData.value,
+          target.value,
+          value
+        )
+      }
+    )
   }
 
   /**
    * Get all the predecessors of this element.
    */
-  preceding(key: K): immutable._Iterable_Keyed<K, V> {
+  preceding(key: K): immutable._Iterable_Keyed<K, ValuedLink<V, L>> {
     const vertexData = this._vertices.get(key)
     if (vertexData == null) {
       return immutable.Iterable.Keyed()
     }
     return immutable.Iterable.Keyed(vertexData.pred.toSeq().map(
-      key => ([key, nullthrows(this._vertices.get(key)).value])
+      originKey => {
+        const origin = nullthrows(this._vertices.get(originKey))
+        return [originKey, new ValuedLink(
+          origin.value,
+          vertexData.value,
+          (origin.succ.get(key): any)
+        )]
+      }
     ))
   }
 
-  some(pred: (value: V, key: K) => boolean): boolean {
-    return this._vertices.some((vertex, key) => pred(vertex.value, key))
+  some(pred: (value: V, key: K, graph: Digraph<K, V, L>) => boolean): boolean {
+    return this._vertices.some((vertex, key) => pred(vertex.value, key, this))
   }
 
   toSeq(): immutable._Iterable_Keyed<K, V> {
     return this._vertices.toSeq().map(vertex => vertex.value)
   }
 
-  map(iter: (value: V, key: K) => V): Digraph<K, V> {
+  map(
+    iter: (value: V, key: K, graph: Digraph<K, V, L>) => V
+  ): Digraph<K, V, L> {
     return new Digraph(this._vertices.map((vertex, key) => (
-      vertex.setValue(iter(vertex.value, key))
+      vertex.setValue(iter(vertex.value, key, this))
     )))
   }
 

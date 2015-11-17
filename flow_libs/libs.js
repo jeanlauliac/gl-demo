@@ -56,6 +56,7 @@ declare module 'immutable' {
     get(key: number): ?V;
     forEach(iter: (value: V, key: number) => ?boolean): void;
     toArray(): Array<V>;
+    map<T>(iter: (value: V, key: number) => T): _Iterable_Indexed<T>;
   }
 
   declare class _Set<K> {
@@ -67,19 +68,24 @@ declare module 'immutable' {
     reduce<R>(reducer: (reduction: R, key: K) => R, initialReduction: R): R;
     remove(key: K): _Set<K>;
     toArray(): Array<K>;
-    toSeq(): Array<K>;
+    toSeq(): _Iterable_Indexed<K>;
   }
 
   declare class _List<V> {}
 
   declare class IterableImpl {
-    Indexed<V>(values?: Array<V>): _Iterable_Indexed<V>;
-    Keyed<K, V>(values?: Array<[K, V]>): _Iterable_Keyed<K, V>;
+    Indexed<V>(values?: Array<V> | _Iterable_Indexed<V>): _Iterable_Indexed<V>;
+    Keyed<K, V>(
+      values?: Array<[K, V]> |
+      _Iterable_Indexed<[K, V]>
+    ): _Iterable_Keyed<K, V>;
   }
 
   declare var Iterable: IterableImpl;
   declare function Set<V>(): _Set<V>;
   declare function Map<K, V>(): _Map<K, V>;
   declare function List<V>(): _List<V>;
+
+  declare function is(left: any, right: any): boolean;
 
 }

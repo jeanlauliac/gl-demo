@@ -23,7 +23,7 @@ function sha1(data) {
 
 const UPD_CACHE_PATH = '.upd_cache'
 
-type FileGraph = Digraph<string, FileStatus>
+type FileGraph = Digraph<string, FileStatus, void>
 
 type State = {
   files: FileGraph,
@@ -91,7 +91,7 @@ class UpdAgent {
         '-Wall', '-std=c++14', '-fcolor-diagnostics',
         '-MMD', '-MF', depFilePath,
       ].concat(files.preceding(filePath).filter(predecessor => (
-        predecessor.type === 'source'
+        predecessor.origin.type === 'source'
       )).keySeq().toArray())
     ).then(() => new Promise((resolve, reject) => {
       fs.readFile(depFilePath, 'utf8', (error, content) => {
@@ -179,7 +179,7 @@ class UpdAgent {
       if (
         file.freshness === 'stale' &&
         files.preceding(filePath).every(predecessor => (
-          predecessor.freshness === 'fresh'
+          predecessor.origin.freshness === 'fresh'
         ))
       ) {
         return this._startUpdateFile(files, file, filePath)
@@ -215,7 +215,7 @@ class UpdAgent {
       if (
         file.freshness === 'stale' &&
         files.preceding(filePath).every(predecessor => (
-          predecessor.freshness === 'fresh'
+          predecessor.origin.freshness === 'fresh'
         ))
       ) {
         return this._startUpdateFile(files, file, filePath)
@@ -244,11 +244,11 @@ class UpdAgent {
     })
     files.following(filePath).forEach((successor, successorPath) => {
       if (files.preceding(successorPath).every(predecessor => (
-        predecessor.freshness === 'fresh'
+        predecessor.origin.freshness === 'fresh'
       ))) {
         files = files.set(
           successorPath,
-          this._startUpdateFile(files, successor, successorPath)
+          this._startUpdateFile(files, successor.target, successorPath)
         )
       }
     })

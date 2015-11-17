@@ -3,6 +3,7 @@
 'use strict'
 
 import Digraph from './Digraph'
+import immutable from 'immutable'
 import tap from 'tap'
 
 tap.test('Digraph', t => {
@@ -24,5 +25,7 @@ tap.test('Digraph', t => {
   graph = graph.remove(2)
   t.similar(graph.following(1).keySeq().toArray(), [3], 'has correct successors')
   t.similar(graph.preceding(3).keySeq().toArray(), [1], 'has correct predecessors')
+  t.equal(immutable.is(graph.set(1), graph.set(1)), true, 'implements value semantics')
+  t.equal(immutable.is(graph.set(1), graph.set(2)), false, 'implements value semantics')
   t.end()
 })

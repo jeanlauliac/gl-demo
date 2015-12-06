@@ -195,7 +195,7 @@ class UpdAgent {
     filePath: string
   ): State {
     const file = state.files.get(filePath)
-    if (!state.files.preceding(file).isEmpty()) {
+    if (!state.files.preceding(filePath).isEmpty()) {
       return state
     }
     let files = state.files

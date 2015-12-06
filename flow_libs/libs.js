@@ -33,6 +33,7 @@ declare module 'immutable' {
     get(key: K): ?V;
     has(key: K): boolean;
     keySeq(): _Iterable_Indexed<K>;
+    isEmpty(): boolean;
     some(pred: (value: V, key: K) => boolean): boolean;
     toArray(): Array<V>;
     toSeq(): _Iterable_Keyed<K, V>;

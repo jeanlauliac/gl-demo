@@ -317,13 +317,15 @@ class UpdAgent {
       state.files.toSeq().filter(file => file.freshness === 'fresh').count()
     )
     const prc = Math.round((freshCount / state.files.order) * 100)
+    const isDone = freshCount === state.files.order
+    const doneText = isDone ? ', done.' : ''
     this._updateStatus(
-      `updating [${freshCount}/${state.files.order}] ${prc}%`
+      `Updating, ${prc}% (${freshCount}/${state.files.order})${doneText}`
     )
-    if (freshCount === state.files.order) {
+    if (isDone) {
       this._flushStatus();
       if (!this._opts.once) {
-        this._updateStatus('watching...');
+        this._updateStatus('Watching...');
       }
       if (state.files.some(file => file.freshness === 'stale')) {
         this._log('some files cannot be built')

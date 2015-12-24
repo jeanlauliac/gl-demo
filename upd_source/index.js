@@ -4,8 +4,9 @@
 
 import Digraph from './Digraph'
 import FileStatus from './FileStatus'
-import crypto from 'crypto'
+import {spawn} from 'child_process'
 import chokidar from 'chokidar'
+import crypto from 'crypto'
 import fs from 'fs'
 import glob from 'glob'
 import immutable from 'immutable'
@@ -13,7 +14,7 @@ import mkdirp from 'mkdirp'
 import nopt from 'nopt'
 import path from 'path'
 import readline from 'readline'
-import {spawn} from 'child_process'
+import {Writable} from 'stream'
 
 function sha1(data) {
   var shasum = crypto.createHash('sha1')
@@ -35,6 +36,9 @@ type Event = {
   sourceFilePaths: immutable._Iterable_Indexed<string>,
   programFilePath: string,
 } | {
+  filePath: string,
+  type: 'fileUpdateFailed',
+} | {
   depPaths: immutable._Iterable_Indexed<string>,
   filePath: string,
   type: 'fileUpdated',
@@ -43,8 +47,26 @@ type Event = {
   type: 'fileChanged',
 }
 
+type UpdateResult = 'failure' | 'success';
+
 function escapeShellArg(arg) {
   return arg.replace(/( )/, '\\$1')
+}
+
+class BufferStream extends Writable {
+  constructor() {
+    super()
+    this._bufs = []
+  }
+
+  _write(chunk, encoding, callback) {
+    this._bufs.push(chunk)
+    callback()
+  }
+
+  toBuffer() {
+    return Buffer.concat(this._bufs)
+  }
 }
 
 class UpdAgent {
@@ -61,20 +83,29 @@ class UpdAgent {
     this._statusText = ''
   }
 
-  _spawn(cmd: string, args: Array<string>): Promise<void> {
+  _spawn(cmd: string, args: Array<string>): Promise<UpdateResult> {
     if (this._opts.verbose) {
       const argsStr = args.map(escapeShellArg).join(' ')
-      console.log(`${cmd} ${argsStr}`)
+      this._log(`${cmd} ${argsStr}`)
     }
     return new Promise((resolve, reject) => {
       const childProcess = spawn(cmd, args)
+      const outBufferStream = new BufferStream()
+      childProcess.stdout.pipe(outBufferStream)
+      const errBufferStream = new BufferStream()
+      childProcess.stderr.pipe(errBufferStream)
       childProcess.on('exit', code => {
-        childProcess.stdout.pipe(process.stdout)
-        childProcess.stderr.pipe(process.stderr)
-        if (code === 0) {
-          return resolve()
+        const outBuffer = outBufferStream.toBuffer()
+        const errBuffer = errBufferStream.toBuffer()
+        const updateResult = (code === 0) ? 'success' : 'failure'
+        if (outBuffer.length > 0 || errBuffer.length > 0) {
+          this._flushStatus();
+          process.stdout.write(outBuffer)
+          return void process.stderr.write(errBuffer, null, () => {
+            resolve(updateResult)
+          })
         }
-        reject(new Error('spawn program failed'))
+        resolve(updateResult)
       })
     })
   }
@@ -83,7 +114,7 @@ class UpdAgent {
     files: FileGraph,
     file: FileStatus,
     filePath: string
-  ): Promise<immutable._Iterable_Indexed<string>> {
+  ): Promise<[UpdateResult, immutable._Iterable_Indexed<string>]> {
     const depFilePath = filePath + '.d'
     return this._spawn(
       'clang++',
@@ -94,7 +125,10 @@ class UpdAgent {
       ].concat(files.preceding(filePath).filter(link => (
         link.value === 'source'
       )).keySeq().toArray())
-    ).then(() => new Promise((resolve, reject) => {
+    ).then(updateResult => new Promise((resolve, reject) => {
+      if (updateResult !== 'success') {
+        return void resolve([updateResult, immutable.Iterable.Indexed()])
+      }
       fs.readFile(depFilePath, 'utf8', (error, content) => {
         if (error) {
           return reject(error)
@@ -103,7 +137,7 @@ class UpdAgent {
         const depPaths = new immutable.List(content.split(/(?:\n| )/)
           .filter(chunk => chunk.endsWith('.h'))
           .map(filePath => path.normalize(filePath)))
-        resolve(depPaths)
+        resolve([updateResult, depPaths])
       })
     }))
   }
@@ -112,7 +146,7 @@ class UpdAgent {
     files: FileGraph,
     file: FileStatus,
     filePath: string
-  ): Promise<immutable._Iterable_Indexed<string>> {
+  ): Promise<[UpdateResult, immutable._Iterable_Indexed<string>]> {
     return this._spawn(
       'clang++',
       [
@@ -120,14 +154,14 @@ class UpdAgent {
         '-Wall', '-std=c++14', '-lglew', '-lglfw3',
         '-fcolor-diagnostics',
       ].concat(files.preceding(filePath).keySeq().toArray())
-    ).then(() => new immutable.List())
+    ).then(updateResult => [updateResult, immutable.Iterable.Indexed()])
   }
 
   _updateFile(
     files: FileGraph,
     file: FileStatus,
     filePath: string
-  ): Promise<immutable._Iterable_Indexed<string>> {
+  ): Promise<[UpdateResult, immutable._Iterable_Indexed<string>]> {
     switch (file.type) {
       case 'object':
         return this._updateObject(files, file, filePath)
@@ -142,8 +176,11 @@ class UpdAgent {
     file: FileStatus,
     filePath: string
   ): FileStatus {
-    this._updateFile(files, file, filePath).then((depPaths) => {
-      return this.update({type: 'fileUpdated', filePath, depPaths})
+    this._updateFile(files, file, filePath).then(([updateResult, depPaths]) => {
+      if (updateResult === 'success') {
+        return void this.update({type: 'fileUpdated', filePath, depPaths})
+      }
+      return void this.update({type: 'fileUpdateFailed', filePath})
     }).catch(error => process.nextTick(() => { throw error }))
     return file.setFreshness('updating')
   }
@@ -253,12 +290,16 @@ class UpdAgent {
         )
       }
     })
-    if (!this._opts.once) {
-      // TODO: watch predecessors if they're not already
-      // watch source as soon as we know them, so as to cancel the update if
-      // file change *during* updating (ideally, kill the compile process)
-    }
     return {files}
+  }
+
+  _reduceFileUpdateFailed(state: State, filePath: string): State {
+    let file = state.files.get(filePath)
+    if (file == null || file.freshness !== 'updating') {
+      return state
+    }
+    file = file.setFreshness('stale')
+    return {files: state.files.set(filePath, file)}
   }
 
   _reduce(state: ?State, event: Event): ?State {
@@ -272,6 +313,8 @@ class UpdAgent {
     switch (event.type) {
       case 'fileChanged':
         return this._reduceFileChanged(state, event.filePath)
+      case 'fileUpdateFailed':
+        return this._reduceFileUpdateFailed(state, event.filePath)
       case 'fileUpdated':
         return this._reduceFileUpdated(state, event.filePath, event.depPaths)
     }
@@ -313,23 +356,34 @@ class UpdAgent {
     if (state == null) {
       return
     }
+    const filesToBuild = (
+      state.files.toSeq()
+      .filter(file => file.type !== 'none')
+      .toList()
+    )
     const freshCount = (
-      state.files.toSeq().filter(file => file.freshness === 'fresh').count()
+      filesToBuild
+      .filter(file => file.freshness === 'fresh')
+      .count()
     )
-    const prc = Math.round((freshCount / state.files.order) * 100)
-    const isDone = freshCount === state.files.order
-    const doneText = isDone ? ', done.' : ''
+    const prc = Math.round((freshCount / filesToBuild.size) * 100)
+    const isAllFresh = freshCount === filesToBuild.size
+    const isUpdating = filesToBuild.some(file => file.freshness === 'updating')
+    const finalText = isAllFresh ? ', done.' : (!isUpdating ? ', failed.' : '')
     this._updateStatus(
-      `Updating, ${prc}% (${freshCount}/${state.files.order})${doneText}`
+      `Updating, ${prc}% (${freshCount}/${filesToBuild.size})${finalText}`
     )
-    if (isDone) {
+    if (isAllFresh) {
       this._flushStatus();
       if (!this._opts.once) {
-        this._updateStatus('Watching...');
+        this._updateStatus('Watching...')
       }
-      if (state.files.some(file => file.freshness === 'stale')) {
-        this._log('some files cannot be built')
+    } else if (!isUpdating) {
+      this._flushStatus();
+      if (this._opts.once) {
         process.exit(1)
+      } else {
+        this._updateStatus('Watching...')
       }
     }
   }

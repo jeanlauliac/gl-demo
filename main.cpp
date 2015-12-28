@@ -37,6 +37,21 @@ GLuint INDICES[6] = {
   2, 3, 0
 };
 
+enum class WindowMode { WINDOW, FULLSCREEN, };
+
+glfwpp::Window createWindow(glfwpp::Context& context, WindowMode windowMode) {
+  if (windowMode == WindowMode::WINDOW) {
+    return glfwpp::Window(800, 600, "Demo", nullptr, nullptr);
+  }
+  GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+  const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+  context.windowHint(GLFW_RED_BITS, mode->redBits);
+  context.windowHint(GLFW_GREEN_BITS, mode->greenBits);
+  context.windowHint(GLFW_BLUE_BITS, mode->blueBits);
+  context.windowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+  return glfwpp::Window(mode->width, mode->height, "Demo", monitor, nullptr);
+}
+
 int main() {
   glfwSetErrorCallback(errorCallback);
 
@@ -46,11 +61,15 @@ int main() {
   context.windowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   context.windowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
-  glfwpp::Window window(800, 600, "Demo", nullptr, nullptr);
+  glfwpp::Window window = createWindow(context, WindowMode::WINDOW);
 
   glewExperimental = GL_TRUE;
-  if(glewInit() != GLEW_OK) {
-    throw std::runtime_error("cannot initialize GLEW");
+  GLenum err = glewInit();
+  if(err != GLEW_OK) {
+    throw std::runtime_error(
+      std::string("cannot initialize GLEW: ") +
+      reinterpret_cast<const char*>(glewGetErrorString(err))
+    );
   }
 
   context.makeContextCurrent(window);

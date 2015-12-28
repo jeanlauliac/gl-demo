@@ -10,6 +10,10 @@ Window::Window(int width, int height, const char *title, GLFWmonitor *monitor, G
   }
 }
 
+Window::Window(const Window&& window) {
+  handle_ = window.handle_;
+}
+
 Window::~Window() {
   glfwDestroyWindow(handle_);
 }

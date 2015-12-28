@@ -39,6 +39,37 @@ GLuint INDICES[6] = {
 
 enum class WindowMode { WINDOW, FULLSCREEN, };
 
+struct Options {
+  Options(): showHelp(false), windowMode(WindowMode::WINDOW) {}
+
+  bool showHelp;
+  WindowMode windowMode;
+};
+
+Options parseOptions(int argc, char* argv[]) {
+  Options options;
+  for (++argv, --argc; argc > 0; ++argv, --argc) {
+    const auto arg = std::string(*argv);
+    if (arg == "--fullscreen" || arg == "-f") {
+      options.windowMode = WindowMode::FULLSCREEN;
+    } else if (arg == "--help" || arg == "-h") {
+      options.showHelp = true;
+    } else {
+      throw std::runtime_error("unknown argument: `" + arg + "`");
+    }
+  }
+  return options;
+}
+
+int showHelp() {
+  std::cout << R"END(Usage: gl-demo [options]
+Options:
+  --fullscreen, -f          Create a fullscreen window
+  --help, -h                Show this
+)END";
+  return 0;
+}
+
 glfwpp::Window createWindow(glfwpp::Context& context, WindowMode windowMode) {
   if (windowMode == WindowMode::WINDOW) {
     return glfwpp::Window(800, 600, "Demo", nullptr, nullptr);
@@ -52,16 +83,26 @@ glfwpp::Window createWindow(glfwpp::Context& context, WindowMode windowMode) {
   return glfwpp::Window(mode->width, mode->height, "Demo", monitor, nullptr);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+  const auto options = parseOptions(argc, argv);
+  if (options.showHelp) {
+    return showHelp();
+  }
+
   glfwSetErrorCallback(errorCallback);
 
   glfwpp::Context context;
+
   context.windowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   context.windowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   context.windowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   context.windowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+  context.windowHint(GLFW_RESIZABLE, GL_FALSE);
 
-  glfwpp::Window window = createWindow(context, WindowMode::WINDOW);
+  glfwpp::Window window = createWindow(context, options.windowMode);
+
+  context.makeContextCurrent(window);
+  context.setKeyCallback(window, keyCallback);
 
   glewExperimental = GL_TRUE;
   GLenum err = glewInit();
@@ -71,9 +112,6 @@ int main() {
       reinterpret_cast<const char*>(glewGetErrorString(err))
     );
   }
-
-  context.makeContextCurrent(window);
-  context.setKeyCallback(window, keyCallback);
 
   GLuint vao;
   glGenVertexArrays(1, &vao);

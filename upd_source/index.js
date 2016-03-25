@@ -400,6 +400,10 @@ class UpdAgent {
 }
 
 ;(() => {
+  if (process.getuid() <= 0) {
+    process.stderr.write('Cowardly refusing to execute as root.\n');
+    return process.exit(124);
+  }
   const opts = nopt({verbose: Boolean, once: Boolean})
   const updAgent = new UpdAgent(opts);
   updAgent.update({

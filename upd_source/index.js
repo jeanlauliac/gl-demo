@@ -2,8 +2,8 @@
 
 'use strict'
 
+import * as FileStatus from './FileStatus'
 import Digraph from './Digraph'
-import FileStatus from './FileStatus'
 import {spawn} from 'child_process'
 import chokidar from 'chokidar'
 import crypto from 'crypto'
@@ -25,7 +25,7 @@ function sha1(data) {
 const UPD_CACHE_PATH = '.upd_cache'
 
 type FileRelation = 'source' | 'dependency';
-type FileGraph = Digraph<string, FileStatus, FileRelation>
+type FileGraph = Digraph<string, FileStatus.Status, FileRelation>
 
 type State = {
   files: FileGraph,
@@ -112,7 +112,7 @@ class UpdAgent {
 
   _updateObject(
     files: FileGraph,
-    file: FileStatus,
+    file: FileStatus.Status,
     filePath: string
   ): Promise<[UpdateResult, immutable._Iterable_Indexed<string>]> {
     const depFilePath = filePath + '.d'
@@ -144,7 +144,7 @@ class UpdAgent {
 
   _updateProgram(
     files: FileGraph,
-    file: FileStatus,
+    file: FileStatus.Status,
     filePath: string
   ): Promise<[UpdateResult, immutable._Iterable_Indexed<string>]> {
     return this._spawn(
@@ -159,7 +159,7 @@ class UpdAgent {
 
   _updateFile(
     files: FileGraph,
-    file: FileStatus,
+    file: FileStatus.Status,
     filePath: string
   ): Promise<[UpdateResult, immutable._Iterable_Indexed<string>]> {
     switch (file.type) {
@@ -173,16 +173,16 @@ class UpdAgent {
 
   _startUpdateFile(
     files: FileGraph,
-    file: FileStatus,
+    file: FileStatus.Status,
     filePath: string
-  ): FileStatus {
+  ): FileStatus.Status {
     this._updateFile(files, file, filePath).then(([updateResult, depPaths]) => {
       if (updateResult === 'success') {
         return void this.update({type: 'fileUpdated', filePath, depPaths})
       }
       return void this.update({type: 'fileUpdateFailed', filePath})
     }).catch(error => process.nextTick(() => { throw error }))
-    return file.setFreshness('updating')
+    return FileStatus.set(file, 'updating')
   }
 
   _startWatching() {
@@ -245,7 +245,7 @@ class UpdAgent {
       if (link.target.freshness === 'stale') {
         continue
       }
-      const successor = link.target.setFreshness('stale')
+      const successor = FileStatus.set(link.target, 'stale')
       files = files.set(successorPath, successor)
       successors = successors.concat(files.following(successorPath).entrySeq())
     }
@@ -272,7 +272,7 @@ class UpdAgent {
     if (file == null || file.freshness !== 'updating') {
       return state
     }
-    file = file.setFreshness('fresh')
+    file = FileStatus.set(file, 'fresh')
     let files = state.files.set(filePath, file)
     depPaths.forEach(depPath => {
       if (!files.has(depPath)) {
@@ -298,7 +298,7 @@ class UpdAgent {
     if (file == null || file.freshness !== 'updating') {
       return state
     }
-    file = file.setFreshness('stale')
+    file = FileStatus.set(file, 'stale')
     return {files: state.files.set(filePath, file)}
   }
 

@@ -45,11 +45,11 @@ declare module 'immutable' {
     size: ?number;
   }
 
-  declare class _Map<K, V> extends __Common_KeyValue<K, V> {
-    filter(pred: (value: V, key?: K) => boolean): _Map<K, V>;
-    map<T>(iter: (value: V, key: K) => T): _Map<K, T>;
-    remove(key: K): _Map<K, V>;
-    set(key: K, value: V): _Map<K, V>;
+  declare class ImmMap<K, V> extends __Common_KeyValue<K, V> {
+    filter(pred: (value: V, key?: K) => boolean): ImmMap<K, V>;
+    map<T>(iter: (value: V, key: K) => T): ImmMap<K, T>;
+    remove(key: K): ImmMap<K, V>;
+    set(key: K, value: V): ImmMap<K, V>;
     size: number;
   }
 
@@ -60,19 +60,19 @@ declare module 'immutable' {
     map<T>(iter: (value: V, key: number) => T): _Iterable_Indexed<T>;
   }
 
-  declare class _Set<K> {
-    add(key: K): _Set;
+  declare class ImmSet<K> {
+    add(key: K): ImmSet;
     every(pred: (key: K) => boolean): boolean;
     forEach(iter: (key: K) => ?boolean): void;
     has(key: K): boolean;
-    filter(pred: (key: K) => boolean): _Set<K>;
+    filter(pred: (key: K) => boolean): ImmSet<K>;
     reduce<R>(reducer: (reduction: R, key: K) => R, initialReduction: R): R;
-    remove(key: K): _Set<K>;
+    remove(key: K): ImmSet<K>;
     toArray(): Array<K>;
     toSeq(): _Iterable_Indexed<K>;
   }
 
-  declare class _List<V> {}
+  declare class ImmList<V> {}
 
   declare class IterableImpl {
     Indexed<V>(values?: Array<V> | _Iterable_Indexed<V>): _Iterable_Indexed<V>;
@@ -83,9 +83,9 @@ declare module 'immutable' {
   }
 
   declare var Iterable: IterableImpl;
-  declare function Set<V>(): _Set<V>;
-  declare function Map<K, V>(): _Map<K, V>;
-  declare function List<V>(): _List<V>;
+  declare function Set<V>(): ImmSet<V>;
+  declare function Map<K, V>(): ImmMap<K, V>;
+  declare function List<V>(): ImmList<V>;
 
   declare function is(left: any, right: any): boolean;
 

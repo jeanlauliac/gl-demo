@@ -1,0 +1,172 @@
+/* @flow */
+
+'use strict'
+
+import type {ImmMap, ImmSet} from 'immutable';
+
+import immutable from 'immutable'
+import nullthrows from './nullthrows'
+
+// Describe the keys adjacent to a particular key.
+class Adjacency<TKey, TValue> {
+  // All predecessors' keys.
+  predecessors: ImmSet<TKey>;
+  // Associate each of the successors' keys to the value of the arc that goes
+  // from this key to a particular successor.
+  successors: ImmMap<TKey, TValue>;
+
+  valueOf(): ImmMap<TKey, TValue> {
+    return this.successors;
+  }
+
+  toString(): string {
+    return this.successors.toString();
+  }
+};
+
+// Creates an Adjacency object.
+function adjacency(values) {
+  return Object.assign(Object.create(Adjacency.prototype), values);
+}
+
+// Representation of a directed adjacency list of keys. Two adjacent keys are
+// linked by an arbitrary value (that can be `void`).
+export type AdjacencyList<TKey, TValue> = ImmMap<TKey, Adjacency<TKey, TValue>>;
+
+// Get a list that contains no adjacencies.
+export function empty<TKey, TValue>(): AdjacencyList<TKey, TValue> {
+  return immutable.Map();
+}
+
+// Get the total number of arcs.
+export function count<TKey, TValue>(
+  list: AdjacencyList<TKey, TArc>,
+): number {
+  return list.reduce((total, adjacency) => {
+    return adjacency.successors.size + total;
+  }, 0);
+}
+
+// Check whether the list is empty.
+export function isEmpty<TKey, TValue>(
+  list: AdjacencyList<TKey, TArc>,
+): boolean {
+  return count(list) === 0;
+}
+
+const EMPTY_ADJACENCY = {
+  predecessors: immutable.Set(),
+  successors: immutable.Map(),
+};
+
+// Link two keys with a valued arc. The value of the arc is just updated if the
+// link already exists.
+export function add<TKey, TValue>(
+  list: AdjacencyList<TKey, TValue>,
+  originKey: TKey,
+  targetKey: TKey,
+  value: TValue,
+): AdjacencyList<TKey, TValue> {
+  const origin = list.get(originKey, EMPTY_ADJACENCY);
+  const target = list.get(targetKey, EMPTY_ADJACENCY);
+  return list.withMutations(mlist => {
+    mlist.set(originKey, adjacency({
+      predecessors: origin.predecessors,
+      successors: origin.successors.set(targetKey, value),
+    }));
+    mlist.set(targetKey, adjacency({
+      predecessors: target.predecessors.add(originKey),
+      successors: target.successors,
+    }));
+  });
+}
+
+export const set = add;
+
+function isAdjacencyEmpty<TKey, TValue>(
+  {predecessors, successors}: Adjacency<TKey, TValue>,
+): boolean {
+  return predecessors.isEmpty() && successors.isEmpty();
+}
+
+// Remove the link between two keys, if it exists. Return the same list
+// otherwise.
+export function remove<TKey, TValue>(
+  list: AdjacencyList<TKey, TValue>,
+  originKey: TKey,
+  targetKey: TKey,
+): AdjacencyList<TKey, TValue> {
+  const origin = list.get(originKey, EMPTY_ADJACENCY);
+  const target = list.get(targetKey, EMPTY_ADJACENCY);
+  const nextOrigin = adjacency({
+    predecessors: origin.predecessors,
+    successors: origin.successors.remove(targetKey),
+  });
+  const nextList = isAdjacencyEmpty(nextOrigin) ?
+    list.remove(originKey) : list.set(originKey, nextOrigin);
+  const nextTarget = adjacency({
+    predecessors: target.predecessors.remove(originKey),
+    successors: target.successors,
+  });
+  return isAdjacencyEmpty(nextTarget) ?
+    nextList.remove(targetKey) : nextList.set(targetKey, nextTarget);
+}
+
+// Check whether there exists an arc between two keys.
+export function has<TKey, TValue>(
+  list: AdjacencyList<TKey, TValue>,
+  originKey: TKey,
+  targetKey: TKey,
+): boolean {
+  const origin = list.get(originKey, EMPTY_ADJACENCY);
+  return origin.successors.has(targetKey);
+}
+
+// Get the value of the arc between the two specifed keys. Return `undefined`
+// or the specified default value if the arc does not exist.
+export function get<TKey, TValue>(
+  list: AdjacencyList<TKey, TValue>,
+  originKey: TKey,
+  targetKey: TKey,
+  defValue: TValue | void = undefined,
+): TValue | void {
+  const origin = list.get(originKey, EMPTY_ADJACENCY);
+  if (origin.successors.has(targetKey)) {
+    return defValue;
+  }
+  return origin.successors.get(targetKey);
+}
+
+// Get an iterator on the arcs going out of the specified key.
+export function following<TKey, TValue>(
+  list: AdjacencyList<TKey, TValue>,
+  key: TKey,
+): Iterator<[TKey, TValue]> {
+  return list.get(key, EMPTY_ADJACENCY).successors.entries();
+}
+
+// Get an iterable of the arcs going out of the specified key.
+export function followingSeq<TKey, TValue>(
+  list: AdjacencyList<TKey, TValue>,
+  key: TKey,
+): ImmKeyedIterable<TKey, TValue> {
+  return immutable.Iterable.Keyed(following(list, key));
+}
+
+// Get an iterator on the arc going onto the specified key.
+export function preceding<TKey, TValue>(
+  list: AdjacencyList<TKey, TValue>,
+  key: TKey,
+): Iterator<[TKey, TValue]> {
+  return list.get(key, EMPTY_ADJACENCY).predecessors.toSeq().map(originKey => {
+    return list.get(originKey, EMPTY_ADJACENCY).successors.get(key);
+  }).entries();
+}
+
+// Get an iterable of the arcs going onto the specified key.
+export function precedingSeq<TKey, TValue>(
+  list: AdjacencyList<TKey, TValue>,
+  key: TKey,
+): ImmKeyedIterable<TKey, TValue> {
+  return immutable.Iterable.Keyed(preceding(list, key));
+}

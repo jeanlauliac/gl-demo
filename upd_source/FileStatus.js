@@ -1,6 +1,6 @@
 /* @flow */
 
-'use strict'
+'use strict';
 
 export type Freshness = 'fresh' | 'updating' | 'stale';
 export type Type = 'program' | 'object' | 'none';
@@ -13,12 +13,12 @@ export type Status = {
    * Does it need to be refreshed to complete the update? Stale files might not
    * even exist in the filesystem.
    */
-  freshness: Freshness;
+  freshness: Freshness,
   /**
    * The nature of the file. It'll use different stategies to update the file
    * depending on its type.
    */
-  type: Type;
+  type: Type,
 };
 
 export function create(freshness: Freshness, type: Type): Status {

@@ -1,3 +1,5 @@
+'use strict';
+
 import glob from 'glob'
 
 glob('./upd_source/*.test.js', (error, files) => {

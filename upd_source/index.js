@@ -1,20 +1,20 @@
 /* @flow */
 
-'use strict'
+'use strict';
 
-import * as FileStatus from './FileStatus'
-import Digraph from './Digraph'
-import {spawn} from 'child_process'
-import chokidar from 'chokidar'
-import crypto from 'crypto'
-import fs from 'fs'
-import glob from 'glob'
-import immutable from 'immutable'
-import mkdirp from 'mkdirp'
-import nopt from 'nopt'
-import path from 'path'
-import readline from 'readline'
-import {Writable} from 'stream'
+import * as FileStatus from './FileStatus';
+import Digraph from './Digraph';
+import {spawn} from 'child_process';
+import chokidar from 'chokidar';
+import crypto from 'crypto';
+import fs from 'fs';
+import glob from 'glob';
+import immutable from 'immutable';
+import mkdirp from 'mkdirp';
+import nopt from 'nopt';
+import path from 'path';
+import readline from 'readline';
+import {Writable} from 'stream';
 
 function sha1(data) {
   var shasum = crypto.createHash('sha1')
@@ -24,30 +24,9 @@ function sha1(data) {
 
 const UPD_CACHE_PATH = '.upd_cache'
 
-type FileRelation = 'source' | 'dependency';
-type FileGraph = Digraph<string, FileStatus.Status, FileRelation>
-
 type State = {
   files: FileGraph,
 }
-
-type Event = {
-  type: 'start',
-  sourceFilePaths: immutable._Iterable_Indexed<string>,
-  programFilePath: string,
-} | {
-  filePath: string,
-  type: 'fileUpdateFailed',
-} | {
-  depPaths: immutable._Iterable_Indexed<string>,
-  filePath: string,
-  type: 'fileUpdated',
-} | {
-  filePath: string,
-  type: 'fileChanged',
-}
-
-type UpdateResult = 'failure' | 'success';
 
 function escapeShellArg(arg) {
   return arg.replace(/( )/, '\\$1')

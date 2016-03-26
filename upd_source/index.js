@@ -122,6 +122,7 @@ class UpdAgent {
         '-c', '-o', filePath,
         '-Wall', '-std=c++14', '-fcolor-diagnostics',
         '-MMD', '-MF', depFilePath,
+        '-I', '/usr/local/include',
       ].concat(files.preceding(filePath).filter(link => (
         link.value === 'source'
       )).keySeq().toArray())
@@ -152,7 +153,7 @@ class UpdAgent {
       [
         '-o', filePath, '-framework', 'OpenGL',
         '-Wall', '-std=c++14', '-lglew', '-lglfw3',
-        '-fcolor-diagnostics',
+        '-fcolor-diagnostics', '-L', '/usr/local/lib',
       ].concat(files.preceding(filePath).keySeq().toArray())
     ).then(updateResult => [updateResult, immutable.Iterable.Indexed()])
   }

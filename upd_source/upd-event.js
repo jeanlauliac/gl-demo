@@ -4,10 +4,11 @@
 
 export type FilePath = string;
 
-export type Event = {
-  type: 'start',
-  sourceFilePaths: immutable._Iterable_Indexed<FilePath>,
+// Describe something that happened in the Upd agent.
+export type UpdEvent = {
   programFilePath: FilePath,
+  sourceFilePaths: immutable._Iterable_Indexed<FilePath>,
+  type: 'start',
 } | {
   filePath: FilePath,
   type: 'file-update-failed',

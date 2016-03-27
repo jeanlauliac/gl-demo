@@ -3,7 +3,7 @@
 'use strict';
 
 import {Status} from './file-status';
-import {Event} from './event';
+import {UpdEvent} from './event';
 
 export type UpdateResult = 'failure' | 'success';
 

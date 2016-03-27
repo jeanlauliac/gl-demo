@@ -4,30 +4,28 @@
 
 import type {ImmMap, ImmSet} from 'immutable';
 
-import immutable from 'immutable'
-import nullthrows from './nullthrows'
+import createFreezed from './create-freezed';
+import nullthrows from './nullthrows';
+import immutable from 'immutable';
 
 // Describe the keys adjacent to a particular key.
-class Adjacency<TKey, TValue> {
+type Adjacency<TKey, TValue> = {
   // All predecessors' keys.
   predecessors: ImmSet<TKey>;
   // Associate each of the successors' keys to the value of the arc that goes
   // from this key to a particular successor.
   successors: ImmMap<TKey, TValue>;
-
-  valueOf(): ImmMap<TKey, TValue> {
-    return this.successors;
-  }
-
-  toString(): string {
-    return this.successors.toString();
-  }
 };
 
-// Creates an Adjacency object.
-function adjacency(values) {
-  return Object.assign(Object.create(Adjacency.prototype), values);
-}
+// Create a freezed adjacency object.
+const adjacency = createFreezed.bind(undefined, {
+  valueOf(): ImmMap<TKey, TValue> {
+    return this.successors;
+  },
+  toString(): string {
+    return this.successors.toString();
+  },
+});
 
 // Representation of a directed adjacency list of keys. Two adjacent keys are
 // linked by an arbitrary value (that can be `void`).
@@ -52,6 +50,24 @@ export function isEmpty<TKey, TValue>(
   list: AdjacencyList<TKey, TArc>,
 ): boolean {
   return count(list) === 0;
+}
+
+// Get an iterator over all the arcs of the list and their values.
+export function arcs<TKey, TValue>(
+  list: AdjacencyList<TKey, TArc>,
+): Iterator<[[TKey, TKey], TValue]> {
+  return list.toSeq().flatMap((adjacency, originKey) => {
+    return adjacency.successors.toSeq().mapKeys(targetKey => {
+      return [originKey, targetKey];
+    });
+  }).entries();
+}
+
+// Get an iterable of all the arcs of the list and their values.
+export function arcSeq<TKey, TValue>(
+  list: AdjacencyList<TKey, TArc>,
+): ImmKeyedIterable<[TKey, TKey], TValue> {
+  return immutable.Iterable.Keyed(arcs(list));
 }
 
 const EMPTY_ADJACENCY = {
@@ -169,4 +185,14 @@ export function precedingSeq<TKey, TValue>(
   key: TKey,
 ): ImmKeyedIterable<TKey, TValue> {
   return immutable.Iterable.Keyed(preceding(list, key));
+}
+
+// Return a string representation of the adjacency list.
+export function toString<TKey, TValue>(
+  list: AdjacencyList<TKey, TValue>,
+) {
+  const arcStrings = arcSeq(list).map((value, [originKey, targetKey]) => {
+    return `${originKey}=>${targetKey}: ${value}`;
+  });
+  return `adjacency-list {${arcStrings.join(', ')}}`;
 }

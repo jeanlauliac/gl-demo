@@ -1,4 +1,4 @@
-/* @flow */
+/* @noflow */
 
 'use strict';
 
@@ -16,6 +16,8 @@ import path from 'path';
 import readline from 'readline';
 import {Writable} from 'stream';
 
+export type UpdateResult = 'failure' | 'success';
+
 function sha1(data) {
   var shasum = crypto.createHash('sha1')
   shasum.update(data)
@@ -23,10 +25,6 @@ function sha1(data) {
 }
 
 const UPD_CACHE_PATH = '.upd_cache'
-
-type State = {
-  files: FileGraph,
-}
 
 function escapeShellArg(arg) {
   return arg.replace(/( )/, '\\$1')

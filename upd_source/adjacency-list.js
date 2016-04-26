@@ -1,6 +1,6 @@
 /* @flow */
 
-'use strict'
+'use strict';
 
 import type {ImmMap, ImmSet} from 'immutable';
 
@@ -19,7 +19,7 @@ type Adjacency<TKey, TValue> = {
 
 // Create a freezed adjacency object.
 const adjacency = createFreezed.bind(undefined, {
-  valueOf(): ImmMap<TKey, TValue> {
+  valueOf(): Object {
     return this.successors;
   },
   toString(): string {

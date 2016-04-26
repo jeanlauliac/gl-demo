@@ -4,6 +4,7 @@
 
 import type {AgentEvent, FilePath} from './agent-event';
 import type {FileAdjacencyList} from './file-adjacency-list';
+import type {Process} from './process';
 
 import fileAdjacencyList from './file-adjacency-list'
 import immutable from 'immutable';
@@ -14,7 +15,9 @@ export type AgentState = {
   // All the files we want to update.
   staleFiles: StaleFiles,
   // What is the process currently building a file.
-  processByFile: ImmMap<FilePath, Object>,
+  processByFile: ImmMap<FilePath, Process>,
+  // The processes currently running. They are in the order of their creation.
+  processes: ImmList<Process>,
 };
 
 /**

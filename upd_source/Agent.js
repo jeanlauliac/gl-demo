@@ -7,7 +7,7 @@ import type {AgentEvent} from './agent-event';
 import type {AgentState} from './agent-state';
 
 import ProcessAgent from './ProcessAgent';
-import {update} from './agent-state';
+import {getProcesses, initialize, update} from './agent-state';
 import immutable from 'immutable';
 import util from 'util';
 
@@ -45,10 +45,11 @@ export default class Agent {
 
   constructor(config: AgentConfig) {
     Object.defineProperty(this, 'config', {value: config});
-    this.state = Object.freeze({
-      staleFiles: immutable.Set(),
-    });
+    this.state = initialize(config);
     this.processAgent = new ProcessAgent();
+    this.processAgent.on('exit', index => {
+
+    });
   }
 
   verboseLog(...args) {
@@ -60,7 +61,7 @@ export default class Agent {
   update(event: AgentEvent): void {
     this.verboseLog('Event `%s`', event.type);
     const newState = update(this.config, this.state, event);
-    this.processAgent.update(newState.processes);
+    this.processAgent.update(getProcesses(newState));
     this.state = newState;
   }
 

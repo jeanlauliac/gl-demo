@@ -2,6 +2,9 @@
 
 'use strict';
 
-export default function chain<T, U>(value: T, fun: (value: T) => U): U {
-  return fun(value);
+/**
+ * Reduce a value through a series of functions.
+ */
+export default function chain<T>(funs: Array<(value: T) => T>, value: T): T {
+  return funs.reduce((value, fun) => fun(value), value);
 }

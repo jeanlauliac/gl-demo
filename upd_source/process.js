@@ -7,8 +7,11 @@ import type {ImmList, ImmMap, ImmSet} from 'immutable';
 import createFreezed from './create-freezed';
 import immutable from 'immutable';
 
+/**
+ * Represent a process being run on the system.
+ */
 type Process = {
-  // Process to run.
+  // Name of the binary to be run in the current context. Ex. 'ls'.
   command: string;
   // Ordered arguments, like on the command-line.
   args: ImmList<string>;

@@ -14,10 +14,8 @@ type StaleFiles = ImmSet<FilePath>;
 export type AgentState = {
   // All the files we want to update.
   staleFiles: StaleFiles,
-  // What is the process currently building a file.
-  processByFile: ImmMap<FilePath, Process>,
-  // The processes currently running. They are in the order of their creation.
-  processes: ImmList<Process>,
+  // What files are being updated right now.
+  updatingFiles: ImmSet<FilePath>,
 };
 
 /**
@@ -36,6 +34,18 @@ function updateStaleFiles(
 }
 
 /**
+ * Return the initial state given a particular configuration.
+ */
+export function initialize(
+  config: AgentConfig,
+): AgentState {
+  return Object.freeze({
+    staleFiles: immutable.Set(),
+    updatingFiles: immutable.Set(),
+  });
+}
+
+/**
  * Decide the next step needed to update the state.
  */
 export function update(
@@ -45,4 +55,15 @@ export function update(
 ): AgentState {
   const staleFiles = updateStaleFiles(config, state.staleFiles, event);
   return Object.freeze({staleFiles});
+}
+
+/**
+ * Return the list of processes that should be running right now, indexed
+ * by the name of the file being built.
+ */
+export function getProcesses(
+  config: AgentConfig,
+  state: AgentState,
+): ImmMap<FilePath, Process> {
+  return [];
 }

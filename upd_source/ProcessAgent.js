@@ -4,53 +4,57 @@
 
 import type {spawn} from 'child_process';
 
+import chain from './chain';
+import {EventEmitter} from 'events';
 import immutable from 'immutable';
+import nullthrows from './nullthrows';
 
-type Spawn = typeof process.spawn;
+type Spawn = typeof spawn;
 
 /**
- * Maintain processes in the system based on an algebraic list of processes.
+ * Maintain processes running in the host system based a keyed collection of
+ * process descriptors.
  */
-export default class ProcessAgent {
+export default class ProcessAgent extends EventEmitter {
 
-  insts: Array<{
+  insts: ImmMap<K, {
     process: Process,
     instance: Object,
   }>;
   spawn: Spawn;
 
   constructor(spawn: Spawn) {
-    this.insts = [];
+    super();
+    this.insts = immutable.Map();
     this.spawn = spawn;
+  }
+
+  _onExit(key: K, code: number, signal: string): void {
+    this.insts = this.insts.delete(key);
+    this.emit('exit', key, code, signal);
   }
 
   /**
    * Compare the specified list of processes to the process we know are
-   * currently running. Create processes that are not running yet, and kill
-   * processes that have been removed from the list.
+   * currently running. Create processes for which the key is new, and kill
+   * processes for which the key has been removed from the map.
    */
-  update(processes: ImmList<Process>) {
-    let instIx = 0;
-    let procIx = 0;
-    while (instIx < this.insts.length) {
-      const inst = this.insts[instIx];
-      if (
-        procIx < processes.size &&
-        immutable.is(inst.process, processes.get(procIx))
-      ) {
-        ++procIx;
-        ++instIx;
-        continue;
-      }
-      inst.instance.kill();
-      this.insts.splice(instIx, 1);
-    }
-    while (procIx < processes.size) {
-      const proc = processes.get(procIx);
-      const instance = this.spawn(proc.command, proc.args);
-      this.insts.push({instance, process: proc});
-      ++procIx;
-    }
+  update(processes: ImmMap<K, Process>): void {
+    const procKeys = immutable.Set(processes.keys());
+    const instKeys = immutable.Set(this.insts.keys());
+    this.insts = chain([
+      insts => procKeys.subtract(instKeys).reduce((insts, newKey) => {
+        const process = nullthrows(processes.get(newKey));
+        const instance = this.spawn(process.command, process.args);
+        instance.on('exit', this._onExit.bind(this, newKey));
+        return insts.set(newKey, {instance, process})
+      }, insts),
+      insts => instKeys.subtract(procKeys).reduce((insts, removedKey) => {
+        const inst = nullthrows(insts.get(removedKey));
+        inst.instance.kill();
+        return insts.delete(removedKey);
+      }, insts),
+    ], this.insts);
   }
 
 }

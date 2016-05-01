@@ -13,6 +13,10 @@ import {getProcesses, initialize, update} from './agent-state';
 import immutable from 'immutable';
 import util from 'util';
 
+function escapeShellArg(arg) {
+  return arg.replace(/( )/, '\\$1')
+}
+
 /**
  * Manage the state of the build at any point in time.
  */
@@ -21,9 +25,10 @@ export default class Agent {
   config: AgentConfig;
   state: AgentState;
   processAgent: ProcessAgent<string>;
+  _innerSpawn: Spawn;
 
   verboseLog(...args: Array<any>): void {
-    if (this.config.verbose) {
+    if (this.config.cliOpts.verbose) {
       console.log('[verbose] %s', util.format(...args));
     }
   }
@@ -37,7 +42,7 @@ export default class Agent {
    * file that is described as running or open.
    */
   update(event: AgentEvent): void {
-    this.verboseLog('Event `%s`', event.type);
+    this.verboseLog('event: %s', event.type);
     this.state = update(this.config, this.state, event);
     this._reconcile();
   }
@@ -46,11 +51,24 @@ export default class Agent {
     this.update({code, key, signal, type: 'process_exit'});
   }
 
+  _spawn(command: string, args: Array<string>): child_process$ChildProcess {
+    const proc = this._innerSpawn(command, args)
+    const escapedArgs = args.map(escapeShellArg);
+    this.verboseLog(`process/spawn(${proc.pid}): ` +
+      `${command} ${escapedArgs.join(' ')}`);
+    proc.on('exit', (code, signal) => {
+      this.verboseLog(`process/exited(${proc.pid}): ${code} ${signal}`);
+    });
+    return proc;
+  }
+
   constructor(config: AgentConfig, spawn: Spawn) {
     Object.defineProperty(this, 'config', {value: config});
-    this.processAgent = new ProcessAgent(spawn);
+    this._innerSpawn = spawn;
+    this.processAgent = new ProcessAgent(this._spawn.bind(this));
     this.processAgent.on('exit', this._onProcessExit.bind(this));
     this.state = initialize(config);
+    this.verboseLog('initialized');
     this._reconcile();
   }
 

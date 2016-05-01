@@ -175,7 +175,8 @@ export function preceding<TKey, TValue>(
   return nullthrows(list.get(key, EMPTY_ADJACENCY))
     .predecessors.toSeq().map(originKey => {
       const origin = nullthrows(list.get(originKey, EMPTY_ADJACENCY));
-      return nullthrows(origin.successors.get(key));
+      // $FlowIssue: if `TValue` supertypes `void`, this is valid.
+      return (origin.successors.get(key): TValue);
     }).entries();
 }
 

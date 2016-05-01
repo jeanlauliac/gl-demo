@@ -80,7 +80,7 @@ function link(
 /**
  * Entry point: build the lists of all the files we need to build.
  */
-cli(opts => {
+cli(cliOpts => {
   const sourceFiles = immutable.List(['main.cpp'])
     .concat(glob.sync('glfwpp/*.cpp'))
     .concat(glob.sync('glpp/*.cpp'))
@@ -98,8 +98,8 @@ cli(opts => {
       ], fileAdj);
     }, adjacencyList.empty())
   );
-  const fileBuilders = sourceObjectPairs.reduce((builders, objectFilePath) => {
-    return builders.set(objectFilePath, compile);
+  const fileBuilders = sourceObjectPairs.reduce((builders, pair) => {
+    return builders.set(pair[1], compile);
   }, immutable.Map()).set('gl-demo', link);
-  return {...opts, fileAdjacencyList, fileBuilders};
+  return {cliOpts, fileAdjacencyList, fileBuilders};
 });

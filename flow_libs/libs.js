@@ -77,6 +77,7 @@ declare module 'immutable' {
 
   declare class ImmSet<K> extends __Common_KeyValue<K, K> {
     add(key: K): ImmSet;
+    delete(key: K): ImmSet<K>;
     filter(pred: (key: K) => boolean): ImmSet<K>;
     remove(key: K): ImmSet<K>;
     subtract(from: ImmSet<K>): ImmSet<K>;

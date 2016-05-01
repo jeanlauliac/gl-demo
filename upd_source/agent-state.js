@@ -7,25 +7,27 @@ import type {FileAdjacencyList} from './file-adjacency-list';
 import type {Process} from './process';
 import type {ImmList, ImmMap, ImmSet} from 'immutable';
 
-import fileAdjacencyList from './file-adjacency-list'
+import * as adjacencyList from './adjacency-list';
+import nullthrows from './nullthrows';
 import immutable from 'immutable';
 
 type StaleFiles = ImmSet<FilePath>;
 
-type AgentCLIConfig = {
+export type AgentCLIOptions = {
   // Terminate the agent once everything is built.
   once: boolean,
   // Print commands.
   verbose: boolean,
 };
 
-export type AgentConfig = AgentCLIConfig & {
+export type AgentConfig = {
+  cliOpts: AgentCLIOptions,
   // What file is used to build other files.
   fileAdjacencyList: FileAdjacencyList,
   // What should be used to build a each particular file.
   fileBuilders: ImmMap<FilePath, (
     filePath: FilePath,
-    sourceFilePaths: ImmList<FilePath>,
+    sourceFilePaths: ImmSet<FilePath>,
   ) => Process>,
 };
 
@@ -37,14 +39,18 @@ export type AgentState = {
 };
 
 /**
- * Return the initial state given a particular configuration.
+ * Return the initial set of files that are stale, and which are to update now.
  */
 export function initialize(
   config: AgentConfig,
 ): AgentState {
+  const staleFiles = immutable.Set(config.fileBuilders.keys());
   return Object.freeze({
-    staleFiles: immutable.Set(),
-    updatingFiles: immutable.Set(),
+    staleFiles,
+    updatingFiles: staleFiles.filter(filePath => {
+      return adjacencyList.precedingSeq(config.fileAdjacencyList, filePath)
+        .every((_, predFilePath) => !staleFiles.has(predFilePath))
+    }),
   });
 }
 
@@ -57,7 +63,26 @@ function updateStaleFiles(
   staleFiles: StaleFiles,
   event: AgentEvent,
 ): StaleFiles {
-  return immutable.Set();
+  switch (event.type) {
+    case 'process_exit':
+      if (event.code === 0) {
+        return staleFiles.delete(event.key);
+      }
+      break;
+  }
+  return staleFiles;
+}
+
+function updateUpdatingFiles(
+  config: AgentConfig,
+  updatingFiles: ImmSet<FilePath>,
+  event: AgentEvent,
+): ImmSet<FilePath> {
+  switch (event.type) {
+    case 'process_exit':
+      return updatingFiles.delete(event.key);
+  }
+  return updatingFiles;
 }
 
 /**
@@ -69,7 +94,7 @@ export function update(
   event: AgentEvent,
 ): AgentState {
   const staleFiles = updateStaleFiles(config, state.staleFiles, event);
-  const {updatingFiles} = state;
+  const updatingFiles = updateUpdatingFiles(config, state.updatingFiles, event);
   return Object.freeze({staleFiles, updatingFiles});
 }
 
@@ -81,5 +106,12 @@ export function getProcesses(
   config: AgentConfig,
   state: AgentState,
 ): ImmMap<FilePath, Process> {
-  return immutable.Map();
+  const adjList = config.fileAdjacencyList;
+  return state.updatingFiles.reduce((processes, filePath) => {
+    const builder = nullthrows(config.fileBuilders.get(filePath));
+    const sources = immutable.Set(
+      adjacencyList.precedingSeq(adjList, filePath).keys()
+    );
+    return processes.set(filePath, builder(filePath, sources));
+  }, immutable.Map());
 }

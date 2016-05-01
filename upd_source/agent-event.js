@@ -8,6 +8,12 @@ export type FilePath = string;
 
 // Describe something that happened in the Upd agent.
 export type AgentEvent = {
-  // Process the current, initial state, potentially starting some processes.
-  type: 'start',
+  // Return code of the process.
+  code: number,
+  // The key of the process that exited.
+  key: string,
+  // Signal that killed the process, if any.
+  signal: string,
+  // A process that has been returned by `getProcesses` before has exited.
+  type: 'process_exit',
 };

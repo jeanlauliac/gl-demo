@@ -2,7 +2,7 @@
 
 'use strict';
 
-import type {ImmMap, ImmSet} from 'immutable';
+import type {ImmKeyedIterable, ImmMap, ImmSet} from 'immutable';
 
 import createFreezed from './create-freezed';
 import nullthrows from './nullthrows';
@@ -38,7 +38,7 @@ export function empty<TKey, TValue>(): AdjacencyList<TKey, TValue> {
 
 // Get the total number of arcs.
 export function count<TKey, TValue>(
-  list: AdjacencyList<TKey, TArc>,
+  list: AdjacencyList<TKey, TValue>,
 ): number {
   return list.reduce((total, adjacency) => {
     return adjacency.successors.size + total;
@@ -47,14 +47,14 @@ export function count<TKey, TValue>(
 
 // Check whether the list is empty.
 export function isEmpty<TKey, TValue>(
-  list: AdjacencyList<TKey, TArc>,
+  list: AdjacencyList<TKey, TValue>,
 ): boolean {
   return count(list) === 0;
 }
 
 // Get an iterator over all the arcs of the list and their values.
 export function arcs<TKey, TValue>(
-  list: AdjacencyList<TKey, TArc>,
+  list: AdjacencyList<TKey, TValue>,
 ): Iterator<[[TKey, TKey], TValue]> {
   return list.toSeq().flatMap((adjacency, originKey) => {
     return adjacency.successors.toSeq().mapKeys(targetKey => {
@@ -65,7 +65,7 @@ export function arcs<TKey, TValue>(
 
 // Get an iterable of all the arcs of the list and their values.
 export function arcSeq<TKey, TValue>(
-  list: AdjacencyList<TKey, TArc>,
+  list: AdjacencyList<TKey, TValue>,
 ): ImmKeyedIterable<[TKey, TKey], TValue> {
   return immutable.Iterable.Keyed(arcs(list));
 }
@@ -83,8 +83,8 @@ export function add<TKey, TValue>(
   targetKey: TKey,
   value: TValue,
 ): AdjacencyList<TKey, TValue> {
-  const origin = list.get(originKey, EMPTY_ADJACENCY);
-  const target = list.get(targetKey, EMPTY_ADJACENCY);
+  const origin = nullthrows(list.get(originKey, EMPTY_ADJACENCY));
+  const target = nullthrows(list.get(targetKey, EMPTY_ADJACENCY));
   return list.withMutations(mlist => {
     mlist.set(originKey, adjacency({
       predecessors: origin.predecessors,
@@ -99,10 +99,8 @@ export function add<TKey, TValue>(
 
 export const set = add;
 
-function isAdjacencyEmpty<TKey, TValue>(
-  {predecessors, successors}: Adjacency<TKey, TValue>,
-): boolean {
-  return predecessors.isEmpty() && successors.isEmpty();
+function isAdjacencyEmpty<TKey, TValue>(ajd: Adjacency<TKey, TValue>): boolean {
+  return ajd.predecessors.isEmpty() && ajd.successors.isEmpty();
 }
 
 // Remove the link between two keys, if it exists. Return the same list
@@ -112,8 +110,8 @@ export function remove<TKey, TValue>(
   originKey: TKey,
   targetKey: TKey,
 ): AdjacencyList<TKey, TValue> {
-  const origin = list.get(originKey, EMPTY_ADJACENCY);
-  const target = list.get(targetKey, EMPTY_ADJACENCY);
+  const origin = nullthrows(list.get(originKey, EMPTY_ADJACENCY));
+  const target = nullthrows(list.get(targetKey, EMPTY_ADJACENCY));
   const nextOrigin = adjacency({
     predecessors: origin.predecessors,
     successors: origin.successors.remove(targetKey),
@@ -134,7 +132,7 @@ export function has<TKey, TValue>(
   originKey: TKey,
   targetKey: TKey,
 ): boolean {
-  const origin = list.get(originKey, EMPTY_ADJACENCY);
+  const origin = nullthrows(list.get(originKey, EMPTY_ADJACENCY));
   return origin.successors.has(targetKey);
 }
 
@@ -144,9 +142,9 @@ export function get<TKey, TValue>(
   list: AdjacencyList<TKey, TValue>,
   originKey: TKey,
   targetKey: TKey,
-  defValue: TValue | void = undefined,
+  defValue?: TValue,
 ): TValue | void {
-  const origin = list.get(originKey, EMPTY_ADJACENCY);
+  const origin = nullthrows(list.get(originKey, EMPTY_ADJACENCY));
   if (origin.successors.has(targetKey)) {
     return defValue;
   }
@@ -158,7 +156,7 @@ export function following<TKey, TValue>(
   list: AdjacencyList<TKey, TValue>,
   key: TKey,
 ): Iterator<[TKey, TValue]> {
-  return list.get(key, EMPTY_ADJACENCY).successors.entries();
+  return nullthrows(list.get(key, EMPTY_ADJACENCY)).successors.entries();
 }
 
 // Get an iterable of the arcs going out of the specified key.
@@ -174,9 +172,11 @@ export function preceding<TKey, TValue>(
   list: AdjacencyList<TKey, TValue>,
   key: TKey,
 ): Iterator<[TKey, TValue]> {
-  return list.get(key, EMPTY_ADJACENCY).predecessors.toSeq().map(originKey => {
-    return list.get(originKey, EMPTY_ADJACENCY).successors.get(key);
-  }).entries();
+  return nullthrows(list.get(key, EMPTY_ADJACENCY))
+    .predecessors.toSeq().map(originKey => {
+      const origin = nullthrows(list.get(originKey, EMPTY_ADJACENCY));
+      return nullthrows(origin.successors.get(key));
+    }).entries();
 }
 
 // Get an iterable of the arcs going onto the specified key.
@@ -190,7 +190,7 @@ export function precedingSeq<TKey, TValue>(
 // Return a string representation of the adjacency list.
 export function toString<TKey, TValue>(
   list: AdjacencyList<TKey, TValue>,
-) {
+): string {
   const arcStrings = arcSeq(list).map((value, [originKey, targetKey]) => {
     return `${originKey}=>${targetKey}: ${value}`;
   });

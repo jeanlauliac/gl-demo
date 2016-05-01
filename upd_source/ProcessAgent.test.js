@@ -24,14 +24,15 @@ tap.test('ProcessAgent', t => {
   const onExit = sinon.spy();
   agent.on('exit', onExit);
 
-  const proc1 = process.create('ls', ['-la']);
+  const proc1 = process.create('ls', immutable.List(['-la']));
   agent.update(immutable.Map({proc1}));
-  t.ok(spawn.calledOnce && spawn.calledWith(proc1.command, proc1.args));
+  t.ok(spawn.calledOnce &&
+    spawn.calledWith(proc1.command, proc1.args.toArray()));
   t.ok(!kill.called);
 
-  const proc2 = process.create('grep', ['beep']);
+  const proc2 = process.create('grep', immutable.List(['beep']));
   agent.update(immutable.Map({proc1, proc2}));
-  t.ok(spawn.calledWith(proc2.command, proc2.args));
+  t.ok(spawn.calledWith(proc2.command, proc2.args.toArray()));
   t.ok(!kill.called);
 
   agent.update(immutable.Map({proc2}));

@@ -2,25 +2,24 @@
 
 'use strict';
 
-import type {spawn} from 'child_process';
+import type {Process} from './process';
+import type {ImmMap} from 'immutable';
 
 import chain from './chain';
+import nullthrows from './nullthrows';
 import {EventEmitter} from 'events';
 import immutable from 'immutable';
-import nullthrows from './nullthrows';
 
-type Spawn = typeof spawn;
+export type Spawn = (command: string, args: Array<string>) =>
+  child_process$ChildProcess;
 
 /**
  * Maintain processes running in the host system based a keyed collection of
  * process descriptors.
  */
-export default class ProcessAgent extends EventEmitter {
+export default class ProcessAgent<K> extends EventEmitter {
 
-  insts: ImmMap<K, {
-    process: Process,
-    instance: Object,
-  }>;
+  insts: ImmMap<K, {process: Process, instance: child_process$ChildProcess}>;
   spawn: Spawn;
 
   constructor(spawn: Spawn) {
@@ -45,7 +44,7 @@ export default class ProcessAgent extends EventEmitter {
     this.insts = chain([
       insts => procKeys.subtract(instKeys).reduce((insts, newKey) => {
         const process = nullthrows(processes.get(newKey));
-        const instance = this.spawn(process.command, process.args);
+        const instance = this.spawn(process.command, process.args.toArray());
         instance.on('exit', this._onExit.bind(this, newKey));
         return insts.set(newKey, {instance, process})
       }, insts),

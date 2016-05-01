@@ -2,9 +2,13 @@
 
 'use strict';
 
+import type {Process} from './process';
+import type {ImmSet} from 'immutable';
+
 import * as adjacencyList from './adjacency-list';
 import chain from './chain';
 import cli from './cli';
+import * as process from './process';
 import glob from 'glob';
 import immutable from 'immutable';
 import path from 'path';
@@ -20,57 +24,57 @@ function pathWithoutExt(filePath: string): string {
 /**
  * Promise version of fs.readFile.
  */
-function readFilePromise(filePath: string, encoding: string) {
-  return new Promise((resolve, reject) => {
-    fs.readFile(filePath, encoding, (error, content) => {
-      if (error) {
-        return void reject(error);
-      }
-      resolve(content);
-    });
-  });
-}
+// function readFilePromise(filePath: string, encoding: string) {
+//   return new Promise((resolve, reject) => {
+//     fs.readFile(filePath, encoding, (error, content) => {
+//       if (error) {
+//         return void reject(error);
+//       }
+//       resolve(content);
+//     });
+//   });
+// }
 
 /**
- * Compile the specified C++14 source files into the specified object file.
+ * Return a descriptor of the process that compiles the specified C++14 source
+ * files into the specified object file.
  */
 function compile(
   filePath: string,
-  sourcePaths: ImmList<string>,
-  helpers: Helpers,
-): Promise<BuildResult> {
+  sourcePaths: ImmSet<string>,
+): Process {
   const depFilePath = pathWithoutExt(filePath) + '.d';
-  return helpers.spawn('clang++', [
+  return process.create('clang++', immutable.List([
     '-c', '-o', filePath, '-Wall', '-std=c++14', '-fcolor-diagnostics',
     '-MMD', '-MF', depFilePath, '-I', '/usr/local/include',
-  ].concat(sourcePaths.toArray())).then(result => {
-    if (result !== 'built') {
-      return Promise.resolve({result, dynamicDependencies: immutable.List()});
-    }
-    return readFilePromise(depFilePath, 'utf8').then(content => {
-      // Ain't got no time for a true parser.
-      const dynamicDependencies = immutable.List(content.split(/(?:\n| )/)
-        .filter(chunk => chunk.endsWith('.h'))
-        .map(filePath => path.normalize(filePath)));
-      return {result, dynamicDependencies};
-    });
-  });
+  ]).concat(sourcePaths.toArray()));
+  // Implement this part in a pure functional way as well.
+  // .then(result => {
+  //   if (result !== 'built') {
+  //     return Promise.resolve({result, dynamicDependencies: immutable.List()});
+  //   }
+  //   return readFilePromise(depFilePath, 'utf8').then(content => {
+  //     // Ain't got no time for a true parser.
+  //     const dynamicDependencies = immutable.List(content.split(/(?:\n| )/)
+  //       .filter(chunk => chunk.endsWith('.h'))
+  //       .map(filePath => path.normalize(filePath)));
+  //     return {result, dynamicDependencies};
+  //   });
+  // });
 }
 
 /**
- * Link the specified binary object files into the specified executable file.
+ * Return a descriptor of the process that links the specified binary object
+ * files into the specified executable file.
  */
 function link(
   filePath: string,
-  sourcePaths: ImmList<string>,
-  helpers: Helpers,
-): Promise<BuildResult> {
-  return helpers.spawn('clang++', [
+  sourcePaths: ImmSet<string>,
+): Process {
+  return process.create('clang++', immutable.List([
     '-o', filePath, '-framework', 'OpenGL', '-Wall', '-std=c++14', '-lglew',
     '-lglfw3', '-fcolor-diagnostics', '-L', '/usr/local/lib',
-  ].concat(sourcePaths.toArray())).then(result => {
-    return {result, dynamicDependencies: immutable.List()};
-  });
+  ]).concat(sourcePaths.toArray()));
 }
 
 /**
@@ -88,10 +92,10 @@ cli(opts => {
   });
   const fileAdjacencyList = (
     sourceObjectPairs.reduce((fileAdj, [sourcePath, objectPath]) => {
-      return chain(
-        adjacencyList.add(fileAdj, sourcePath, objectPath),
-        adj => adjacencyList.add(adj, objectPath, 'gl-demo'),
-      );
+      return chain([
+        fileAdj => adjacencyList.add(fileAdj, sourcePath, objectPath),
+        fileAdj => adjacencyList.add(fileAdj, objectPath, 'gl-demo'),
+      ], fileAdj);
     }, adjacencyList.empty())
   );
   const fileBuilders = sourceObjectPairs.reduce((builders, objectFilePath) => {

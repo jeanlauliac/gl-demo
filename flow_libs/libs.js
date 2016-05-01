@@ -18,6 +18,10 @@ declare module 'tap' {
   declare function test(name: string, cb: (t: any) => void): void;
 }
 
+declare module 'sinon' {
+  declare function spy(): any;
+}
+
 declare module 'immutable' {
 
   declare interface __Common {
@@ -27,59 +31,78 @@ declare module 'immutable' {
 
   declare interface __Common_KeyValue<K, V> extends __Common {
     count(): number;
-    entrySeq(): _Iterable_Indexed<[K, V]>;
+    entries(): Iterator<[K, V]>;
+    entrySeq(): ImmIndexedIterable<[K, V]>;
     every(pred: (value: V, key: K) => boolean): boolean;
     forEach(iter: (value: V, key: K) => ?boolean): number;
-    get(key: K): ?V;
+    get(key: K): V | void;
     has(key: K): boolean;
-    keySeq(): _Iterable_Indexed<K>;
+    keys(): Iterator<K>;
+    keySeq(): ImmIndexedIterable<K>;
     isEmpty(): boolean;
+    join(glue: string): string;
+    reduce<T>(iter: (acc: T, value: V, key: K) => T, init?: T): T;
     some(pred: (value: V, key: K) => boolean): boolean;
     toArray(): Array<V>;
-    toSeq(): _Iterable_Keyed<K, V>;
+    toList(): ImmList<V>;
+    toMap(): ImmMap<K, V>;
+    toSet(): ImmSet<K>;
   }
 
-  declare class _Iterable_Keyed<K, V> extends __Common_KeyValue<K, V> {
-    filter(pred: (value: V, key?: K) => boolean): _Iterable_Keyed<K, V>;
-    map<T>(iter: (value: V, key: K) => T): _Iterable_Keyed<K, T>;
+  declare class ImmKeyedIterable<K, V> extends __Common_KeyValue<K, V> {
+    filter(pred: (value: V, key?: K) => boolean): ImmKeyedIterable<K, V>;
+    flatMap<T, U>(
+      mapper: (value: V, key: K) => __Common_KeyValue<T, U>,
+    ): ImmKeyedIterable<T, U>;
+    map<T>(iter: (value: V, key: K) => T): ImmKeyedIterable<K, T>;
+    mapKeys<T>(mapper: (key: K, value: V) => T): ImmKeyedIterable<T, V>;
     size: ?number;
+    toSeq(): ImmKeyedIterable<K, V>;
   }
 
   declare class ImmMap<K, V> extends __Common_KeyValue<K, V> {
+    delete(key: K): ImmMap<K, V>;
     filter(pred: (value: V, key?: K) => boolean): ImmMap<K, V>;
     map<T>(iter: (value: V, key: K) => T): ImmMap<K, T>;
     remove(key: K): ImmMap<K, V>;
     set(key: K, value: V): ImmMap<K, V>;
     size: number;
+    toSeq(): ImmKeyedIterable<K, V>;
+    withMutations(mutator: (mutableMap: Object) => void): ImmMap<K, V>;
   }
 
-  declare class _Iterable_Indexed<V> {
-    get(key: number): ?V;
-    forEach(iter: (value: V, key: number) => ?boolean): void;
-    toArray(): Array<V>;
-    map<T>(iter: (value: V, key: number) => T): _Iterable_Indexed<T>;
+  declare class ImmIndexedIterable<V> extends __Common_KeyValue<number, V> {
+    map<T>(iter: (value: V, key: number) => T): ImmIndexedIterable<T>;
   }
 
-  declare class ImmSet<K> {
+  declare class ImmSet<K> extends __Common_KeyValue<K, K> {
     add(key: K): ImmSet;
-    every(pred: (key: K) => boolean): boolean;
-    forEach(iter: (key: K) => ?boolean): void;
-    has(key: K): boolean;
     filter(pred: (key: K) => boolean): ImmSet<K>;
-    reduce<R>(reducer: (reduction: R, key: K) => R, initialReduction: R): R;
     remove(key: K): ImmSet<K>;
-    toArray(): Array<K>;
-    toSeq(): _Iterable_Indexed<K>;
+    subtract(from: ImmSet<K>): ImmSet<K>;
+    toSeq(): ImmKeyedIterable<K, K>;
   }
 
-  declare class ImmList<V> {}
+  declare class ImmList<V> extends __Common_KeyValue<number, V> {
+    concat(values: Array<V> |
+      Iterator<V> |
+      ImmList<V>
+    ): ImmList<V>;
+    map<T>(iter: (value: V, key: number) => T): ImmList<T>;
+    toSeq(): ImmIndexedIterable<V>;
+  }
 
   declare class IterableImpl {
-    Indexed<V>(values?: Array<V> | _Iterable_Indexed<V>): _Iterable_Indexed<V>;
+    Indexed<V>(
+      values?: Array<V> |
+        Iterator<V> |
+        ImmIndexedIterable<V>
+    ): ImmIndexedIterable<V>;
     Keyed<K, V>(
       values?: Array<[K, V]> |
-      _Iterable_Indexed<[K, V]>
-    ): _Iterable_Keyed<K, V>;
+        Iterator<[K, V]> |
+        ImmIndexedIterable<[K, V]>
+    ): ImmKeyedIterable<K, V>;
   }
 
   declare var Iterable: IterableImpl;

@@ -11,9 +11,12 @@ import * as adjacencyList from './adjacency-list';
 import nullthrows from './nullthrows';
 import immutable from 'immutable';
 
-type StaleFiles = ImmSet<FilePath>;
+type FileSet = ImmSet<FilePath>;
+type FileList = ImmList<FilePath>;
 
 export type AgentCLIOptions = {
+  // Maximum number of sub-processes it should run at the same time.
+  concurrency: number,
   // Terminate the agent once everything is built.
   once: boolean,
   // Print commands.
@@ -33,9 +36,10 @@ export type AgentConfig = {
 
 export type AgentState = {
   // All the files we want to update.
-  staleFiles: StaleFiles,
-  // What files are being updated right now.
-  updatingFiles: ImmSet<FilePath>,
+  staleFiles: FileSet,
+  // What files are being updated next. The order indicates what file
+  // should be updated first.
+  updatingFiles: FileList,
 };
 
 /**
@@ -50,7 +54,7 @@ export function initialize(
     updatingFiles: staleFiles.filter(filePath => {
       return adjacencyList.precedingSeq(config.fileAdjacencyList, filePath)
         .every((_, predFilePath) => !staleFiles.has(predFilePath))
-    }),
+    }).toList(),
   });
 }
 
@@ -60,9 +64,9 @@ export function initialize(
  */
 function updateStaleFiles(
   config: AgentConfig,
-  staleFiles: StaleFiles,
+  staleFiles: FileSet,
   event: AgentEvent,
-): StaleFiles {
+): FileSet {
   switch (event.type) {
     case 'process_exit':
       if (event.code === 0) {
@@ -75,12 +79,16 @@ function updateStaleFiles(
 
 function updateUpdatingFiles(
   config: AgentConfig,
-  updatingFiles: ImmSet<FilePath>,
+  updatingFiles: FileList,
   event: AgentEvent,
-): ImmSet<FilePath> {
+): FileList {
   switch (event.type) {
     case 'process_exit':
-      return updatingFiles.delete(event.key);
+      const index = updatingFiles.indexOf(event.key);
+      if (index >= 0) {
+        return updatingFiles.delete(index);
+      }
+      break;
   }
   return updatingFiles;
 }
@@ -107,11 +115,12 @@ export function getProcesses(
   state: AgentState,
 ): ImmMap<FilePath, Process> {
   const adjList = config.fileAdjacencyList;
-  return state.updatingFiles.reduce((processes, filePath) => {
-    const builder = nullthrows(config.fileBuilders.get(filePath));
-    const sources = immutable.Set(
-      adjacencyList.precedingSeq(adjList, filePath).keys()
-    );
-    return processes.set(filePath, builder(filePath, sources));
-  }, immutable.Map());
+  return state.updatingFiles.take(config.cliOpts.concurrency)
+    .reduce((processes, filePath) => {
+      const builder = nullthrows(config.fileBuilders.get(filePath));
+      const sources = immutable.Set(
+        adjacencyList.precedingSeq(adjList, filePath).keys()
+      );
+      return processes.set(filePath, builder(filePath, sources));
+    }, immutable.Map());
 }

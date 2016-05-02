@@ -89,7 +89,10 @@ declare module 'immutable' {
       Iterator<V> |
       ImmList<V>
     ): ImmList<V>;
+    delete(key: number): ImmList<V>;
+    indexOf(value: V): number;
     map<T>(iter: (value: V, key: number) => T): ImmList<T>;
+    take(amount: number): ImmList<V>;
     toSeq(): ImmIndexedIterable<V>;
   }
 

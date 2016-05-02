@@ -27,9 +27,18 @@ export default class Agent {
   processAgent: ProcessAgent<string>;
   _innerSpawn: Spawn;
 
+  log(...args: Array<any>): void {
+    const line = util.format(...args);
+    const {columns} = process.stdout;
+    if (columns == null || line.length < columns) {
+      return void console.log(line);
+    }
+    console.log(line.substr(0, columns - 4) + '...');
+  }
+
   verboseLog(...args: Array<any>): void {
     if (this.config.cliOpts.verbose) {
-      console.log('[verbose] %s', util.format(...args));
+      this.log('[verbose] %s', util.format(...args));
     }
   }
 

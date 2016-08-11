@@ -1,2 +1,2 @@
 #!/bin/sh
-node_modules/.bin/babel-node --plugins transform-class-properties,syntax-trailing-function-commas,transform-object-rest-spread,transform-flow-strip-types --presets es2015 ./upd_source/gl-demo.js $@
+./runner ./upd_source/gl-demo.js $@

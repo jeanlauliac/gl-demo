@@ -4,7 +4,7 @@
   "description": "Demoscene experiments",
   "main": "index.js",
   "scripts": {
-    "test": "node_modules/.bin/babel-node --plugins syntax-trailing-function-commas,transform-class-properties,transform-flow-strip-types --presets es2015 ./test.js"
+    "test": "./runner ./test.js"
   },
   "repository": {
     "type": "git",

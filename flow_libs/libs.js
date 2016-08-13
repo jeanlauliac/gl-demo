@@ -81,7 +81,12 @@ declare module 'immutable' {
     filter(pred: (key: K) => boolean): ImmSet<K>;
     remove(key: K): ImmSet<K>;
     subtract(from: ImmSet<K>): ImmSet<K>;
+    take(n: number): ImmSet<K>;
     toSeq(): ImmKeyedIterable<K, K>;
+    union(values: Array<K> |
+      Iterator<K> |
+      __Common_KeyValue<K, K>
+    ): ImmSet<K>;
   }
 
   declare class ImmList<V> extends __Common_KeyValue<number, V> {

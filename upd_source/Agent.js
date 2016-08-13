@@ -4,7 +4,7 @@
 
 import type {Spawn} from './ProcessAgent';
 import type {FileAdjacencyList, FilePath} from './file-adjacency-list';
-import type {AgentEvent} from './agent-event';
+import type {Event} from './agent-event';
 import type {AgentConfig, AgentState} from './agent-state';
 import type {ImmList, ImmMap} from 'immutable';
 
@@ -42,18 +42,13 @@ export default class Agent {
     }
   }
 
-  _reconcile(): void {
-    this.processAgent.update(getProcesses(this.config, this.state));
-  }
-
   /**
    * Update the state based on a single event, and reconcile any process or
    * file that is described as running or open.
    */
-  update(event: AgentEvent): void {
+  update(event: Event): void {
     this.verboseLog('event: %s', event.type);
-    this.state = update(this.config, this.state, event);
-    this._reconcile();
+    this.state = update(this.state, this.config, event, this.update);
   }
 
   _onProcessExit(key: string, code: number, signal: string): void {
@@ -76,9 +71,9 @@ export default class Agent {
     this._innerSpawn = spawn;
     this.processAgent = new ProcessAgent(this._spawn.bind(this));
     this.processAgent.on('exit', this._onProcessExit.bind(this));
-    this.state = initialize(config);
+    this.update = this.update.bind(this);
+    this.state = initialize(config, this.update);
     this.verboseLog('initialized');
-    this._reconcile();
   }
 
 }

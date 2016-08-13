@@ -35,6 +35,7 @@
     "nopt": "^3.0.6",
     "promisify-node": "^0.2.1",
     "sinon": "^1.17.3",
-    "tap": "^2.2.1"
+    "tap": "^2.2.1",
+    "tap-mocha-reporter": "0.0.27"
   }
 }

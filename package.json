@@ -4,7 +4,7 @@
   "description": "Demoscene experiments",
   "main": "index.js",
   "scripts": {
-    "test": "./runner ./test.js"
+    "test": "./tester ./test.js"
   },
   "repository": {
     "type": "git",

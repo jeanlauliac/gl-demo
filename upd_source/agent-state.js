@@ -4,13 +4,13 @@
 
 import type {Event, DispatchEvent, FilePath} from './agent-event';
 import type {FileAdjacencyList} from './file-adjacency-list';
-import type {CreateDirectory} from './pending_directories';
+import type {CreateDirectory, StatusesByDirectory} from './directories';
 import type {Process} from './process';
 import type {ChildProcess} from 'child_process';
 
 import * as adjacencyList from './adjacency-list';
 import nullthrows from './nullthrows';
-import * as pending_directories from './pending_directories';
+import * as directories from './directories';
 import * as immutable from 'immutable';
 import {dirname} from 'path';
 
@@ -38,10 +38,8 @@ export type AgentConfig = {
 };
 
 export type AgentState = {
-  // All the directories that we know exist.
-  existingDirectories: immutable.Set<FilePath>,
-  // All the directories being created right now.
-  pendingDirectories: immutable.Set<FilePath>,
+  // All the directories that exist or that we are creating.
+  statusesByDirectory: StatusesByDirectory,
   // All  the files we want to update.
   staleFiles: FileSet,
   // Processes updating files right now.
@@ -78,9 +76,7 @@ export function create(
   const staleFiles = immutable.Set(config.fileBuilders.keys());
   const existingDirectories = immutable.Set();
   return Object.freeze({
-    existingDirectories,
-    pendingDirectories: pending_directories.create({
-      existingDirectories,
+    statusesByDirectory: directories.create({
       targetPaths: staleFiles,
       dispatch,
       createDirectory,
@@ -140,17 +136,12 @@ export function update(
   dispatch: DispatchEvent,
   createDirectory: CreateDirectory,
 ): AgentState {
-  let {existingDirectories, pendingDirectories, staleFiles} = state;
+  let {statusesByDirectory, staleFiles} = state;
   //const staleFiles = updateStaleFiles(config, state.staleFiles, event);
   //const updatingFiles = updateUpdatingFiles(config, state.updatingFiles, event);
-  if (event.type === 'directory-created') {
-    existingDirectories = existingDirectories.add(event.directoryPath);
-  }
   return Object.freeze({
-    existingDirectories,
-    pendingDirectories: pending_directories.update({
-      existingDirectories,
-      pendingDirectories,
+    statusesByDirectory: directories.update({
+      statusesByDirectory,
       dispatch,
       createDirectory,
       event,

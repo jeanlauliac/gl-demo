@@ -12,7 +12,12 @@ export type Event =
     // The path of the directory that was created.
     directoryPath: FilePath,
     // A directory was created successfully.
-    type: 'directory-created',
+    type: 'create-directory-success',
+  } |
+  {
+    directoryPath: FilePath,
+    error: Error,
+    type: 'create-directory-failure',
   } |
   {
     // Return code of the process.

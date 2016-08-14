@@ -61,7 +61,7 @@ export default class Agent {
    * file that is described as running or open.
    */
   update(event: Event): void {
-    this.verboseLog('event: %s', event.type);
+    this.verboseLog('agent/event: %s', event.type);
     this.state = agentState.update(
       this.state,
       this.config,
@@ -86,13 +86,22 @@ export default class Agent {
     return proc;
   }
 
+  _onExit(): void {
+    if (!this.state.staleFiles.isEmpty()) {
+      this.log('*** Update failed.');
+      // $FlowIssue: missing declaration for modern `exitCode` prop.
+      process.exitCode = 1;
+    }
+  }
+
   constructor(config: AgentConfig, spawn: Spawn) {
     Object.defineProperty(this, 'config', {value: config});
     this._innerSpawn = spawn;
     (this: any).update = this.update.bind(this);
     (this: any)._createDirectory = this._createDirectory.bind(this);
+    this.verboseLog('agent/start');
     this.state = agentState.create(config, this.update, this._createDirectory);
-    this.verboseLog('initialized');
+    process.on('exit', this._onExit.bind(this));
   }
 
 }

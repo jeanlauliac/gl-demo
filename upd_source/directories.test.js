@@ -2,33 +2,35 @@
 
 'use strict';
 
-import {create, nextOnes, update} from './pending_directories';
+import {create, nextOnes, update} from './directories';
 import * as immutable from 'immutable';
 import tap from 'tap';
 import sinon from 'sinon';
 
-tap.test('pending-directories', t => {
+tap.test('directories', t => {
 
   t.test('nextOnes', t => {
     t.similar(nextOnes({
-      existingDirectories: immutable.Set(),
+      statusesByDirectory: immutable.Map(),
       targetPaths: immutable.Set(),
     }).toArray(), []);
     t.similar(nextOnes({
-      existingDirectories: immutable.Set(),
+      statusesByDirectory: immutable.Map(),
       targetPaths: immutable.Set([
         'foo.js',
         'bar.js',
       ]),
     }).toArray(), []);
     t.similar(nextOnes({
-      existingDirectories: immutable.Set(),
+      statusesByDirectory: immutable.Map(),
       targetPaths: immutable.Set([
         'some/nested/path/foo.js',
       ]),
     }).toArray(), ['some']);
     t.similar(nextOnes({
-      existingDirectories: immutable.Set(['some']),
+      statusesByDirectory: immutable.Map(
+        ['some', {operation: 'none', error: null}],
+      ),
       targetPaths: immutable.Set([
         'some/nested/path/foo.js',
         'some/nested/path/dax.js',
@@ -45,7 +47,9 @@ tap.test('pending-directories', t => {
     const dispatch = sinon.spy();
     const createDirectory = sinon.spy(() => Promise.resolve());
     t.similar(create({
-      existingDirectories: immutable.Set(['some']),
+      statusesByDirectory: immutable.Map(
+        ['some', {operation: 'none', error: null}],
+      ),
       targetPaths: immutable.Set(['some/nested/path/foo.js']),
       dispatch,
       createDirectory,
@@ -57,7 +61,7 @@ tap.test('pending-directories', t => {
       t.ok(dispatch.calledOnce);
       t.similar(dispatch.args[0][0], {
         directoryPath: 'some/nested',
-        type: 'directory-created',
+        type: 'create-directory-success',
       });
       t.end();
     }, 0);
@@ -67,12 +71,14 @@ tap.test('pending-directories', t => {
     const dispatch = sinon.spy();
     const createDirectory = sinon.spy(() => Promise.resolve());
     t.similar(update({
-      existingDirectories: immutable.Set(['some', 'some/nested']),
-      pendingDirectories: immutable.Set(['some/nested']),
+      statusesByDirectory: immutable.Map(
+        ['some', {operation: 'none', error: null}],
+        ['some/nested', {operation: 'create', error: null}],
+      ),
       targetPaths: immutable.Set(['some/nested/path/foo.js']),
       dispatch,
       createDirectory,
-      event: {directoryPath: 'some/nested', type: 'directory-created'},
+      event: {directoryPath: 'some/nested', type: 'create-directory-success'},
     }).toArray(), ['some/nested/path']);
     t.ok(createDirectory.calledOnce);
     t.ok(createDirectory.calledWith('some/nested/path'));
@@ -81,7 +87,7 @@ tap.test('pending-directories', t => {
       t.ok(dispatch.calledOnce);
       t.similar(dispatch.args[0][0], {
         directoryPath: 'some/nested/path',
-        type: 'directory-created',
+        type: 'create-directory-success',
       });
       t.end();
     }, 0);

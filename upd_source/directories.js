@@ -1,0 +1,127 @@
+/* @flow */
+
+'use strict';
+
+import type {DispatchEvent, Event, FilePath} from './agent-event';
+
+import * as immutable from 'immutable';
+import path from 'path';
+
+type FileSet = immutable.Set<FilePath>;
+type DirectoryOperation = 'create' | 'none';
+type DirectoryStatus = {
+  operation: DirectoryOperation,
+  error: ?Error,
+};
+
+export type StatusesByDirectory = immutable.Map<FilePath, DirectoryStatus>;
+
+function doesExist(
+  dirPath: FilePath,
+  statsByDir: StatusesByDirectory,
+): boolean {
+  if (path.dirname(dirPath) === dirPath) {
+    return true;
+  }
+  const stat = statsByDir.get(dirPath);
+  return stat != null && stat.operation === 'none' && stat.error == null;
+}
+
+/**
+ * Get the set of directories we should create next. `targetPaths` describes
+ * all the filepaths which enclosing directories we should create recursively.
+ */
+export function nextOnes(props: {
+  statusesByDirectory: StatusesByDirectory,
+  targetPaths: FileSet,
+}): FileSet {
+  const {statusesByDirectory} = props;
+  return props.targetPaths.reduce((directories, filePath) => {
+    if (doesExist(path.dirname(filePath), statusesByDirectory)) {
+      return directories;
+    }
+    while (!doesExist(path.dirname(filePath), statusesByDirectory)) {
+      filePath = path.dirname(filePath);
+    }
+    return directories.add(filePath);
+  }, immutable.Set());
+}
+
+const MAX_DIRECTORY_CONCURRENCY = 4;
+export type CreateDirectory = (directoryPath: string) => Promise<void>;
+
+/**
+ * Start creating missing directories when possible. Return the set of directory
+ * paths being created right now (pending).
+ */
+export function updateMissing(props: {
+  statusesByDirectory: StatusesByDirectory,
+  targetPaths: FileSet,
+  dispatch: DispatchEvent,
+  createDirectory: CreateDirectory,
+}): StatusesByDirectory {
+  const {statusesByDirectory} = props;
+  const dirsToCreate = nextOnes(props)
+    .filter(dirPath => !statusesByDirectory.has(dirPath))
+    .take(MAX_DIRECTORY_CONCURRENCY);
+  return statusesByDirectory.withMutations(dirs => {
+    dirsToCreate.forEach(directoryPath => {
+      dirs.set(directoryPath, {operation: 'create', error: null});
+      props.createDirectory(directoryPath).then(() => {
+        props.dispatch({directoryPath, type: 'create-directory-success'});
+      }, error => {
+        props.dispatch(
+          {directoryPath, error, type: 'create-directory-failure'},
+        );
+      });
+    });
+  });
+}
+
+/**
+ * Create the initial bulk of directories. Return the list of directories
+ * being created right now.
+ */
+export function create(props: {
+  targetPaths: FileSet,
+  dispatch: DispatchEvent,
+  createDirectory: CreateDirectory,
+}): StatusesByDirectory {
+  return updateMissing({...props, statusesByDirectory: immutable.Map()});
+}
+
+/**
+ * Update the list of pending directories given a particular event. Return the
+ * new list of directories being created right now.
+ */
+export function update(props: {
+  statusesByDirectory: StatusesByDirectory,
+  targetPaths: FileSet,
+  dispatch: DispatchEvent,
+  createDirectory: CreateDirectory,
+  event: Event,
+}): StatusesByDirectory {
+  let {event, statusesByDirectory} = props;
+  switch (event.type) {
+    case 'create-directory-success':
+      statusesByDirectory = statusesByDirectory.set(
+        event.directoryPath,
+        {operation: 'none', error: null},
+      );
+      break;
+    case 'create-directory-failure':
+      if (event.error.code === 'EEXIST') {
+        statusesByDirectory = statusesByDirectory.set(
+          event.directoryPath,
+          {operation: 'none', error: null},
+        );
+        break;
+      }
+      statusesByDirectory = statusesByDirectory.set(
+        event.directoryPath,
+        {operation: 'none', error: event.error},
+      );
+      break;
+  }
+  return updateMissing({...props, statusesByDirectory});
+}

@@ -4,6 +4,7 @@
 
 import type {AgentCLIOptions, AgentConfig} from './agent-state';
 
+import nullthrows from './nullthrows';
 import Agent from './Agent';
 import {spawn} from 'child_process';
 import nopt from 'nopt';
@@ -12,8 +13,10 @@ import os from 'os';
 export default function cli(
   configure: (cliOpts: AgentCLIOptions) => AgentConfig,
 ): Agent {
+  // $FlowIssue: doesn't know about `getuid`.
   if (process.getuid() <= 0) {
     process.stderr.write('Cowardly refusing to execute as root.\n');
+    // $FlowIssue: doesn't know about `exit`.
     return process.exit(124);
   }
   const opts = nopt({verbose: Boolean, once: Boolean, concurrency: Number});

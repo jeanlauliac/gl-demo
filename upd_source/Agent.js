@@ -6,11 +6,11 @@ import type {Spawn} from './ProcessAgent';
 import type {FileAdjacencyList, FilePath} from './file-adjacency-list';
 import type {Event} from './agent-event';
 import type {AgentConfig, AgentState} from './agent-state';
-import type {ImmList, ImmMap} from 'immutable';
 
 import ProcessAgent from './ProcessAgent';
-import {getProcesses, initialize, update} from './agent-state';
-import immutable from 'immutable';
+import * as agentState from './agent-state';
+import fs from 'fs';
+import {List as ImmList, Map as ImmMap} from 'immutable';
 import util from 'util';
 
 function escapeShellArg(arg) {
@@ -24,11 +24,11 @@ export default class Agent {
 
   config: AgentConfig;
   state: AgentState;
-  processAgent: ProcessAgent<string>;
   _innerSpawn: Spawn;
 
   log(...args: Array<any>): void {
     const line = util.format(...args);
+    // $FlowIssue: missing decl for `columns`.
     const {columns} = process.stdout;
     if (columns == null || line.length < columns) {
       return void console.log(line);
@@ -42,17 +42,37 @@ export default class Agent {
     }
   }
 
+  _createDirectory(directoryPath: FilePath): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.verboseLog('mkdir/call: %s', directoryPath);
+      fs.mkdir(directoryPath, undefined, error => {
+        if (error) {
+          this.verboseLog('mkdir/reject: %s %s', directoryPath, error);
+          return reject(error);
+        }
+        this.verboseLog('mkdir/resolve: %s', directoryPath);
+        resolve();
+      });
+    });
+  }
+
   /**
    * Update the state based on a single event, and reconcile any process or
    * file that is described as running or open.
    */
   update(event: Event): void {
     this.verboseLog('event: %s', event.type);
-    this.state = update(this.state, this.config, event, this.update);
+    this.state = agentState.update(
+      this.state,
+      this.config,
+      event,
+      this.update,
+      this._createDirectory,
+    );
   }
 
   _onProcessExit(key: string, code: number, signal: string): void {
-    this.update({code, key, signal, type: 'process_exit'});
+    this.update({code, key, signal, type: 'process-exit'});
   }
 
   _spawn(command: string, args: Array<string>): child_process$ChildProcess {
@@ -69,10 +89,9 @@ export default class Agent {
   constructor(config: AgentConfig, spawn: Spawn) {
     Object.defineProperty(this, 'config', {value: config});
     this._innerSpawn = spawn;
-    this.processAgent = new ProcessAgent(this._spawn.bind(this));
-    this.processAgent.on('exit', this._onProcessExit.bind(this));
-    this.update = this.update.bind(this);
-    this.state = initialize(config, this.update);
+    (this: any).update = this.update.bind(this);
+    (this: any)._createDirectory = this._createDirectory.bind(this);
+    this.state = agentState.create(config, this.update, this._createDirectory);
     this.verboseLog('initialized');
   }
 

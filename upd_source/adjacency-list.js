@@ -2,34 +2,41 @@
 
 'use strict';
 
-import type {ImmKeyedIterable, ImmMap, ImmSet} from 'immutable';
-
 import createFreezed from './create-freezed';
 import nullthrows from './nullthrows';
-import immutable from 'immutable';
+import * as immutable from 'immutable';
 
 // Describe the keys adjacent to a particular key.
 type Adjacency<TKey, TValue> = {
   // All predecessors' keys.
-  predecessors: ImmSet<TKey>;
+  predecessors: immutable.Set<TKey>;
   // Associate each of the successors' keys to the value of the arc that goes
   // from this key to a particular successor.
-  successors: ImmMap<TKey, TValue>;
+  successors: immutable.Map<TKey, TValue>;
 };
 
-// Create a freezed adjacency object.
-const adjacency = createFreezed.bind(undefined, {
+// Because predecessors are duplicating the successors but in different nodes,
+// only successors are useful to compare to adjacency objects.
+const ADJACENCY_PROTO = {
   valueOf(): Object {
     return this.successors;
   },
   toString(): string {
     return this.successors.toString();
   },
-});
+};
+
+// Create a freezed adjacency object.
+function adjacency<TKey, TValue>(
+  fields: Adjacency<TKey, TValue>,
+): Adjacency<TKey, TValue> {
+  return createFreezed(ADJACENCY_PROTO, fields);
+}
 
 // Representation of a directed adjacency list of keys. Two adjacent keys are
 // linked by an arbitrary value (that can be `void`).
-export type AdjacencyList<TKey, TValue> = ImmMap<TKey, Adjacency<TKey, TValue>>;
+export type AdjacencyList<TKey, TValue> =
+  immutable.Map<TKey, Adjacency<TKey, TValue>>;
 
 // Get a list that contains no adjacencies.
 export function empty<TKey, TValue>(): AdjacencyList<TKey, TValue> {
@@ -66,7 +73,7 @@ export function arcs<TKey, TValue>(
 // Get an iterable of all the arcs of the list and their values.
 export function arcSeq<TKey, TValue>(
   list: AdjacencyList<TKey, TValue>,
-): ImmKeyedIterable<[TKey, TKey], TValue> {
+): immutable.KeyedIterable<[TKey, TKey], TValue> {
   return immutable.Iterable.Keyed(arcs(list));
 }
 
@@ -163,11 +170,12 @@ export function following<TKey, TValue>(
 export function followingSeq<TKey, TValue>(
   list: AdjacencyList<TKey, TValue>,
   key: TKey,
-): ImmKeyedIterable<TKey, TValue> {
+): immutable.KeyedIterable<TKey, TValue> {
   return immutable.Iterable.Keyed(following(list, key));
 }
 
 // Get an iterator on the arc going onto the specified key.
+// $FlowIssue: there are some typing issues when TKey/TValue are nullables.
 export function preceding<TKey, TValue>(
   list: AdjacencyList<TKey, TValue>,
   key: TKey,
@@ -175,8 +183,7 @@ export function preceding<TKey, TValue>(
   return nullthrows(list.get(key, EMPTY_ADJACENCY))
     .predecessors.toSeq().map(originKey => {
       const origin = nullthrows(list.get(originKey, EMPTY_ADJACENCY));
-      // $FlowIssue: if `TValue` supertypes `void`, this is valid.
-      return (origin.successors.get(key): TValue);
+      return origin.successors.get(key);
     }).entries();
 }
 
@@ -184,7 +191,7 @@ export function preceding<TKey, TValue>(
 export function precedingSeq<TKey, TValue>(
   list: AdjacencyList<TKey, TValue>,
   key: TKey,
-): ImmKeyedIterable<TKey, TValue> {
+): immutable.KeyedIterable<TKey, TValue> {
   return immutable.Iterable.Keyed(preceding(list, key));
 }
 

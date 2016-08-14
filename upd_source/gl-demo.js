@@ -3,14 +3,13 @@
 'use strict';
 
 import type {Process} from './process';
-import type {ImmSet} from 'immutable';
 
 import * as adjacencyList from './adjacency-list';
 import chain from './chain';
 import cli from './cli';
 import * as process from './process';
 import glob from 'glob';
-import immutable from 'immutable';
+import * as immutable from 'immutable';
 import path from 'path';
 
 /**
@@ -41,7 +40,7 @@ function pathWithoutExt(filePath: string): string {
  */
 function compile(
   filePath: string,
-  sourcePaths: ImmSet<string>,
+  sourcePaths: immutable.Set<string>,
 ): Process {
   const depFilePath = pathWithoutExt(filePath) + '.d';
   return process.create('clang++', immutable.List([
@@ -69,7 +68,7 @@ function compile(
  */
 function link(
   filePath: string,
-  sourcePaths: ImmSet<string>,
+  sourcePaths: immutable.Set<string>,
 ): Process {
   return process.create('clang++', immutable.List([
     '-o', filePath, '-framework', 'OpenGL', '-Wall', '-std=c++14', '-lglew',

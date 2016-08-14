@@ -2,13 +2,12 @@
 
 'use strict';
 
-import type {DispatchEvent, FilePath} from './agent-event';
-import type {ImmSet} from 'immutable';
+import type {DispatchEvent, Event, FilePath} from './agent-event';
 
-import immutable from 'immutable';
+import * as immutable from 'immutable';
 import path from 'path';
 
-type FileSet = ImmSet<FilePath>;
+type FileSet = immutable.Set<FilePath>;
 
 function doesExist(
   dirPath: FilePath,
@@ -24,7 +23,7 @@ function doesExist(
  * Get the set of directories we should create next. `targetPaths` describes
  * all the filepaths which enclosing directories we should create recursively.
  */
-export function getNextToCreate(props: {
+export function nextOnes(props: {
   existingDirectories: FileSet,
   targetPaths: FileSet,
 }): FileSet {
@@ -33,18 +32,15 @@ export function getNextToCreate(props: {
     if (doesExist(filePath, existingDirectories)) {
       return directories;
     }
-    while (true) {
-      const parentPath = path.dirname(filePath);
-      if (doesExist(parentPath, existingDirectories)) {
-        return directories.add(filePath);
-      }
-      filePath = parentPath;
+    while (!doesExist(path.dirname(filePath), existingDirectories)) {
+      filePath = path.dirname(filePath);
     }
+    return directories.add(filePath);
   }, immutable.Set());
 }
 
 const MAX_DIRECTORY_CONCURRENCY = 4;
-type CreateDirectory = (directoryPath: string) => Promise<void>;
+export type CreateDirectory = (directoryPath: string) => Promise<void>;
 
 /**
  * Start creating missing directories when possible. Return the set of directory
@@ -57,7 +53,7 @@ export function updateMissing(props: {
   dispatch: DispatchEvent,
   createDirectory: CreateDirectory,
 }): FileSet {
-  const dirsToCreate = getNextToCreate(props)
+  const dirsToCreate = nextOnes(props)
     .subtract(props.pendingDirectories)
     .take(MAX_DIRECTORY_CONCURRENCY);
   dirsToCreate.forEach(directoryPath => {
@@ -93,11 +89,13 @@ export function update(props: {
   targetPaths: FileSet,
   dispatch: DispatchEvent,
   createDirectory: CreateDirectory,
+  event: Event,
 }): FileSet {
-  let {pendingDirectories} = props;
+  let {event, pendingDirectories} = props;
   switch (event.type) {
     case 'directory-created':
-      pendingDirectories = pendingDirectories.add(event.directoryPath);
+      pendingDirectories = pendingDirectories.remove(event.directoryPath);
+      break;
   }
   return updateMissing({...props, pendingDirectories});
 }

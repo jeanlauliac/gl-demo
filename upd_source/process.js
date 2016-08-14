@@ -2,10 +2,8 @@
 
 'use strict';
 
-import type {ImmList, ImmMap, ImmSet} from 'immutable';
-
 import createFreezed from './create-freezed';
-import immutable from 'immutable';
+import * as immutable from 'immutable';
 
 /**
  * Represent a process being run on the system.
@@ -14,7 +12,7 @@ export type Process = {
   // Name of the binary to be run in the current context. Ex. 'ls'.
   command: string;
   // Ordered arguments, like on the command-line.
-  args: ImmList<string>;
+  args: immutable.List<string>;
 };
 
 const createRaw = createFreezed.bind(undefined, {
@@ -23,6 +21,6 @@ const createRaw = createFreezed.bind(undefined, {
   },
 });
 
-export function create(command: string, args: ImmList<string>): Process {
+export function create(command: string, args: immutable.List<string>): Process {
   return createRaw({command, args});
 }

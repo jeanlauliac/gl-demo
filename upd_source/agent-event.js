@@ -25,4 +25,4 @@ export type Event =
     type: 'process-exit',
   };
 
-export type DispatchEvent = (event: AgentEvent) => void;
+export type DispatchEvent = (event: Event) => void;

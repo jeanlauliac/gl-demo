@@ -110,6 +110,7 @@ export function update(props: {
       );
       break;
     case 'create-directory-failure':
+      // $FlowIssue: `code` is a custom field for fs-related errors.
       if (event.error.code === 'EEXIST') {
         statusesByDirectory = statusesByDirectory.set(
           event.directoryPath,

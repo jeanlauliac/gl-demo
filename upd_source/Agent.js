@@ -3,7 +3,7 @@
 'use strict';
 
 import type {Spawn} from './ProcessAgent';
-import type {FileAdjacencyList, FilePath} from './file-adjacency-list';
+import type {FileAdjacencyList, FilePath} from './file_adjacency_list';
 import type {Event} from './agent-event';
 import type {AgentConfig, AgentState} from './agent-state';
 

@@ -3,12 +3,12 @@
 'use strict';
 
 import type {Event, DispatchEvent, FilePath} from './agent-event';
-import type {FileAdjacencyList} from './file-adjacency-list';
+import type {FileAdjacencyList} from './file_adjacency_list';
 import type {CreateDirectory, StatusesByDirectory} from './directories';
 import type {Process} from './process';
 import type {ChildProcess} from 'child_process';
 
-import * as adjacencyList from './adjacency-list';
+import * as adjacency_list from './adjacency_list';
 import nullthrows from './nullthrows';
 import * as directories from './directories';
 import * as immutable from 'immutable';
@@ -58,7 +58,7 @@ function startUpProcesses(
 ): immutable.Map<FilePath, ChildProcess> {
   return immutable.Map();
   // staleFiles.filter(filePath => {
-  //   return adjacencyList.precedingSeq(config.fileAdjacencyList, filePath)
+  //   return adjacency_list.precedingSeq(config.fileAdjacencyList, filePath)
   //     .every((_, predFilePath) => !staleFiles.has(predFilePath)) &&
   //     existingDirectories.has(dirname(filePath))
   //   }).toList(),
@@ -164,7 +164,7 @@ export function update(
 //     .reduce((processes, filePath) => {
 //       const builder = nullthrows(config.fileBuilders.get(filePath));
 //       const sources = immutable.Set(
-//         adjacencyList.precedingSeq(adjList, filePath).keys()
+//         adjacency_list.precedingSeq(adjList, filePath).keys()
 //       );
 //       return processes.set(filePath, builder(filePath, sources));
 //     }, immutable.Map());

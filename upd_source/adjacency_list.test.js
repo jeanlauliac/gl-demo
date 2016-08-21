@@ -3,11 +3,11 @@
 'use strict';
 
 import {add, count, empty, followingSeq, has, isEmpty,
-  precedingSeq, remove, toString} from './adjacency-list';
+  precedingSeq, remove, toString} from './adjacency_list';
 import {is} from 'immutable'
 import tap from 'tap';
 
-tap.test('adjacency-list', t => {
+tap.test('adjacency_list', t => {
   const emptyList = empty();
   t.equal(count(emptyList), 0, 'has no arcs');
   t.equal(isEmpty(emptyList), true, 'is empty');

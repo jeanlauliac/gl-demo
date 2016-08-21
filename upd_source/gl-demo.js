@@ -4,7 +4,7 @@
 
 import type {Process} from './process';
 
-import * as adjacencyList from './adjacency-list';
+import * as adjacency_list from './adjacency_list';
 import chain from './chain';
 import cli from './cli';
 import * as process from './process';
@@ -92,10 +92,10 @@ cli(cliOpts => {
   const fileAdjacencyList = (
     sourceObjectPairs.reduce((fileAdj, [sourcePath, objectPath]) => {
       return chain([
-        fileAdj => adjacencyList.add(fileAdj, sourcePath, objectPath),
-        fileAdj => adjacencyList.add(fileAdj, objectPath, 'gl-demo'),
+        fileAdj => adjacency_list.add(fileAdj, sourcePath, objectPath),
+        fileAdj => adjacency_list.add(fileAdj, objectPath, 'gl-demo'),
       ], fileAdj);
-    }, adjacencyList.empty())
+    }, adjacency_list.empty())
   );
   const fileBuilders = sourceObjectPairs.reduce((builders, pair) => {
     return builders.set(pair[1], compile);

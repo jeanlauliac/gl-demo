@@ -90,6 +90,33 @@ export function create(props: {
   return updateMissing({...props, statusesByDirectory: immutable.Map()});
 }
 
+function updateForEvent(props: {
+  statusesByDirectory: StatusesByDirectory,
+  event: Event,
+}): StatusesByDirectory {
+  let {event, statusesByDirectory} = props;
+  switch (event.type) {
+    case 'create-directory-success':
+      return statusesByDirectory.set(
+        event.directoryPath,
+        {operation: 'none', error: null},
+      );
+    case 'create-directory-failure':
+      // $FlowIssue: `code` is a custom field for fs-related errors.
+      if (event.error.code === 'EEXIST') {
+        return statusesByDirectory.set(
+          event.directoryPath,
+          {operation: 'none', error: null},
+        );
+      }
+      return statusesByDirectory.set(
+        event.directoryPath,
+        {operation: 'none', error: event.error},
+      );
+  }
+  return statusesByDirectory;
+}
+
 /**
  * Update the list of pending directories given a particular event. Return the
  * new list of directories being created right now.
@@ -101,28 +128,8 @@ export function update(props: {
   createDirectory: CreateDirectory,
   event: Event,
 }): StatusesByDirectory {
-  let {event, statusesByDirectory} = props;
-  switch (event.type) {
-    case 'create-directory-success':
-      statusesByDirectory = statusesByDirectory.set(
-        event.directoryPath,
-        {operation: 'none', error: null},
-      );
-      break;
-    case 'create-directory-failure':
-      // $FlowIssue: `code` is a custom field for fs-related errors.
-      if (event.error.code === 'EEXIST') {
-        statusesByDirectory = statusesByDirectory.set(
-          event.directoryPath,
-          {operation: 'none', error: null},
-        );
-        break;
-      }
-      statusesByDirectory = statusesByDirectory.set(
-        event.directoryPath,
-        {operation: 'none', error: event.error},
-      );
-      break;
-  }
-  return updateMissing({...props, statusesByDirectory});
+  return updateMissing({
+    ...props,
+    statusesByDirectory: updateForEvent(props),
+  });
 }

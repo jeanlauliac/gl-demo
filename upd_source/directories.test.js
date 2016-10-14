@@ -7,6 +7,11 @@ import * as immutable from 'immutable';
 import tap from 'tap';
 import sinon from 'sinon';
 
+const TARGET_PATHS = immutable.Set([
+  'some/nested/path/foo.js',
+  'another/one.js',
+]);
+
 tap.test('directories', t => {
 
   t.test('nextOnes', t => {
@@ -28,9 +33,9 @@ tap.test('directories', t => {
       ]),
     }).toArray(), ['some']);
     t.similar(nextOnes({
-      statusesByDirectory: immutable.Map(
+      statusesByDirectory: immutable.Map([
         ['some', {operation: 'none', error: null}],
-      ),
+      ]),
       targetPaths: immutable.Set([
         'some/nested/path/foo.js',
         'some/nested/path/dax.js',
@@ -47,20 +52,25 @@ tap.test('directories', t => {
     const dispatch = sinon.spy();
     const createDirectory = sinon.spy(() => Promise.resolve());
     t.similar(create({
-      statusesByDirectory: immutable.Map(
-        ['some', {operation: 'none', error: null}],
-      ),
-      targetPaths: immutable.Set(['some/nested/path/foo.js']),
+      targetPaths: TARGET_PATHS,
       dispatch,
       createDirectory,
-    }).toArray(), ['some/nested']);
-    t.ok(createDirectory.calledOnce);
-    t.ok(createDirectory.calledWith('some/nested'));
+    }).entrySeq().toArray(), [
+      ['some', {operation: 'create', error: null}],
+      ['another', {operation: 'create', error: null}],
+    ], 'create() should return the first paths being created');
+    t.ok(createDirectory.calledTwice);
+    t.ok(createDirectory.calledWith('some'));
+    t.ok(createDirectory.calledWith('another'));
     t.ok(dispatch.notCalled);
     setTimeout(() => {
-      t.ok(dispatch.calledOnce);
+      t.ok(dispatch.calledTwice);
       t.similar(dispatch.args[0][0], {
-        directoryPath: 'some/nested',
+        directoryPath: 'some',
+        type: 'create-directory-success',
+      });
+      t.similar(dispatch.args[1][0], {
+        directoryPath: 'another',
         type: 'create-directory-success',
       });
       t.end();
@@ -69,25 +79,40 @@ tap.test('directories', t => {
 
   t.test('update', t => {
     const dispatch = sinon.spy();
-    const createDirectory = sinon.spy(() => Promise.resolve());
+    const createDirectory = sinon.spy(dirpath =>
+      dirpath === 'another'
+        ? Promise.reject(new Error('booooo!'))
+        : Promise.resolve()
+    );
     t.similar(update({
-      statusesByDirectory: immutable.Map(
+      statusesByDirectory: immutable.Map([
         ['some', {operation: 'none', error: null}],
         ['some/nested', {operation: 'create', error: null}],
-      ),
-      targetPaths: immutable.Set(['some/nested/path/foo.js']),
+      ]),
+      targetPaths: TARGET_PATHS,
       dispatch,
       createDirectory,
       event: {directoryPath: 'some/nested', type: 'create-directory-success'},
-    }).toArray(), ['some/nested/path']);
-    t.ok(createDirectory.calledOnce);
+    }).entrySeq().toArray(), [
+      ['some', {operation: 'none', error: null}],
+      ['some/nested', {operation: 'none', error: null}],
+      ['some/nested/path', {operation: 'create', error: null}],
+      ['another', {operation: 'create', error: null}],
+    ]);
+    t.ok(createDirectory.calledTwice);
     t.ok(createDirectory.calledWith('some/nested/path'));
+    t.ok(createDirectory.calledWith('another'));
     t.ok(dispatch.notCalled);
     setTimeout(() => {
-      t.ok(dispatch.calledOnce);
+      t.ok(dispatch.calledTwice);
       t.similar(dispatch.args[0][0], {
         directoryPath: 'some/nested/path',
         type: 'create-directory-success',
+      });
+      t.similar(dispatch.args[1][0], {
+        directoryPath: 'another',
+        error: new Error('booooo!'),
+        type: 'create-directory-failure',
       });
       t.end();
     }, 0);

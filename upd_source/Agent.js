@@ -87,8 +87,9 @@ export default class Agent {
   }
 
   _onExit(): void {
-    if (!this.state.staleFiles.isEmpty()) {
-      this.log('*** Update failed.');
+    const {state} = this;
+    if (!state.staleFiles.isEmpty()) {
+      this.log(`*** Update failed: ${state.staleFiles.size} files are stale.`);
       // $FlowIssue: missing declaration for modern `exitCode` prop.
       process.exitCode = 1;
     }

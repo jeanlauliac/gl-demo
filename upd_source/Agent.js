@@ -2,12 +2,10 @@
 
 'use strict';
 
-import type {Spawn} from './ProcessAgent';
 import type {FileAdjacencyList, FilePath} from './file_adjacency_list';
 import type {Event} from './agent-event';
 import type {AgentConfig, AgentState} from './agent-state';
 
-import ProcessAgent from './ProcessAgent';
 import * as agentState from './agent-state';
 import fs from 'fs';
 import {List as ImmList, Map as ImmMap} from 'immutable';
@@ -16,6 +14,9 @@ import util from 'util';
 function escapeShellArg(arg) {
   return arg.replace(/( )/, '\\$1')
 }
+
+export type Spawn = (command: string, args: Array<string>) =>
+  child_process$ChildProcess;
 
 /**
  * Manage the state of the build at any point in time.

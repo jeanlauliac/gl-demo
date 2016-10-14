@@ -6,11 +6,13 @@ import type {Event, DispatchEvent, FilePath} from './agent-event';
 import type {FileAdjacencyList} from './file_adjacency_list';
 import type {CreateDirectory, StatusesByDirectory} from './directories';
 import type {Process} from './process';
+import type {UpdateProcesses} from './update_processes';
 import type {ChildProcess} from 'child_process';
 
 import * as adjacency_list from './adjacency_list';
 import nullthrows from './nullthrows';
 import * as directories from './directories';
+import * as update_processes from './update_processes';
 import * as immutable from 'immutable';
 import {dirname} from 'path';
 
@@ -40,10 +42,10 @@ export type AgentConfig = {
 export type AgentState = {
   // All the directories that exist or that we are creating.
   statusesByDirectory: StatusesByDirectory,
-  // All  the files we want to update.
+  // All the files we want to update.
   staleFiles: FileSet,
   // Processes updating files right now.
-  //updateProcesses: immutable.Map<FilePath, ChildProcess>,
+  updateProcesses: UpdateProcesses,
 };
 
 /**
@@ -82,12 +84,7 @@ export function create(
       createDirectory,
     }),
     staleFiles,
-    updateProcesses: startUpProcesses(
-      immutable.Map(),
-      config,
-      staleFiles,
-      dispatch,
-    ),
+    updateProcesses: update_processes.create(),
   });
 }
 
@@ -136,7 +133,11 @@ export function update(
   dispatch: DispatchEvent,
   createDirectory: CreateDirectory,
 ): AgentState {
-  let {statusesByDirectory, staleFiles} = state;
+  let {
+    statusesByDirectory,
+    staleFiles,
+    updateProcesses,
+  } = state;
   //const staleFiles = updateStaleFiles(config, state.staleFiles, event);
   //const updatingFiles = updateUpdatingFiles(config, state.updatingFiles, event);
   return Object.freeze({
@@ -148,6 +149,9 @@ export function update(
       targetPaths: staleFiles,
     }),
     staleFiles,
+    updateProcesses: update_processes.update({
+      updateProcesses,
+    })
   });
 }
 

@@ -15,7 +15,8 @@ export default function cli(
 ): Agent {
   // $FlowIssue: doesn't know about `getuid`.
   if (process.getuid() <= 0) {
-    process.stderr.write('Cowardly refusing to execute as root.\n');
+    process.stderr.write('The update cannot run as root for safety reasons.\n');
+    process.stderr.write('Retry without using `sudo`, or downgrading to a user.\n');
     // $FlowIssue: doesn't know about `exit`.
     return process.exit(124);
   }

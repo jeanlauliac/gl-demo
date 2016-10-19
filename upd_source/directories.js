@@ -16,7 +16,7 @@ type DirectoryStatus = {
 
 export type StatusesByDirectory = immutable.Map<FilePath, DirectoryStatus>;
 
-function doesExist(
+export function doesExist(
   dirPath: FilePath,
   statsByDir: StatusesByDirectory,
 ): boolean {

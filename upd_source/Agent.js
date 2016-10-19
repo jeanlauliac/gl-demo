@@ -57,34 +57,31 @@ export default class Agent {
     });
   }
 
+  _spawn(command: string, args: Array<string>): child_process$ChildProcess {
+    const proc = this._innerSpawn(command, args)
+    const escapedArgs = args.map(escapeShellArg);
+    this.verboseLog(`process/spawn: [${proc.pid}] ` +
+      `${command} ${escapedArgs.join(' ')}`);
+    proc.on('exit', (code, signal) => {
+      this.verboseLog(`process/exited: [${proc.pid}] ${code} ${signal}`);
+    });
+    return proc;
+  }
+
   /**
    * Update the state based on a single event, and reconcile any process or
    * file that is described as running or open.
    */
   update(event: Event): void {
     this.verboseLog('agent/event: %s', event.type);
-    this.state = agentState.update(
-      this.state,
-      this.config,
+    this.state = agentState.update({
+      config: this.config,
+      createDirectory: this._createDirectory,
+      dispatch: this.update,
       event,
-      this.update,
-      this._createDirectory,
-    );
-  }
-
-  _onProcessExit(key: string, code: number, signal: string): void {
-    this.update({code, key, signal, type: 'process-exit'});
-  }
-
-  _spawn(command: string, args: Array<string>): child_process$ChildProcess {
-    const proc = this._innerSpawn(command, args)
-    const escapedArgs = args.map(escapeShellArg);
-    this.verboseLog(`process/spawn(${proc.pid}): ` +
-      `${command} ${escapedArgs.join(' ')}`);
-    proc.on('exit', (code, signal) => {
-      this.verboseLog(`process/exited(${proc.pid}): ${code} ${signal}`);
+      spawn: this._spawn,
+      state: this.state,
     });
-    return proc;
   }
 
   _onExit(): void {
@@ -103,8 +100,14 @@ export default class Agent {
     this._innerSpawn = spawn;
     (this: any).update = this.update.bind(this);
     (this: any)._createDirectory = this._createDirectory.bind(this);
+    (this: any)._spawn = this._spawn.bind(this);
     this.verboseLog('agent/start');
-    this.state = agentState.create(config, this.update, this._createDirectory);
+    this.state = agentState.create({
+      config,
+      createDirectory: this._createDirectory,
+      dispatch: this.update,
+      spawn: this._spawn,
+    });
     process.on('exit', this._onExit.bind(this));
   }
 

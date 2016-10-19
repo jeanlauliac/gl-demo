@@ -20,14 +20,14 @@ export type Event =
     type: 'create-directory-failure',
   } |
   {
-    // Return code of the process.
+    // Return code of the process. Process was successful if this is zero.
     code: number,
-    // The key of the process that exited.
-    key: string,
+    // File being updated by this process.
+    targetPath: string,
     // Signal that killed the process, if any.
     signal: string,
-    // A process that has been returned by `getProcesses` before has exited.
-    type: 'process-exit',
+    // An update process finished.
+    type: 'update-process-exit',
   };
 
 export type DispatchEvent = (event: Event) => void;

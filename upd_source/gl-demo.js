@@ -2,11 +2,13 @@
 
 'use strict';
 
+import type {FilePath} from './file_path';
 import type {ProcessDesc} from './process_desc';
 
 import * as adjacency_list from './adjacency_list';
 import chain from './chain';
 import cli from './cli';
+import * as file_path from './file_path';
 import * as process_desc from './process_desc';
 import glob from 'glob';
 import * as immutable from 'immutable';
@@ -15,9 +17,10 @@ import path from 'path';
 /**
  * Return the same file directory and name stripped of its extension.
  */
-function pathWithoutExt(filePath: string): string {
-  const ext = path.extname(filePath);
-  return filePath.substr(0, filePath.length - ext.length);
+function pathWithoutExt(filePath: FilePath): FilePath {
+  const rawPath = filePath.resolved;
+  const ext = path.extname(rawPath);
+  return file_path.create(rawPath.substr(0, rawPath.length - ext.length));
 }
 
 /**
@@ -25,14 +28,14 @@ function pathWithoutExt(filePath: string): string {
  * files into the specified object file.
  */
 function compile(
-  filePath: string,
-  sourcePaths: immutable.Set<string>,
+  filePath: FilePath,
+  sourcePaths: immutable.Set<FilePath>,
 ): ProcessDesc {
-  const depFilePath = pathWithoutExt(filePath) + '.d';
+  const depFilePath = pathWithoutExt(filePath).resolved + '.d';
   return process_desc.create('clang++', immutable.List([
-    '-c', '-o', filePath, '-Wall', '-std=c++14', '-fcolor-diagnostics',
+    '-c', '-o', filePath.resolved, '-Wall', '-std=c++14', '-fcolor-diagnostics',
     '-MMD', '-MF', depFilePath, '-I', '/usr/local/include',
-  ]).concat(sourcePaths.toArray()));
+  ]).concat(sourcePaths.map(p => p.resolved).toArray()));
   // Implement this part in a pure functional way as well.
   // .then(result => {
   //   if (result !== 'built') {
@@ -53,13 +56,13 @@ function compile(
  * files into the specified executable file.
  */
 function link(
-  filePath: string,
-  sourcePaths: immutable.Set<string>,
+  filePath: FilePath,
+  sourcePaths: immutable.Set<FilePath>,
 ): ProcessDesc {
   return process_desc.create('clang++', immutable.List([
-    '-o', filePath, '-framework', 'OpenGL', '-Wall', '-std=c++14', '-lglew',
-    '-lglfw3', '-fcolor-diagnostics', '-L', '/usr/local/lib',
-  ]).concat(sourcePaths.toArray()));
+    '-o', filePath.resolved, '-framework', 'OpenGL', '-Wall', '-std=c++14',
+    '-lglew', '-lglfw3', '-fcolor-diagnostics', '-L', '/usr/local/lib',
+  ]).concat(sourcePaths.map(p => p.resolved).toArray()));
 }
 
 /**
@@ -69,22 +72,25 @@ cli(cliOpts => {
   const sourceFiles = immutable.List(['main.cpp'])
     .concat(glob.sync('glfwpp/*.cpp'))
     .concat(glob.sync('glpp/*.cpp'))
-    .concat(glob.sync('ds/*.cpp'));
+    .concat(glob.sync('ds/*.cpp'))
+    .map(p => file_path.create(p));
   const sourceObjectPairs = sourceFiles.map(sourceFilePath => {
-    const barePath = pathWithoutExt(sourceFilePath);
-    const objectFilePath = path.join('.upd_cache', barePath + '.o');
+    const barePath = file_path.relative('.', pathWithoutExt(sourceFilePath));
+    const objectFilePath = file_path.create(
+      path.join('.upd_cache', barePath + '.o'),
+    );
     return [sourceFilePath, objectFilePath];
   });
   const fileAdjacencyList = (
     sourceObjectPairs.reduce((fileAdj, [sourcePath, objectPath]) => {
       return chain([
         fileAdj => adjacency_list.add(fileAdj, sourcePath, objectPath),
-        fileAdj => adjacency_list.add(fileAdj, objectPath, 'gl-demo'),
+        fileAdj => adjacency_list.add(fileAdj, objectPath, file_path.create('gl-demo')),
       ], fileAdj);
     }, adjacency_list.empty())
   );
   const fileBuilders = sourceObjectPairs.reduce((builders, pair) => {
     return builders.set(pair[1], compile);
-  }, immutable.Map()).set('gl-demo', link);
+  }, immutable.Map()).set(file_path.create('gl-demo'), link);
   return {cliOpts, fileAdjacencyList, fileBuilders};
 });

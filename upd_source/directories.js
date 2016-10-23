@@ -2,8 +2,10 @@
 
 'use strict';
 
-import type {DispatchEvent, Event, FilePath} from './agent-event';
+import type {FilePath} from './file_path';
+import type {DispatchEvent, Event} from './agent-event';
 
+import * as file_path from './file_path';
 import * as immutable from 'immutable';
 import path from 'path';
 
@@ -20,7 +22,7 @@ export function doesExist(
   dirPath: FilePath,
   statsByDir: StatusesByDirectory,
 ): boolean {
-  if (path.dirname(dirPath) === dirPath) {
+  if (immutable.is(file_path.dirname(dirPath), dirPath)) {
     return true;
   }
   const stat = statsByDir.get(dirPath);
@@ -37,18 +39,18 @@ export function nextOnes(props: {
 }): FileSet {
   const {statusesByDirectory} = props;
   return props.targetPaths.reduce((directories, filePath) => {
-    if (doesExist(path.dirname(filePath), statusesByDirectory)) {
+    if (doesExist(file_path.dirname(filePath), statusesByDirectory)) {
       return directories;
     }
-    while (!doesExist(path.dirname(filePath), statusesByDirectory)) {
-      filePath = path.dirname(filePath);
+    while (!doesExist(file_path.dirname(filePath), statusesByDirectory)) {
+      filePath = file_path.dirname(filePath);
     }
     return directories.add(filePath);
   }, immutable.Set());
 }
 
 const MAX_DIRECTORY_CONCURRENCY = 4;
-export type CreateDirectory = (directoryPath: string) => Promise<void>;
+export type CreateDirectory = (directoryPath: FilePath) => Promise<void>;
 
 /**
  * Start creating missing directories when possible. Return the set of directory
@@ -87,7 +89,10 @@ export function create(props: {
   dispatch: DispatchEvent,
   createDirectory: CreateDirectory,
 }): StatusesByDirectory {
-  return updateMissing({...props, statusesByDirectory: immutable.Map()});
+  const assumedDirs = immutable.Map([
+    [file_path.create('.'), {operation: 'none', error: null}],
+  ]);
+  return updateMissing({...props, statusesByDirectory: assumedDirs});
 }
 
 function updateForEvent(props: {

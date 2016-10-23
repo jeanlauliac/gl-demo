@@ -3,9 +3,10 @@
 'use strict';
 
 import type {Spawn} from './Agent'
-import type {Event, DispatchEvent, FilePath} from './agent-event';
+import type {Event, DispatchEvent} from './agent-event';
 import type {CreateDirectory, StatusesByDirectory} from './directories';
 import type {FileAdjacencyList} from './file_adjacency_list';
+import type {FilePath} from './file_path';
 import type {ProcessDesc} from './process_desc';
 import type {UpdateProcesses} from './update_processes';
 import type {ChildProcess} from 'child_process';
@@ -13,6 +14,7 @@ import type {ChildProcess} from 'child_process';
 import * as adjacency_list from './adjacency_list';
 import nullthrows from './nullthrows';
 import * as directories from './directories';
+import * as file_path from './file_path';
 import * as update_processes from './update_processes';
 import * as immutable from 'immutable';
 import {dirname} from 'path';
@@ -61,7 +63,6 @@ export function create(props: {
 }): AgentState {
   const {config, dispatch, createDirectory, spawn} = props;
   const staleFiles = immutable.Set(config.fileBuilders.keys());
-  const existingDirectories = immutable.Set();
   const statusesByDirectory = directories.create({
     targetPaths: staleFiles,
     dispatch,

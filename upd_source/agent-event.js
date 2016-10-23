@@ -2,9 +2,7 @@
 
 'use strict';
 
-import type {FileStatus} from './file-status';
-
-export type FilePath = string;
+import type {FilePath} from './file_path';
 
 // Describe something that happened in the Upd agent.
 export type Event =
@@ -23,7 +21,7 @@ export type Event =
     // Return code of the process. Process was successful if this is zero.
     code: number,
     // File being updated by this process.
-    targetPath: string,
+    targetPath: FilePath,
     // Signal that killed the process, if any.
     signal: string,
     // An update process finished.

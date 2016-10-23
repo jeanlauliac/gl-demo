@@ -2,7 +2,8 @@
 
 'use strict';
 
-import type {FileAdjacencyList, FilePath} from './file_adjacency_list';
+import type {FileAdjacencyList} from './file_adjacency_list';
+import type {FilePath} from './file_path';
 import type {Event} from './agent-event';
 import type {AgentConfig, AgentState} from './agent-state';
 
@@ -46,7 +47,7 @@ export default class Agent {
   _createDirectory(directoryPath: FilePath): Promise<void> {
     return new Promise((resolve, reject) => {
       this.verboseLog('mkdir/call: %s', directoryPath);
-      fs.mkdir(directoryPath, undefined, error => {
+      fs.mkdir(directoryPath.resolved, undefined, error => {
         if (error) {
           this.verboseLog('mkdir/reject: %s %s', directoryPath, error);
           return reject(error);

@@ -3,13 +3,15 @@
 'use strict';
 
 import type {Spawn} from './Agent';
-import type {DispatchEvent, Event, FilePath} from './agent-event';
+import type {DispatchEvent, Event} from './agent-event';
 import type {AgentConfig, FileSet} from './agent-state';
 import type {ChildProcess} from 'child_process';
 import type {StatusesByDirectory} from './directories';
+import type {FilePath} from './file_path';
 
 import * as adjacency_list from './adjacency_list';
 import * as directories from './directories';
+import * as file_path from './file_path';
 import * as immutable from 'immutable';
 import {dirname} from 'path';
 
@@ -29,7 +31,7 @@ function spawnNextProcesses(props: {
     if (updateProcesses.has(filePath)) {
       return false;
     }
-    const dirPath = dirname(filePath);
+    const dirPath = file_path.dirname(filePath);
     if (!directories.doesExist(dirPath, statusesByDirectory)) {
       return false;
     }

@@ -8,7 +8,7 @@ import * as immutable from 'immutable';
 /**
  * Represent a process being run on the system.
  */
-export type Process = {
+export type ProcessDesc = {
   // Name of the binary to be run in the current context. Ex. 'ls'.
   command: string;
   // Ordered arguments, like on the command-line.
@@ -21,6 +21,9 @@ const createRaw = createFreezed.bind(undefined, {
   },
 });
 
-export function create(command: string, args: immutable.List<string>): Process {
+export function create(
+  command: string,
+  args: immutable.List<string>,
+): ProcessDesc {
   return createRaw({command, args});
 }

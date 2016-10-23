@@ -4,9 +4,9 @@
 
 import type {Spawn} from './Agent'
 import type {Event, DispatchEvent, FilePath} from './agent-event';
-import type {FileAdjacencyList} from './file_adjacency_list';
 import type {CreateDirectory, StatusesByDirectory} from './directories';
-import type {Process} from './process';
+import type {FileAdjacencyList} from './file_adjacency_list';
+import type {ProcessDesc} from './process_desc';
 import type {UpdateProcesses} from './update_processes';
 import type {ChildProcess} from 'child_process';
 
@@ -37,7 +37,7 @@ export type AgentConfig = {
   fileBuilders: immutable.Map<FilePath, (
     filePath: FilePath,
     sourceFilePaths: immutable.Set<FilePath>,
-  ) => Process>,
+  ) => ProcessDesc>,
 };
 
 export type AgentState = {

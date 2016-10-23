@@ -2,12 +2,12 @@
 
 'use strict';
 
-import type {Process} from './process';
+import type {ProcessDesc} from './process_desc';
 
 import * as adjacency_list from './adjacency_list';
 import chain from './chain';
 import cli from './cli';
-import * as process from './process';
+import * as process_desc from './process_desc';
 import glob from 'glob';
 import * as immutable from 'immutable';
 import path from 'path';
@@ -21,29 +21,15 @@ function pathWithoutExt(filePath: string): string {
 }
 
 /**
- * Promise version of fs.readFile.
- */
-// function readFilePromise(filePath: string, encoding: string) {
-//   return new Promise((resolve, reject) => {
-//     fs.readFile(filePath, encoding, (error, content) => {
-//       if (error) {
-//         return void reject(error);
-//       }
-//       resolve(content);
-//     });
-//   });
-// }
-
-/**
  * Return a descriptor of the process that compiles the specified C++14 source
  * files into the specified object file.
  */
 function compile(
   filePath: string,
   sourcePaths: immutable.Set<string>,
-): Process {
+): ProcessDesc {
   const depFilePath = pathWithoutExt(filePath) + '.d';
-  return process.create('clang++', immutable.List([
+  return process_desc.create('clang++', immutable.List([
     '-c', '-o', filePath, '-Wall', '-std=c++14', '-fcolor-diagnostics',
     '-MMD', '-MF', depFilePath, '-I', '/usr/local/include',
   ]).concat(sourcePaths.toArray()));
@@ -69,8 +55,8 @@ function compile(
 function link(
   filePath: string,
   sourcePaths: immutable.Set<string>,
-): Process {
-  return process.create('clang++', immutable.List([
+): ProcessDesc {
+  return process_desc.create('clang++', immutable.List([
     '-o', filePath, '-framework', 'OpenGL', '-Wall', '-std=c++14', '-lglew',
     '-lglfw3', '-fcolor-diagnostics', '-L', '/usr/local/lib',
   ]).concat(sourcePaths.toArray()));

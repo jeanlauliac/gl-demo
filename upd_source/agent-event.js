@@ -22,6 +22,10 @@ export type Event =
     code: number,
     // File being updated by this process.
     targetPath: FilePath,
+    // Data output on stderr.
+    stderr: Buffer,
+    // Data output on stdout.
+    stdout: Buffer,
     // Signal that killed the process, if any.
     signal: string,
     // An update process finished.

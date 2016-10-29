@@ -30,28 +30,36 @@ export default class Agent {
   _innerSpawn: Spawn;
   _currentPrompt: ?string;
 
-  log(...args: Array<any>): void {
-    this._currentPrompt = null;
-    const line = util.format(...args);
-    // $FlowIssue: missing decl for `columns`.
-    const {columns} = process.stdout;
-    if (columns == null || line.length < columns) {
-      console.log(line);
-      return;
+  setPrompt(prompt: ?string): ?string {
+    if (prompt === this._currentPrompt) {
+      return prompt;
     }
-    console.log(line.substr(0, columns - 4) + '...');
+    if (this._currentPrompt != null && process.stdout.isTTY) {
+      readline.moveCursor(process.stdout, 0, -1);
+      readline.clearLine(process.stdout, 0);
+    }
+    if (prompt != null) {
+      console.log(prompt);
+    }
+    const oldPrompt = this._currentPrompt;
+    this._currentPrompt = prompt;
+    return oldPrompt;
   }
 
-  setPrompt(...promptArgs: Array<any>): void {
-    const prompt = util.format(...promptArgs);
-    if (prompt === this._currentPrompt) {
-      return;
+  clearPrompt(): ?string {
+    return this.setPrompt(null);
+  }
+
+  log(...args: Array<any>): void {
+    const prompt = this.clearPrompt();
+    let line = util.format(...args);
+    // $FlowIssue: missing decl for `columns`.
+    const {columns} = process.stdout;
+    if (columns != null && line.length >= columns) {
+      line = line.substr(0, columns - 4) + '...';
     }
-    if (process.stdout.isTTY && this._currentPrompt != null) {
-      readline.moveCursor(process.stdout, 0, -1);
-    }
-    console.log(prompt);
-    this._currentPrompt = prompt;
+    console.log(line);
+    this.setPrompt(prompt);
   }
 
   verboseLog(...args: Array<any>): void {
@@ -85,12 +93,36 @@ export default class Agent {
     return proc;
   }
 
+  _updatePrompt() {
+    const totalCount = this.config.fileBuilders.size;
+    const updatedCount = totalCount - this.state.staleFiles.size;
+    const percent = Math.ceil((updatedCount / totalCount) * 100);
+    const finish = totalCount === updatedCount ? ', done.' : '...';
+    this.setPrompt(
+      `☕  Updating files: ${percent}% (${updatedCount}/${totalCount})${finish}`,
+    );
+  }
+
+  _logProcessOutput(event: Event): void {
+    if (event.type !== 'update-process-exit') {
+      return;
+    }
+    if (event.stdout.length === 0 && event.stderr.length === 0) {
+      return;
+    }
+    const prompt = this.clearPrompt();
+    process.stdout.write(event.stdout);
+    process.stderr.write(event.stderr);
+    this.setPrompt(prompt);
+  }
+
   /**
    * Update the state based on a single event, and reconcile any process or
    * file that is described as running or open.
    */
   update(event: Event): void {
     this.verboseLog('agent/event: %s', event.type);
+    this._logProcessOutput(event);
     this.state = agentState.update({
       config: this.config,
       createDirectory: this._createDirectory,
@@ -99,19 +131,17 @@ export default class Agent {
       spawn: this._spawn,
       state: this.state,
     });
-    const totalCount = this.config.fileBuilders.size;
-    const updatedCount = totalCount - this.state.staleFiles.size;
-    this.setPrompt(`☕  Updating [${updatedCount}/${totalCount}]`);
+    this._updatePrompt();
   }
 
   _onExit(): void {
     const {state} = this;
     if (!state.staleFiles.isEmpty()) {
-      this.log(`🎃  Update failed: ${state.staleFiles.size} files are stale.`);
+      this.log(this.clearPrompt());
+      this.log('*** Update failed! Check error messages in output.');
+      // https://nodejs.org/api/process.html#process_exit_codes
       // $FlowIssue: missing declaration for modern `exitCode` prop.
-      process.exitCode = 1;
-    } else {
-      this.log('✨  Done.');
+      process.exitCode = 20;
     }
   }
 

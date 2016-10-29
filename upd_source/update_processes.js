@@ -54,10 +54,16 @@ function spawnNextProcesses(props: {
       processDesc.command,
       processDesc.args.toArray(),
     );
+    const stdouts = [];
+    const stderrs = [];
+    process.stdout.on('data', data => stdouts.push(data));
+    process.stderr.on('data', data => stderrs.push(data));
     process.on('exit', (code, signal) => {
       props.dispatch({
         code,
         signal,
+        stderr: Buffer.concat(stderrs),
+        stdout: Buffer.concat(stdouts),
         targetPath: filePath,
         type: 'update-process-exit',
       });

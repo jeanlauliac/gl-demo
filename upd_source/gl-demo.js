@@ -86,16 +86,17 @@ cli(cliOpts => {
     );
     return [sourceFilePath, objectFilePath];
   });
+  const distBinPath = file_path.create('dist/gl-demo');
   const fileAdjacencyList = (
     sourceObjectPairs.reduce((fileAdj, [sourcePath, objectPath]) => {
       return chain([
         fileAdj => adjacency_list.add(fileAdj, sourcePath, objectPath),
-        fileAdj => adjacency_list.add(fileAdj, objectPath, file_path.create('gl-demo')),
+        fileAdj => adjacency_list.add(fileAdj, objectPath, distBinPath),
       ], fileAdj);
     }, adjacency_list.empty())
   );
   const fileBuilders = sourceObjectPairs.reduce((builders, pair) => {
     return builders.set(pair[1], compile);
-  }, immutable.Map()).set(file_path.create('gl-demo'), link);
+  }, immutable.Map()).set(distBinPath, link);
   return {cliOpts, fileAdjacencyList, fileBuilders};
 });

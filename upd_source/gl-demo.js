@@ -18,9 +18,8 @@ import path from 'path';
  * Return the same file directory and name stripped of its extension.
  */
 function pathWithoutExt(filePath: FilePath): FilePath {
-  const rawPath = filePath.resolved;
-  const ext = path.extname(rawPath);
-  return file_path.create(rawPath.substr(0, rawPath.length - ext.length));
+  const ext = path.extname(filePath);
+  return file_path.create(filePath.substr(0, filePath.length - ext.length));
 }
 
 /**
@@ -31,11 +30,14 @@ function compile(
   filePath: FilePath,
   sourcePaths: immutable.Set<FilePath>,
 ): ProcessDesc {
-  const depFilePath = pathWithoutExt(filePath).resolved + '.d';
+  const depFilePath = pathWithoutExt(filePath) + '.d';
   return process_desc.create('clang++', immutable.List([
-    '-c', '-o', filePath.resolved, '-Wall', '-std=c++14', '-fcolor-diagnostics',
+    '-c', '-o', filePath, '-Wall', '-std=c++14', '-fcolor-diagnostics',
     '-MMD', '-MF', depFilePath, '-I', '/usr/local/include',
-  ]).concat(sourcePaths.map(p => p.resolved).toArray()));
+  ]).concat(
+    /* $FlowIssue: should be covariant */
+    (sourcePaths: immutable.Set<string>),
+  ));
   // Implement this part in a pure functional way as well.
   // .then(result => {
   //   if (result !== 'built') {
@@ -60,9 +62,12 @@ function link(
   sourcePaths: immutable.Set<FilePath>,
 ): ProcessDesc {
   return process_desc.create('clang++', immutable.List([
-    '-o', filePath.resolved, '-framework', 'OpenGL', '-Wall', '-std=c++14',
+    '-o', filePath, '-framework', 'OpenGL', '-Wall', '-std=c++14',
     '-lglew', '-lglfw3', '-fcolor-diagnostics', '-L', '/usr/local/lib',
-  ]).concat(sourcePaths.map(p => p.resolved).toArray()));
+  ]).concat(
+    /* $FlowIssue: should be covariant */
+    (sourcePaths: immutable.Set<string>),
+  ));
 }
 
 /**
@@ -75,7 +80,7 @@ cli(cliOpts => {
     .concat(glob.sync('ds/*.cpp'))
     .map(p => file_path.create(p));
   const sourceObjectPairs = sourceFiles.map(sourceFilePath => {
-    const barePath = file_path.relative('.', pathWithoutExt(sourceFilePath));
+    const barePath = path.relative('.', pathWithoutExt(sourceFilePath));
     const objectFilePath = file_path.create(
       path.join('.upd_cache', barePath + '.o'),
     );

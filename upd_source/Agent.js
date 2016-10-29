@@ -47,7 +47,7 @@ export default class Agent {
   _createDirectory(directoryPath: FilePath): Promise<void> {
     return new Promise((resolve, reject) => {
       this.verboseLog('mkdir/call: %s', directoryPath);
-      fs.mkdir(directoryPath.resolved, undefined, error => {
+      fs.mkdir(directoryPath, undefined, error => {
         if (error) {
           this.verboseLog('mkdir/reject: %s %s', directoryPath, error);
           return reject(error);

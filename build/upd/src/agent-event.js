@@ -3,6 +3,7 @@
 'use strict';
 
 import type {FilePath} from './file_path';
+import type {UpdateProcessDesc} from './update_process_desc';
 
 // Describe something that happened in the Upd agent.
 export type Event =
@@ -30,6 +31,12 @@ export type Event =
     signal: string,
     // An update process finished.
     type: 'update-process-exit',
+    // Desc that originated this process.
+    updateDesc: UpdateProcessDesc,
+  } |
+  {
+    content: string,
+    type: 'dynamic-dependencies-file-read',
   };
 
 export type DispatchEvent = (event: Event) => void;

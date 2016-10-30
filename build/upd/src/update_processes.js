@@ -49,10 +49,10 @@ function spawnNextProcesses(props: {
     const sources = immutable.Set(
       adjacency_list.precedingSeq(adjList, filePath).keys(),
     );
-    const processDesc = builder(filePath, sources);
+    const updateDesc = builder(filePath, sources);
     const process = props.spawn(
-      processDesc.command,
-      processDesc.args.toArray(),
+      updateDesc.processDesc.command,
+      updateDesc.processDesc.args.toArray(),
     );
     const stdouts = [];
     const stderrs = [];
@@ -66,6 +66,7 @@ function spawnNextProcesses(props: {
         stdout: Buffer.concat(stdouts),
         targetPath: filePath,
         type: 'update-process-exit',
+        updateDesc,
       });
     });
     return updateProcesses.set(filePath, process);

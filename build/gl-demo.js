@@ -10,6 +10,7 @@ import chain from './upd/src/chain';
 import cli from './upd/src/cli';
 import * as file_path from './upd/src/file_path';
 import * as process_desc from './upd/src/process_desc';
+import * as update_process_desc from './upd/src/update_process_desc';
 import glob from 'glob';
 import * as immutable from 'immutable';
 import path from 'path';
@@ -26,48 +27,34 @@ function pathWithoutExt(filePath: FilePath): FilePath {
  * Return a descriptor of the process that compiles the specified C++14 source
  * files into the specified object file.
  */
-function compile(
-  filePath: FilePath,
-  sourcePaths: immutable.Set<FilePath>,
-): ProcessDesc {
-  const depFilePath = pathWithoutExt(filePath) + '.d';
-  return process_desc.create('clang++', immutable.List([
-    '-c', '-o', filePath, '-Wall', '-std=c++14', '-fcolor-diagnostics',
-    '-MMD', '-MF', depFilePath, '-I', '/usr/local/include',
-  ]).concat(
-    /* $FlowIssue: should be covariant */
-    (sourcePaths: immutable.Set<string>),
-  ));
-  // Implement this part in a pure functional way as well.
-  // .then(result => {
-  //   if (result !== 'built') {
-  //     return Promise.resolve({result, dynamicDependencies: immutable.List()});
-  //   }
-  //   return readFilePromise(depFilePath, 'utf8').then(content => {
-  //     // Ain't got no time for a true parser.
-  //     const dynamicDependencies = immutable.List(content.split(/(?:\n| )/)
-  //       .filter(chunk => chunk.endsWith('.h'))
-  //       .map(filePath => path.normalize(filePath)));
-  //     return {result, dynamicDependencies};
-  //   });
-  // });
+function compile(filePath, sourcePaths) {
+  const depFilePath = file_path.create(pathWithoutExt(filePath) + '.d');
+  return update_process_desc.create(
+    process_desc.create('clang++', immutable.List([
+      '-c', '-o', filePath, '-Wall', '-std=c++14', '-fcolor-diagnostics',
+      '-MMD', '-MF', depFilePath, '-I', '/usr/local/include',
+    ]).concat(
+      /* $FlowIssue: should be covariant */
+      (sourcePaths: immutable.Set<string>),
+    )),
+    depFilePath,
+  );
 }
 
 /**
  * Return a descriptor of the process that links the specified binary object
  * files into the specified executable file.
  */
-function link(
-  filePath: FilePath,
-  sourcePaths: immutable.Set<FilePath>,
-): ProcessDesc {
-  return process_desc.create('clang++', immutable.List([
-    '-o', filePath, '-framework', 'OpenGL', '-Wall', '-std=c++14',
-    '-lglew', '-lglfw3', '-fcolor-diagnostics', '-L', '/usr/local/lib',
-  ]).concat(
-    /* $FlowIssue: should be covariant */
-    (sourcePaths: immutable.Set<string>),
-  ));
+function link(filePath, sourcePaths) {
+  return update_process_desc.create(
+    process_desc.create('clang++', immutable.List([
+      '-o', filePath, '-framework', 'OpenGL', '-Wall', '-std=c++14',
+      '-lglew', '-lglfw3', '-fcolor-diagnostics', '-L', '/usr/local/lib',
+    ]).concat(
+      /* $FlowIssue: should be covariant */
+      (sourcePaths: immutable.Set<string>),
+    )),
+  );
 }
 
 /**

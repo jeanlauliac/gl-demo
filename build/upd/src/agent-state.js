@@ -5,15 +5,17 @@
 import type {Spawn} from './Agent'
 import type {Event, DispatchEvent} from './agent-event';
 import type {CreateDirectory, StatusesByDirectory} from './directories';
+import type {DynamicDependencies} from './dynamic_dependencies';
 import type {FileAdjacencyList} from './file_adjacency_list';
 import type {FilePath} from './file_path';
-import type {ProcessDesc} from './process_desc';
+import type {UpdateProcessDesc} from './update_process_desc';
 import type {UpdateProcesses} from './update_processes';
 import type {ChildProcess} from 'child_process';
 
 import * as adjacency_list from './adjacency_list';
-import nullthrows from './nullthrows';
 import * as directories from './directories';
+import * as dynamic_dependencies from './dynamic_dependencies';
+import nullthrows from './nullthrows';
 import * as file_path from './file_path';
 import * as update_processes from './update_processes';
 import * as immutable from 'immutable';
@@ -39,10 +41,13 @@ export type AgentConfig = {
   fileBuilders: immutable.Map<FilePath, (
     filePath: FilePath,
     sourceFilePaths: immutable.Set<FilePath>,
-  ) => ProcessDesc>,
+  ) => UpdateProcessDesc>,
 };
 
 export type AgentState = {
+  // Dependencies detected while we build more files, in addition to the
+  // file adjacencies.
+  dynamicDependencies: DynamicDependencies,
   // All the directories that exist or that we are creating.
   statusesByDirectory: StatusesByDirectory,
   // All the files we want to update.
@@ -69,6 +74,7 @@ export function create(props: {
     createDirectory,
   });
   return Object.freeze({
+    dynamicDependencies: dynamic_dependencies.create(),
     statusesByDirectory,
     staleFiles,
     updateProcesses: update_processes.create({
@@ -113,10 +119,17 @@ export function update(props: {
 }): AgentState {
   const {config, dispatch, event, state} = props;
   let {
+    dynamicDependencies,
     statusesByDirectory,
     staleFiles,
     updateProcesses,
   } = state;
+  dynamicDependencies = dynamic_dependencies.update({
+    config,
+    dispatch,
+    event,
+    dynamicDependencies,
+  });
   staleFiles = updateStaleFiles(config, staleFiles, event);
   statusesByDirectory = directories.update({
     statusesByDirectory,
@@ -126,6 +139,7 @@ export function update(props: {
     targetPaths: staleFiles,
   });
   return Object.freeze({
+    dynamicDependencies,
     staleFiles,
     statusesByDirectory,
     updateProcesses: update_processes.update({

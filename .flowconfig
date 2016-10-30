@@ -6,6 +6,7 @@
 
 [include]
 node_modules/immutable/dist/immutable.js.flow
+build/upd/node_modules/immutable/dist/immutable.js.flow
 
 [libs]
 flow_libs/

@@ -43,7 +43,7 @@ tap.test('adjacency_list', t => {
   t.equal(is(someArcs, add(lessArcs, 1, 2, 'beep')),
     false, 'implements value semantics');
 
-  t.equal(toString(someArcs),
+  t.equal(toString(someArcs, k => k.toString(), v => v.toString()),
     "adjacency-list {1=>2: foo, 1=>3: glo, 2=>3: bar}",
     'implements toString');
 

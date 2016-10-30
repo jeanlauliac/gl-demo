@@ -140,7 +140,6 @@ export default class Agent {
       this.log(this.clearPrompt());
       this.log('*** Update failed! Check error messages in output.');
       // https://nodejs.org/api/process.html#process_exit_codes
-      // $FlowIssue: missing declaration for modern `exitCode` prop.
       process.exitCode = 20;
     }
   }

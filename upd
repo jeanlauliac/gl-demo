@@ -1,2 +1,2 @@
 #!/bin/sh
-./runner ./upd_source/gl-demo.js $@
+./build/runner ./build/gl-demo.js $@

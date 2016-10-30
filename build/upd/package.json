@@ -1,0 +1,34 @@
+{
+  "name": "upd",
+  "version": "0.1.0",
+  "description": "Update files",
+  "main": "src/cli.js",
+  "scripts": {
+    "test": "./tester ./test.js"
+  },
+  "author": "Jean Lauliac <jean@lauliac.com>",
+  "license": "ISC",
+  "devDependencies": {
+    "babel": "^6.1.18",
+    "babel-cli": "^6.1.18",
+    "babel-plugin-syntax-class-properties": "^6.1.18",
+    "babel-plugin-syntax-flow": "^6.1.18",
+    "babel-plugin-syntax-trailing-function-commas": "^6.5.0",
+    "babel-plugin-transform-class-properties": "^6.1.20",
+    "babel-plugin-transform-es2015-destructuring": "^6.1.18",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.1.20",
+    "babel-plugin-transform-flow-strip-types": "^6.1.18",
+    "babel-plugin-transform-object-rest-spread": "^6.6.5",
+    "babel-preset-es2015": "^6.18.0",
+    "babel-preset-stage-2": "^6.1.18"
+  },
+  "dependencies": {
+    "chokidar": "^1.2.0",
+    "glob": "^5.0.15",
+    "mkdirp": "^0.5.1",
+    "promisify-node": "^0.2.1",
+    "sinon": "^1.17.3",
+    "tap": "^2.2.1",
+    "tap-mocha-reporter": "0.0.27"
+  }
+}

@@ -90,7 +90,7 @@ export function create(props: {
   createDirectory: CreateDirectory,
 }): StatusesByDirectory {
   const assumedDirs = immutable.Map([
-    [file_path.create('.'), {operation: 'none', error: null}],
+    //[file_path.create('.'), {operation: 'none', error: null}],
   ]);
   return updateMissing({...props, statusesByDirectory: assumedDirs});
 }

@@ -1,3 +1,6 @@
+/.upd_cache
 /dist
 /node_modules
-/.upd_cache
+/build/upd/node_modules
+/build/upd/dist
+/build/upd/.upd_cache

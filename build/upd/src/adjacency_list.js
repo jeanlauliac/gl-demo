@@ -198,9 +198,11 @@ export function precedingSeq<TKey, TValue>(
 // Return a string representation of the adjacency list.
 export function toString<TKey, TValue>(
   list: AdjacencyList<TKey, TValue>,
+  keyToString: (key: TKey) => string,
+  valueToString: (value: TValue) => string,
 ): string {
   const arcStrings = arcSeq(list).map((value, [originKey, targetKey]) => {
-    return `${originKey}=>${targetKey}: ${value}`;
+    return `${keyToString(originKey)}=>${keyToString(targetKey)}: ${valueToString(value)}`;
   });
   return `adjacency-list {${arcStrings.join(', ')}}`;
 }

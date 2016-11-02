@@ -37,5 +37,8 @@
     "sinon": "^1.17.3",
     "tap": "^2.2.1",
     "tap-mocha-reporter": "0.0.27"
+  },
+  "dependencies": {
+    "chokidar": "^1.6.1"
   }
 }

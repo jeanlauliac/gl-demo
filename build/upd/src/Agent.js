@@ -8,7 +8,10 @@ import type {Event} from './agent-event';
 import type {AgentConfig, AgentState} from './agent-state';
 
 import * as agentState from './agent-state';
+import * as file_path from './file_path';
+import chokidar from 'chokidar';
 import fs from 'fs';
+import path from 'path';
 import {List as ImmList, Map as ImmMap} from 'immutable';
 import * as readline from 'readline';
 import util from 'util';
@@ -144,6 +147,28 @@ export default class Agent {
     }
   }
 
+  _fsWatcher: any;
+
+  _watchFilesytem() {
+    this._fsWatcher = chokidar.watch('.', {
+      ignored: ['.*/**', '**/node_modules/**'],
+      ignoreInitial: true,
+    });
+    this._fsWatcher.on('add', filePath => {
+      this.verboseLog('watcher/add: %s', path.relative('.', filePath));
+    });
+    this._fsWatcher.on('change', filePath => {
+      this.verboseLog('watcher/change: %s', path.relative('.', filePath));
+      this.update({
+        filePath: file_path.create(filePath),
+        type: 'chokidar-file-changed',
+      });
+    });
+    this._fsWatcher.on('unlink', filePath => {
+      this.verboseLog('watcher/unlink: %s', path.relative('.', filePath));
+    });
+  }
+
   constructor(config: AgentConfig, spawn: Spawn) {
     Object.defineProperty(this, 'config', {value: config});
     this._currentPrompt = null;
@@ -159,6 +184,7 @@ export default class Agent {
       spawn: this._spawn,
     });
     process.on('exit', this._onExit.bind(this));
+    this._watchFilesytem();
   }
 
 }

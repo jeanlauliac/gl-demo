@@ -37,6 +37,10 @@ export type Event =
   {
     content: string,
     type: 'dynamic-dependencies-file-read',
+  } |
+  {
+    filePath: FilePath,
+    type: 'chokidar-file-changed',
   };
 
 export type DispatchEvent = (event: Event) => void;

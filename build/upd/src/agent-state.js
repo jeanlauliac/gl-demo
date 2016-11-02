@@ -3,6 +3,7 @@
 'use strict';
 
 import type {Spawn} from './Agent'
+import type {AdjacencyList} from './adjacency_list';
 import type {Event, DispatchEvent} from './agent-event';
 import type {CreateDirectory, StatusesByDirectory} from './directories';
 import type {DynamicDependencies} from './dynamic_dependencies';
@@ -87,21 +88,49 @@ export function create(props: {
   });
 }
 
+function descendantsOf<TKey, TValue>(
+  adjList: AdjacencyList<TKey, TValue>,
+  originKey: TKey,
+): immutable.Set<TKey> {
+  return adjacency_list.followingSeq(adjList, originKey).keySeq().reduce(
+    (descendants, followingKey) => {
+      return descendants.union(
+        [followingKey],
+        descendantsOf(adjList, followingKey),
+      );
+    },
+    immutable.Set(),
+  );
+}
+
 /**
- * Identify which files are stale given an event that just hapenned. If we just
+ * Identify which files are stale given an event that just happened. If we just
  * started, all files that can be built are considered stale.
  */
-function updateStaleFiles(
+function updateStaleFiles(props: {
   config: AgentConfig,
+  dynamicDependencies: DynamicDependencies,
   staleFiles: FileSet,
   event: Event,
-): FileSet {
+}): FileSet {
+  const {config, event, dynamicDependencies, staleFiles} = props;
   switch (event.type) {
     case 'update-process-exit':
       if (event.code === 0) {
         return staleFiles.delete(event.targetPath);
       }
       break;
+    case 'chokidar-file-changed':
+      if (!adjacency_list.precedingSeq(
+        config.fileAdjacencyList,
+        event.filePath,
+      ).isEmpty()) {
+        break;
+      }
+      return staleFiles.union(
+        descendantsOf(config.fileAdjacencyList, event.filePath),
+        descendantsOf(dynamicDependencies, event.filePath),
+      );
   }
   return staleFiles;
 }
@@ -130,7 +159,12 @@ export function update(props: {
     event,
     dynamicDependencies,
   });
-  staleFiles = updateStaleFiles(config, staleFiles, event);
+  staleFiles = updateStaleFiles({
+    config,
+    dynamicDependencies,
+    staleFiles,
+    event,
+  });
   statusesByDirectory = directories.update({
     statusesByDirectory,
     dispatch,

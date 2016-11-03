@@ -150,6 +150,9 @@ export default class Agent {
   _fsWatcher: any;
 
   _watchFilesytem() {
+    if (this.config.cliOpts.once) {
+      return;
+    }
     this._fsWatcher = chokidar.watch('.', {
       ignored: ['.*/**', '**/node_modules/**'],
       ignoreInitial: true,

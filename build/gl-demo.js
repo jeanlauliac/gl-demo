@@ -7,7 +7,7 @@ import type {ProcessDesc} from './upd/src/process_desc';
 
 import * as adjacency_list from './upd/src/adjacency_list';
 import chain from './upd/src/chain';
-import cli from './upd/src/cli';
+import upd from './upd';
 import * as file_path from './upd/src/file_path';
 import * as process_desc from './upd/src/process_desc';
 import * as update_process_desc from './upd/src/update_process_desc';
@@ -60,7 +60,7 @@ function link(filePath, sourcePaths) {
 /**
  * Entry point: build the lists of all the files we need to build.
  */
-cli(cliOpts => {
+upd(cliOpts => {
   const sourceFiles = immutable.List(['main.cpp'])
     .concat(glob.sync('glfwpp/*.cpp'))
     .concat(glob.sync('glpp/*.cpp'))
@@ -69,7 +69,7 @@ cli(cliOpts => {
   const sourceObjectPairs = sourceFiles.map(sourceFilePath => {
     const barePath = path.relative('.', pathWithoutExt(sourceFilePath));
     const objectFilePath = file_path.create(
-      path.join('.upd', 'cache', barePath + '.o'),
+      path.join(__dirname, '.upd', 'cache', barePath + '.o'),
     );
     return [sourceFilePath, objectFilePath];
   });

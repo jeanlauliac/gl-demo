@@ -26,6 +26,8 @@ export type FileSet = immutable.Set<FilePath>;
 export type FileList = immutable.List<FilePath>;
 
 export type AgentCLIOptions = {
+  // What should the process do.
+  command: string,
   // Maximum number of sub-processes it should run at the same time.
   concurrency: number,
   // Terminate the agent once everything is built.

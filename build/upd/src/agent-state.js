@@ -18,6 +18,7 @@ import * as directories from './directories';
 import * as dynamic_dependencies from './dynamic_dependencies';
 import nullthrows from './nullthrows';
 import * as file_path from './file_path';
+import * as scheduled_files from './scheduled_files';
 import * as update_processes from './update_processes';
 import * as immutable from 'immutable';
 import {dirname} from 'path';
@@ -51,9 +52,11 @@ export type AgentState = {
   // Dependencies detected while we build more files, in addition to the
   // file adjacencies.
   dynamicDependencies: DynamicDependencies,
+  // All the files we want to update right now.
+  scheduledFiles: FileSet,
   // All the directories that exist or that we are creating.
   statusesByDirectory: StatusesByDirectory,
-  // All the files we want to update.
+  // All the files we need to update if requested.
   staleFiles: FileSet,
   // Processes updating files right now.
   updateProcesses: UpdateProcesses,
@@ -78,6 +81,7 @@ export function create(props: {
   });
   return Object.freeze({
     dynamicDependencies: dynamic_dependencies.create(),
+    scheduledFiles: scheduled_files.create(),
     statusesByDirectory,
     staleFiles,
     updateProcesses: update_processes.create({
@@ -151,6 +155,7 @@ export function update(props: {
   const {config, dispatch, event, state} = props;
   let {
     dynamicDependencies,
+    scheduledFiles,
     statusesByDirectory,
     staleFiles,
     updateProcesses,
@@ -167,15 +172,21 @@ export function update(props: {
     staleFiles,
     event,
   });
+  scheduledFiles = scheduled_files.update({
+    scheduledFiles,
+    staleFiles,
+    event,
+  });
   statusesByDirectory = directories.update({
     statusesByDirectory,
     dispatch,
     createDirectory: props.createDirectory,
     event,
-    targetPaths: staleFiles,
+    targetPaths: scheduledFiles,
   });
   return Object.freeze({
     dynamicDependencies,
+    scheduledFiles,
     staleFiles,
     statusesByDirectory,
     updateProcesses: update_processes.update({
@@ -185,7 +196,7 @@ export function update(props: {
       updateProcesses,
       spawn: props.spawn,
       statusesByDirectory,
-      targetPaths: staleFiles,
+      targetPaths: scheduledFiles,
     }),
   });
 }

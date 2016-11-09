@@ -13,6 +13,7 @@ import type {AgentCLIOptions, AgentConfig} from './src/agent-state';
 import nullthrows from './src/nullthrows';
 import Agent from './src/Agent';
 import {spawn} from 'child_process';
+import dnode from 'dnode';
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
@@ -34,7 +35,7 @@ function getDaemonPID(pidFilePath) {
   return pid;
 }
 
-function stopDaemon(rootDirPath) {
+function stopDaemon({rootDirPath}) {
   const pidFilePath = getDaemonPIDFilePath(rootDirPath);
   const pid = getDaemonPID(pidFilePath);
   if (pid == null) {
@@ -78,6 +79,7 @@ function startDaemon(rootDirPath, callback) {
       stdio: 'ignore',
     },
   );
+  /* $FlowIssue: Flow doesn't know */
   daemon.unref();
   const waitForPID = (retries) => setTimeout(() => {
     const pid = getDaemonPID(pidFilePath);
@@ -96,41 +98,46 @@ function startDaemon(rootDirPath, callback) {
   waitForPID(10);
 }
 
-function runDaemon(rootDirPath, configure) {
-  //const agent = new Agent(configure(opts), spawn);
+function runDaemon({rootDirPath, configure, opts}) {
   const pidFilePath = getDaemonPIDFilePath(rootDirPath);
   try {fs.mkdirSync(path.join(rootDirPath, '.upd'))} catch (error) {
     if (error.code !== 'EEXIST') {throw error;}
   }
-  const fd = fs.writeFileSync(pidFilePath, process.pid.toString(), {flag: 'wx'});
-  process.on('SIGINT', () => {
-    fs.unlinkSync(pidFilePath);
-    process.exit();
-  });
-  process.on('SIGTERM', () => {
-    fs.unlinkSync(pidFilePath);
-    process.exit();
-  });
-  const waitForPID = (retries) => setTimeout(() => {
-    waitForPID(retries - 1);
-  }, 10000);
-  waitForPID(10);
+  process.on('exit', () => fs.unlinkSync(pidFilePath));
+  fs.writeFileSync(pidFilePath, process.pid.toString(), {flag: 'wx'});
+  const agent = new Agent(configure(opts), spawn);
 }
 
 const COMMAND_HANDLERS = new Map([
   // Start daemon if necessary.
-  ['start', (rootDirPath, configure) => {
-    startDaemon(rootDirPath, () => {});
+  ['start', ({rootDirPath, configure}) => {
+    startDaemon(rootDirPath, error => {
+      if (error) {
+        throw error;
+      }
+    });
   }],
   // Kill the daemon process.
   ['stop', stopDaemon],
   // Start daemon if necessary, and ask it to update the files.
-  ['update', () => {
-    startDaemon(rootDirPath, () => {});
+  ['update', ({rootDirPath}) => {
+    startDaemon(rootDirPath, error => {
+      if (error) {
+        throw error;
+      }
+      console.log('Starting...');
+      const d = dnode.connect(5004);
+      d.on('remote', remote => {
+        remote.update((e, v) => {
+          console.log('Done!', v);
+          d.end();
+        });
+      });
+    });
   }],
   // Start a server and wait for instructions.
   ['daemon', runDaemon],
-])
+]);
 
 function parseArgv(argv) {
   const opts = {
@@ -164,10 +171,6 @@ function parseArgv(argv) {
       continue;
     }
     if (!commandSet) {
-      if (!COMMAND_HANDLERS.has(argv[i])) {
-        console.error('Unknown command:', argv[i]);
-        return null;
-      }
       opts.command = argv[i];
       commandSet = true;
       continue;
@@ -194,5 +197,11 @@ export default function upd(
     return;
   }
   const rootDirPath = path.dirname(process.mainModule.filename);
-  COMMAND_HANDLERS.get(opts.command)(rootDirPath, configure);
+  const handler = COMMAND_HANDLERS.get(opts.command);
+  if (!handler) {
+    console.error('Unknown command:', opts.command);
+    process.exitCode = 124;
+    return;
+  }
+  handler({rootDirPath, configure, opts});
 }

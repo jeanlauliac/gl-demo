@@ -10,6 +10,7 @@ import type {AgentConfig, AgentState} from './agent-state';
 import * as agentState from './agent-state';
 import * as file_path from './file_path';
 import chokidar from 'chokidar';
+import dnode from 'dnode';
 import fs from 'fs';
 import path from 'path';
 import {List as ImmList, Map as ImmMap} from 'immutable';
@@ -170,6 +171,27 @@ export default class Agent {
     this._fsWatcher.on('unlink', filePath => {
       this.verboseLog('watcher/unlink: %s', path.relative('.', filePath));
     });
+    const onExitRequested = () => {
+      this._fsWatcher.close();
+    };
+    process.on('SIGINT', onExitRequested);
+    process.on('SIGTERM', onExitRequested);
+  }
+
+  _server: net$Server;
+
+  _startDNode() {
+    this._server = dnode({
+      update: callback => {
+        this.update({type: 'update-requested'});
+        callback(undefined, 42);
+      },
+    }).listen(5004);
+    const onExitRequested = () => {
+      this._server.close();
+    };
+    process.on('SIGINT', onExitRequested);
+    process.on('SIGTERM', onExitRequested);
   }
 
   constructor(config: AgentConfig, spawn: Spawn) {
@@ -188,6 +210,7 @@ export default class Agent {
     });
     process.on('exit', this._onExit.bind(this));
     this._watchFilesytem();
+    this._startDNode();
   }
 
 }

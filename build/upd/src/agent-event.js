@@ -41,6 +41,9 @@ export type Event =
   {
     filePath: FilePath,
     type: 'chokidar-file-changed',
+  } |
+  {
+    type: 'update-requested',
   };
 
 export type DispatchEvent = (event: Event) => void;

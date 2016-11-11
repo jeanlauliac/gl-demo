@@ -7,6 +7,7 @@ import type {FilePath} from './file_path';
 import type {Event} from './agent-event';
 import type {AgentConfig, AgentState} from './agent-state';
 
+import Terminal from './Terminal';
 import * as agentState from './agent-state';
 import * as file_path from './file_path';
 import chokidar from 'chokidar';
@@ -14,7 +15,6 @@ import dnode from 'dnode';
 import fs from 'fs';
 import path from 'path';
 import {List as ImmList, Map as ImmMap} from 'immutable';
-import * as readline from 'readline';
 import util from 'util';
 
 function escapeShellArg(arg) {
@@ -24,6 +24,8 @@ function escapeShellArg(arg) {
 export type Spawn = (command: string, args: Array<string>) =>
   child_process$ChildProcess;
 
+const terminal = Terminal.get();
+
 /**
  * Manage the state of the build at any point in time.
  */
@@ -32,43 +34,10 @@ export default class Agent {
   config: AgentConfig;
   state: AgentState;
   _innerSpawn: Spawn;
-  _currentPrompt: ?string;
-
-  setPrompt(prompt: ?string): ?string {
-    if (prompt === this._currentPrompt) {
-      return prompt;
-    }
-    if (this._currentPrompt != null && process.stdout.isTTY) {
-      readline.moveCursor(process.stdout, 0, -1);
-      readline.clearLine(process.stdout, 0);
-    }
-    if (prompt != null) {
-      console.log(prompt);
-    }
-    const oldPrompt = this._currentPrompt;
-    this._currentPrompt = prompt;
-    return oldPrompt;
-  }
-
-  clearPrompt(): ?string {
-    return this.setPrompt(null);
-  }
-
-  log(...args: Array<any>): void {
-    const prompt = this.clearPrompt();
-    let line = util.format(...args);
-    // $FlowIssue: missing decl for `columns`.
-    const {columns} = process.stdout;
-    if (columns != null && line.length >= columns) {
-      line = line.substr(0, columns - 4) + '...';
-    }
-    console.log(line);
-    this.setPrompt(prompt);
-  }
 
   verboseLog(...args: Array<any>): void {
     if (this.config.cliOpts.verbose) {
-      this.log('[verbose] %s', util.format(...args));
+      terminal.log('[verbose] %s', util.format(...args));
     }
   }
 
@@ -102,7 +71,7 @@ export default class Agent {
     const updatedCount = totalCount - this.state.staleFiles.size;
     const percent = Math.ceil((updatedCount / totalCount) * 100);
     const finish = totalCount === updatedCount ? ', done.' : '...';
-    this.setPrompt(
+    terminal.setPrompt(
       `☕  Updating files: ${percent}% (${updatedCount}/${totalCount})${finish}`,
     );
   }
@@ -114,10 +83,10 @@ export default class Agent {
     if (event.stdout.length === 0 && event.stderr.length === 0) {
       return;
     }
-    const prompt = this.clearPrompt();
+    const prompt = terminal.clearPrompt();
     process.stdout.write(event.stdout);
     process.stderr.write(event.stderr);
-    this.setPrompt(prompt);
+    terminal.setPrompt(prompt);
   }
 
   /**
@@ -141,8 +110,8 @@ export default class Agent {
   _onExit(): void {
     const {state} = this;
     if (!state.staleFiles.isEmpty()) {
-      this.log(this.clearPrompt());
-      this.log('*** Update failed! Check error messages in output.');
+      terminal.log(terminal.clearPrompt());
+      terminal.log('*** Update failed! Check error messages in output.');
       // https://nodejs.org/api/process.html#process_exit_codes
       process.exitCode = 20;
     }
@@ -196,7 +165,6 @@ export default class Agent {
 
   constructor(config: AgentConfig, spawn: Spawn) {
     Object.defineProperty(this, 'config', {value: config});
-    this._currentPrompt = null;
     this._innerSpawn = spawn;
     (this: any).update = this.update.bind(this);
     (this: any)._createDirectory = this._createDirectory.bind(this);

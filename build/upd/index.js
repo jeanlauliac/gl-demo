@@ -10,6 +10,7 @@
 
 import type {AgentCLIOptions, AgentConfig} from './src/agent-state';
 
+import Terminal from './src/Terminal';
 import nullthrows from './src/nullthrows';
 import Agent from './src/Agent';
 import {spawn} from 'child_process';
@@ -17,6 +18,8 @@ import dnode from 'dnode';
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
+
+const terminal = Terminal.get();
 
 function getDaemonPIDFilePath(rootDirPath) {
   return path.join(rootDirPath, '.upd', 'daemon.pid')
@@ -39,26 +42,26 @@ function stopDaemon({rootDirPath}) {
   const pidFilePath = getDaemonPIDFilePath(rootDirPath);
   const pid = getDaemonPID(pidFilePath);
   if (pid == null) {
-    console.error('No daemon is running.');
+    terminal.log('No server is running.');
     return;
   }
-  console.error('Trying to stop process %s...', pid);
+  terminal.setPrompt('Stopping server (pid: %s)...', pid);
   process.kill(pid);
   const waitForPID = (retries) => setTimeout(() => {
     if (getDaemonPID(pidFilePath) == null) {
-      console.error('Daemon has been stopped.');
+      terminal.setFinalPrompt('Stopping server (pid: %s), done.', pid);
       return;
     }
-    if (retries === 0) {
-      console.error('*** Failed to stop daemon.');
-      console.error(
-        'You need to manually kill %s and clean up the file: %s',
-        pid,
-        path.relative('.', pidFilePath),
-      );
+    if (retries > 0) {
+      waitForPID(retries - 1);
       return;
     }
-    waitForPID(retries - 1);
+    terminal.setFinalPrompt('Stopping server (pid: %s), failed.', pid);
+    terminal.log(
+      'You need to manually kill process %s and clean up the file: %s',
+      pid,
+      path.relative('.', pidFilePath),
+    );
   }, 500);
   waitForPID(10);
 }
@@ -67,10 +70,9 @@ function startDaemon(rootDirPath, callback) {
   const pidFilePath = getDaemonPIDFilePath(rootDirPath);
   const pid = getDaemonPID(pidFilePath);
   if (pid != null) {
-    console.error('Daemon is running.');
     return callback();
   }
-  console.error('Starting process...');
+  terminal.setPrompt('Starting server...');
   const daemon = spawn(
     process.execPath,
     [process.mainModule.filename, 'daemon'],
@@ -84,16 +86,16 @@ function startDaemon(rootDirPath, callback) {
   const waitForPID = (retries) => setTimeout(() => {
     const pid = getDaemonPID(pidFilePath);
     if (pid != null) {
-      console.error(`Daemon ${pid} now running.`);
+      terminal.setFinalPrompt('Starting server, done (pid: %s).', pid);
       callback();
       return;
     }
-    if (retries === 0) {
-      console.error('*** Failed to start daemon.');
-      callback(new Error('Failed to start daemon'));
+    if (retries > 0) {
+      waitForPID(retries - 1);
       return;
     }
-    waitForPID(retries - 1);
+    terminal.setFinalPrompt('Starting server, failed.', pid);
+    callback(new Error('Failed to start daemon'));
   }, 500);
   waitForPID(10);
 }

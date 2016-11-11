@@ -38,19 +38,19 @@ function getServerPID(pidFilePath) {
   return pid;
 }
 
-function stopServer({rootDirPath}) {
+function stopServer({rootDirPath}, callback) {
   const pidFilePath = getServerPIDFilePath(rootDirPath);
   const pid = getServerPID(pidFilePath);
   if (pid == null) {
     terminal.log('No server is running.');
-    return;
+    return callback();
   }
   terminal.setPrompt('Stopping server (pid: %s)...', pid);
   process.kill(pid);
   const waitForPID = (retries) => setTimeout(() => {
     if (getServerPID(pidFilePath) == null) {
       terminal.setFinalPrompt('Stopping server (pid: %s), done.', pid);
-      return;
+      return callback();
     }
     if (retries > 0) {
       waitForPID(retries - 1);
@@ -62,6 +62,7 @@ function stopServer({rootDirPath}) {
       pid,
       path.relative('.', pidFilePath),
     );
+    callback(new Error('could not stop server'));
   }, 500);
   waitForPID(10);
 }
@@ -175,6 +176,18 @@ const COMMAND_HANDLERS = new Map([
           };
           updateStatus(status);
         });
+      });
+    });
+  }],
+  ['restart', args => {
+    stopServer(args, error => {
+      if (error) {
+        throw error;
+      }
+      startServer(args.rootDirPath, error => {
+        if (error) {
+          throw error;
+        }
       });
     });
   }],

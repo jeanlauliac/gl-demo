@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 var path = require('path');
 require('babel-register')({
-  only: [new RegExp('^' + path.join(__dirname, 'build'))],
+  only: [path.join(__dirname, 'build/*')],
 });
 require('./build/gl-demo');

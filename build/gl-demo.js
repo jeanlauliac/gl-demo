@@ -69,7 +69,7 @@ upd(cliOpts => {
   const sourceObjectPairs = sourceFiles.map(sourceFilePath => {
     const barePath = path.relative('.', pathWithoutExt(sourceFilePath));
     const objectFilePath = file_path.create(
-      path.join(__dirname, '.upd', 'cache', barePath + '.o'),
+      path.join(__dirname, '..', '.upd', 'cache', barePath + '.o'),
     );
     return [sourceFilePath, objectFilePath];
   });

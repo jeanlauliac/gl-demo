@@ -34,6 +34,7 @@ export default class Agent {
   config: AgentConfig;
   state: AgentState;
   _innerSpawn: Spawn;
+  _statusListeners = [];
 
   verboseLog(...args: Array<any>): void {
     if (this.config.cliOpts.verbose) {
@@ -76,6 +77,15 @@ export default class Agent {
     );
   }
 
+  _flushStatusListeners() {
+    this._statusListeners.forEach(listener => {
+      listener(undefined, {
+        staleFileCount: this.state.staleFiles.size,
+      })
+    });
+    this._statusListeners = [];
+  }
+
   _logProcessOutput(event: Event): void {
     if (event.type !== 'update-process-exit') {
       return;
@@ -105,6 +115,7 @@ export default class Agent {
       state: this.state,
     });
     this._updatePrompt();
+    this._flushStatusListeners();
   }
 
   _onExit(): void {
@@ -152,8 +163,15 @@ export default class Agent {
   _startDNode() {
     this._server = dnode({
       update: callback => {
+        const scheduledFileCount = this.state.staleFiles.size;
         this.update({type: 'update-requested'});
-        callback(undefined, 42);
+        callback(undefined, {
+          scheduledFileCount,
+          staleFileCount: this.state.staleFiles.size,
+        });
+      },
+      waitForStatus: callback => {
+        this._statusListeners.push(callback);
       },
     }).listen(5004);
     const onExitRequested = () => {

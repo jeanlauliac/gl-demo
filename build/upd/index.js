@@ -110,6 +110,30 @@ function runDaemon({rootDirPath, configure, opts}) {
   const agent = new Agent(configure(opts), spawn);
 }
 
+const SECS_IN_A_NANOSEC = 1 / Math.pow(10, 9);
+
+function formatHRTime(hrtime) {
+  const decimalPart = (hrtime[1] * SECS_IN_A_NANOSEC).toString();
+  return `${hrtime[0]}.${decimalPart.substr(2, 2)}s`;
+}
+
+function updatePrompt(status, totalCount, startHRTime) {
+  if (totalCount === 0) {
+    terminal.setPrompt('All files are already up-to-date.');
+    return true;
+  }
+  const updatedCount = totalCount - status.staleFileCount;
+  const percent = Math.ceil((updatedCount / totalCount) * 100);
+  const isDone = totalCount === updatedCount;
+  const finish = isDone
+    ? `, done (${formatHRTime(process.hrtime(startHRTime))}).`
+    : '...';
+  terminal.setPrompt(
+    `Updating files: ${percent}% (${updatedCount}/${totalCount})${finish}`,
+  );
+  return isDone;
+}
+
 const COMMAND_HANDLERS = new Map([
   // Start daemon if necessary.
   ['start', ({rootDirPath, configure}) => {
@@ -123,16 +147,33 @@ const COMMAND_HANDLERS = new Map([
   ['stop', stopDaemon],
   // Start daemon if necessary, and ask it to update the files.
   ['update', ({rootDirPath}) => {
+    const startHRTime = process.hrtime();
     startDaemon(rootDirPath, error => {
       if (error) {
         throw error;
       }
-      console.log('Starting...');
       const d = dnode.connect(5004);
       d.on('remote', remote => {
-        remote.update((e, v) => {
-          console.log('Done!', v);
-          d.end();
+        remote.update((error, status) => {
+          if (error) {
+            throw error;
+          }
+          const totalFileCount = status.scheduledFileCount;
+          const updateStatus = status => {
+            const isDone = updatePrompt(status, totalFileCount, startHRTime);
+            if (isDone) {
+              terminal.logPrompt();
+              d.end();
+              return;
+            }
+            remote.waitForStatus((error, status) => {
+              if (error) {
+                throw error;
+              }
+              updateStatus(status);
+            });
+          };
+          updateStatus(status);
         });
       });
     });

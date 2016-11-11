@@ -1,7 +1,7 @@
 /**
- * This is the core entry point to both CLI and daemon. Having a single point
+ * This is the core entry point to both CLI and server. Having a single point
  * of entry allows us to have the user-defined configuration script to be able
- * to be run to spawn the daemon.
+ * to be run to spawn the server.
  *
  * @flow
  */
@@ -21,11 +21,11 @@ import path from 'path';
 
 const terminal = Terminal.get();
 
-function getDaemonPIDFilePath(rootDirPath) {
-  return path.join(rootDirPath, '.upd', 'daemon.pid')
+function getServerPIDFilePath(rootDirPath) {
+  return path.join(rootDirPath, '.upd', 'server.pid')
 }
 
-function getDaemonPID(pidFilePath) {
+function getServerPID(pidFilePath) {
   let pid;
   try {
     pid = parseInt(fs.readFileSync(pidFilePath));
@@ -38,9 +38,9 @@ function getDaemonPID(pidFilePath) {
   return pid;
 }
 
-function stopDaemon({rootDirPath}) {
-  const pidFilePath = getDaemonPIDFilePath(rootDirPath);
-  const pid = getDaemonPID(pidFilePath);
+function stopServer({rootDirPath}) {
+  const pidFilePath = getServerPIDFilePath(rootDirPath);
+  const pid = getServerPID(pidFilePath);
   if (pid == null) {
     terminal.log('No server is running.');
     return;
@@ -48,7 +48,7 @@ function stopDaemon({rootDirPath}) {
   terminal.setPrompt('Stopping server (pid: %s)...', pid);
   process.kill(pid);
   const waitForPID = (retries) => setTimeout(() => {
-    if (getDaemonPID(pidFilePath) == null) {
+    if (getServerPID(pidFilePath) == null) {
       terminal.setFinalPrompt('Stopping server (pid: %s), done.', pid);
       return;
     }
@@ -66,25 +66,25 @@ function stopDaemon({rootDirPath}) {
   waitForPID(10);
 }
 
-function startDaemon(rootDirPath, callback) {
-  const pidFilePath = getDaemonPIDFilePath(rootDirPath);
-  const pid = getDaemonPID(pidFilePath);
+function startServer(rootDirPath, callback) {
+  const pidFilePath = getServerPIDFilePath(rootDirPath);
+  const pid = getServerPID(pidFilePath);
   if (pid != null) {
     return callback();
   }
   terminal.setPrompt('Starting server...');
-  const daemon = spawn(
+  const server = spawn(
     process.execPath,
-    [process.mainModule.filename, 'daemon'],
+    [process.mainModule.filename, 'server'],
     {
       detached: true,
       stdio: 'ignore',
     },
   );
   /* $FlowIssue: Flow doesn't know */
-  daemon.unref();
+  server.unref();
   const waitForPID = (retries) => setTimeout(() => {
-    const pid = getDaemonPID(pidFilePath);
+    const pid = getServerPID(pidFilePath);
     if (pid != null) {
       terminal.setFinalPrompt('Starting server, done (pid: %s).', pid);
       callback();
@@ -95,13 +95,13 @@ function startDaemon(rootDirPath, callback) {
       return;
     }
     terminal.setFinalPrompt('Starting server, failed.', pid);
-    callback(new Error('Failed to start daemon'));
+    callback(new Error('Failed to start server'));
   }, 500);
   waitForPID(10);
 }
 
-function runDaemon({rootDirPath, configure, opts}) {
-  const pidFilePath = getDaemonPIDFilePath(rootDirPath);
+function runServer({rootDirPath, configure, opts}) {
+  const pidFilePath = getServerPIDFilePath(rootDirPath);
   try {fs.mkdirSync(path.join(rootDirPath, '.upd'))} catch (error) {
     if (error.code !== 'EEXIST') {throw error;}
   }
@@ -135,20 +135,20 @@ function updatePrompt(status, totalCount, startHRTime) {
 }
 
 const COMMAND_HANDLERS = new Map([
-  // Start daemon if necessary.
+  // Start server if necessary.
   ['start', ({rootDirPath, configure}) => {
-    startDaemon(rootDirPath, error => {
+    startServer(rootDirPath, error => {
       if (error) {
         throw error;
       }
     });
   }],
-  // Kill the daemon process.
-  ['stop', stopDaemon],
-  // Start daemon if necessary, and ask it to update the files.
+  // Kill the server process.
+  ['stop', stopServer],
+  // Start server if necessary, and ask it to update the files.
   ['update', ({rootDirPath}) => {
     const startHRTime = process.hrtime();
-    startDaemon(rootDirPath, error => {
+    startServer(rootDirPath, error => {
       if (error) {
         throw error;
       }
@@ -179,7 +179,7 @@ const COMMAND_HANDLERS = new Map([
     });
   }],
   // Start a server and wait for instructions.
-  ['daemon', runDaemon],
+  ['server', runServer],
 ]);
 
 function parseArgv(argv) {

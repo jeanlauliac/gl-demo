@@ -145,7 +145,11 @@ const COMMAND_HANDLERS = new Map([
     });
   }],
   // Kill the server process.
-  ['stop', stopServer],
+  ['stop', args => stopServer(args, error => {
+    if (error) {
+      throw error;
+    }
+  })],
   // Start server if necessary, and ask it to update the files.
   ['update', ({rootDirPath}) => {
     const startHRTime = process.hrtime();

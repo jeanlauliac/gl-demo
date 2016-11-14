@@ -167,18 +167,22 @@ int main(int argc, char* argv[]) {
   glUniformMatrix4fv(viewUniform, 1, GL_FALSE, glm::value_ptr(view));
 
   auto rot = 0.0f;
+  auto rot2 = 0.5f;
   while (!window.shouldClose()) {
     glClear(GL_COLOR_BUFFER_BIT);
 
     int width, height;
     window.getFramebufferSize(&width, &height);
     float ratio = static_cast<float>(width) / static_cast<float>(height);
-    glm::mat4 projection = glm::ortho(-ratio, ratio, -1.0f, 1.0f, -1.0f, 1.0f);
+    //glm::mat4 projection = glm::ortho(-ratio, ratio, -1.0f, 1.0f, -1.0f, 1.0f);
+    glm::mat4 projection = glm::perspective(3, ratio, 10, 1000);
     glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
 
     glm::mat4 model = glm::rotate(glm::mat4(), rot, glm::vec3(0.0f, 0.0f, 1.0f));
+    model = glm::rotate(model, rot2, glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
     rot += 0.01f;
+    rot2 += 0.008f;
 
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 

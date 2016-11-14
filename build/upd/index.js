@@ -125,14 +125,16 @@ function updatePrompt(status, totalCount, startHRTime) {
   }
   const updatedCount = totalCount - status.staleFileCount;
   const percent = Math.ceil((updatedCount / totalCount) * 100);
-  const isDone = totalCount === updatedCount;
-  const finish = isDone
-    ? `, done (${formatHRTime(process.hrtime(startHRTime))}).`
-    : '...';
+  const finish = totalCount === updatedCount
+    ? `, done. (${formatHRTime(process.hrtime(startHRTime))})`
+    : (
+      status.scheduledFileCount === 0
+        ? `, failed! (${formatHRTime(process.hrtime(startHRTime))})`
+        : '...'
+    );
   terminal.setPrompt(
     `Updating files: ${percent}% (${updatedCount}/${totalCount})${finish}`,
   );
-  return isDone;
 }
 
 const COMMAND_HANDLERS = new Map([
@@ -151,7 +153,7 @@ const COMMAND_HANDLERS = new Map([
     }
   })],
   // Start server if necessary, and ask it to update the files.
-  ['update', ({rootDirPath}) => {
+  ['update', ({rootDirPath, opts}) => {
     const startHRTime = process.hrtime();
     startServer(rootDirPath, error => {
       if (error) {
@@ -165,8 +167,33 @@ const COMMAND_HANDLERS = new Map([
           }
           const totalFileCount = status.scheduledFileCount;
           const updateStatus = status => {
-            const isDone = updatePrompt(status, totalFileCount, startHRTime);
-            if (isDone) {
+            status.processes.forEach(output => {
+              if (output.stdout.length === 0 && output.stderr.length === 0) {
+                return;
+              }
+              const header = [
+                Array(5).join('\u2500'),
+                '\u2524 ',
+                output.desc.processDesc.command,
+                ` (${path.relative(rootDirPath, output.targetPath)}) `,
+                '\u251C',
+              ].join('');
+              /* $FlowIssue: special field */
+              const {columns} = process.stdout;
+              terminal.log([
+                header,
+                Array(columns - header.length).join('\u2500'),
+              ].join(''));
+              terminal.write(output.stdout);
+              terminal.write(output.stderr);
+              // terminal.log([
+              //   '\u2514',
+              //   Array(columns - 2).join('\u2500'),
+              //   '\u2518',
+              // ].join(''));
+            });
+            updatePrompt(status, totalFileCount, startHRTime);
+            if (status.scheduledFileCount === 0) {
               terminal.logPrompt();
               d.end();
               return;

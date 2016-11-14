@@ -59,13 +59,13 @@ export default class Terminal {
    */
   log(...args: Array<any>): void {
     const prompt = this.clearPrompt();
-    let line = util.format(...args);
-    // $FlowIssue: missing decl for `columns`.
-    const {columns} = process.stdout;
-    if (columns != null && line.length >= columns) {
-      line = line.substr(0, columns - 4) + '...';
-    }
-    console.log(line);
+    console.log(util.format(...args));
+    this._setPrompt(prompt);
+  }
+
+  write(data: string | Buffer): void {
+    const prompt = this.clearPrompt();
+    process.stdout.write(data);
     this._setPrompt(prompt);
   }
 

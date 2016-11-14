@@ -22,12 +22,14 @@ function spawnNextProcesses(props: {
   dispatch: DispatchEvent,
   spawn: Spawn,
   statusesByDirectory: StatusesByDirectory,
-  targetPaths: FileSet,
+  scheduledFiles: FileSet,
+  staleFiles: FileSet,
   updateProcesses: UpdateProcesses,
 }): UpdateProcesses {
-  const {config, statusesByDirectory, targetPaths, updateProcesses} = props;
+  const {config, statusesByDirectory, scheduledFiles,
+    staleFiles, updateProcesses} = props;
   const adjList = config.fileAdjacencyList;
-  const candidatePaths = targetPaths.toSeq().filter(filePath => {
+  const candidatePaths = scheduledFiles.toSeq().filter(filePath => {
     if (updateProcesses.has(filePath)) {
       return false;
     }
@@ -36,7 +38,7 @@ function spawnNextProcesses(props: {
       return false;
     }
     const preds = adjacency_list.precedingSeq(adjList, filePath);
-    return preds.every((_, predFilePath) => !targetPaths.has(predFilePath));
+    return preds.every((_, predFilePath) => !staleFiles.has(predFilePath));
   });
   const scheduledPaths = candidatePaths.take(
     config.cliOpts.concurrency - updateProcesses.size,
@@ -78,7 +80,8 @@ export function create(props: {
   dispatch: DispatchEvent,
   spawn: Spawn,
   statusesByDirectory: StatusesByDirectory,
-  targetPaths: FileSet,
+  scheduledFiles: FileSet,
+  staleFiles: FileSet,
 }): UpdateProcesses {
   return spawnNextProcesses({
     ...props,
@@ -93,9 +96,7 @@ function updateForEvent(props: {
   const {event, updateProcesses} = props;
   switch (event.type) {
     case 'update-process-exit':
-      if (event.code === 0) {
-        return updateProcesses.delete(event.targetPath);
-      }
+      return updateProcesses.delete(event.targetPath);
   }
   return updateProcesses;
 }
@@ -106,7 +107,8 @@ export function update(props: {
   event: Event,
   spawn: Spawn,
   statusesByDirectory: StatusesByDirectory,
-  targetPaths: FileSet,
+  scheduledFiles: FileSet,
+  staleFiles: FileSet,
   updateProcesses: UpdateProcesses,
 }): UpdateProcesses {
   return spawnNextProcesses({

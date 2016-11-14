@@ -22,6 +22,7 @@ import * as scheduled_files from './scheduled_files';
 import * as update_processes from './update_processes';
 import * as immutable from 'immutable';
 import {dirname} from 'path';
+import {descendantsOf} from './file_adjacency_list';
 
 export type FileSet = immutable.Set<FilePath>;
 export type FileList = immutable.List<FilePath>;
@@ -79,9 +80,10 @@ export function create(props: {
     dispatch,
     createDirectory,
   });
+  const scheduledFiles = scheduled_files.create();
   return Object.freeze({
     dynamicDependencies: dynamic_dependencies.create(),
-    scheduledFiles: scheduled_files.create(),
+    scheduledFiles,
     statusesByDirectory,
     staleFiles,
     updateProcesses: update_processes.create({
@@ -89,24 +91,10 @@ export function create(props: {
       dispatch,
       spawn,
       statusesByDirectory,
-      targetPaths: staleFiles,
+      scheduledFiles,
+      staleFiles,
     }),
   });
-}
-
-function descendantsOf<TKey, TValue>(
-  adjList: AdjacencyList<TKey, TValue>,
-  originKey: TKey,
-): immutable.Set<TKey> {
-  return adjacency_list.followingSeq(adjList, originKey).keySeq().reduce(
-    (descendants, followingKey) => {
-      return descendants.union(
-        [followingKey],
-        descendantsOf(adjList, followingKey),
-      );
-    },
-    immutable.Set(),
-  );
 }
 
 /**
@@ -173,6 +161,7 @@ export function update(props: {
     event,
   });
   scheduledFiles = scheduled_files.update({
+    config,
     scheduledFiles,
     staleFiles,
     event,
@@ -196,7 +185,8 @@ export function update(props: {
       updateProcesses,
       spawn: props.spawn,
       statusesByDirectory,
-      targetPaths: scheduledFiles,
+      scheduledFiles,
+      staleFiles,
     }),
   });
 }

@@ -186,16 +186,14 @@ const COMMAND_HANDLERS = new Map([
               ].join(''));
               terminal.write(output.stdout);
               terminal.write(output.stderr);
-              // terminal.log([
-              //   '\u2514',
-              //   Array(columns - 2).join('\u2500'),
-              //   '\u2518',
-              // ].join(''));
             });
             updatePrompt(status, totalFileCount, startHRTime);
             if (status.scheduledFileCount === 0) {
               terminal.logPrompt();
               d.end();
+              if (status.staleFileCount > 0) {
+                process.exitCode = 2;
+              }
               return;
             }
             remote.waitForStatus((error, status) => {

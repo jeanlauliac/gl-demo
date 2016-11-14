@@ -175,11 +175,14 @@ int main(int argc, char* argv[]) {
     window.getFramebufferSize(&width, &height);
     float ratio = static_cast<float>(width) / static_cast<float>(height);
     //glm::mat4 projection = glm::ortho(-ratio, ratio, -1.0f, 1.0f, -1.0f, 1.0f);
-    glm::mat4 projection = glm::perspective(3, ratio, 10, 1000);
+    glm::mat4 projection = glm::perspective(1.221f, ratio, 0.01f, 100.0f);
     glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
 
-    glm::mat4 model = glm::rotate(glm::mat4(), rot, glm::vec3(0.0f, 0.0f, 1.0f));
-    model = glm::rotate(model, rot2, glm::vec3(0.0f, 1.0f, 0.0f));
+    auto ident = glm::mat4();
+    auto model =
+      glm::translate(ident, glm::vec3(0.0f, 0.0f, -2.0f)) *
+      glm::rotate(ident, rot, glm::vec3(0.0f, 0.0f, 1.0f)) *
+      glm::rotate(ident, rot2, glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
     rot += 0.01f;
     rot2 += 0.008f;

@@ -26,15 +26,23 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 }
 
 GLfloat VERTEX_POSITIONS[] = {
-  -0.5, -0.5,
-  0.5, -0.5,
-  0.5, 0.5,
-  -0.5, 0.5,
+  -0.5, -0.5, -0.5,
+  0.5, -0.5, -0.5,
+  0.5, 0.5, -0.5,
+  -0.5, 0.5, -0.5,
+  -0.5, -0.5, 0.5,
+  0.5, -0.5, 0.5,
+  0.5, 0.5, 0.5,
+  -0.5, 0.5, 0.5,
 };
 
-GLuint INDICES[6] = {
+GLuint INDICES[] = {
   0, 1, 2,
-  2, 3, 0
+  2, 3, 0,
+  4, 5, 6,
+  6, 7, 4,
+  0, 1, 4,
+  5, 1, 4,
 };
 
 enum class WindowMode { WINDOW, FULLSCREEN, };
@@ -148,7 +156,7 @@ int main(int argc, char* argv[]) {
   glBufferSubData(GL_ARRAY_BUFFER, sizeof(VERTEX_POSITIONS), sizeof(colorData), colorData);
 
   GLint positionAttribute = program.getAttribLocation("position");
-  glVertexAttribPointer(positionAttribute, 2, GL_FLOAT, GL_FALSE, 0, 0);
+  glVertexAttribPointer(positionAttribute, 3, GL_FLOAT, GL_FALSE, 0, 0);
   glEnableVertexAttribArray(positionAttribute);
 
   GLint colorAttribute = program.getAttribLocation("color");
@@ -166,16 +174,15 @@ int main(int argc, char* argv[]) {
   glm::mat4 view;
   glUniformMatrix4fv(viewUniform, 1, GL_FALSE, glm::value_ptr(view));
 
+  int width, height;
+  window.getFramebufferSize(&width, &height);
+  float ratio = static_cast<float>(width) / static_cast<float>(height);
+  glm::mat4 projection = glm::perspective(1.221f, ratio, 0.01f, 100.0f);
+
   auto rot = 0.0f;
   auto rot2 = 0.5f;
   while (!window.shouldClose()) {
     glClear(GL_COLOR_BUFFER_BIT);
-
-    int width, height;
-    window.getFramebufferSize(&width, &height);
-    float ratio = static_cast<float>(width) / static_cast<float>(height);
-    //glm::mat4 projection = glm::ortho(-ratio, ratio, -1.0f, 1.0f, -1.0f, 1.0f);
-    glm::mat4 projection = glm::perspective(1.221f, ratio, 0.01f, 100.0f);
     glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
 
     auto ident = glm::mat4();
@@ -187,7 +194,12 @@ int main(int argc, char* argv[]) {
     rot += 0.01f;
     rot2 += 0.008f;
 
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glDrawElements(
+      GL_TRIANGLES,
+      sizeof(INDICES) / sizeof(GLuint),
+      GL_UNSIGNED_INT,
+      0
+    );
 
     window.swapBuffers();
     glfwPollEvents();

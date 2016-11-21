@@ -43,6 +43,12 @@ GLuint INDICES[] = {
   6, 7, 4,
   0, 1, 4,
   5, 1, 4,
+  3, 2, 7,
+  7, 2, 6,
+  1, 2, 5,
+  5, 6, 2,
+  0, 3, 7,
+  0, 7, 4,
 };
 
 enum class WindowMode { WINDOW, FULLSCREEN, };
@@ -121,6 +127,9 @@ int main(int argc, char* argv[]) {
     );
   }
 
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+
   GLuint vao;
   glGenVertexArrays(1, &vao);
   glBindVertexArray(vao);
@@ -182,7 +191,7 @@ int main(int argc, char* argv[]) {
   auto rot = 0.0f;
   auto rot2 = 0.5f;
   while (!window.shouldClose()) {
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
 
     auto ident = glm::mat4();

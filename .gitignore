@@ -3,4 +3,4 @@
 /node_modules
 /build/upd/node_modules
 /build/upd/dist
-/build/upd/.upd_cache
+/build/upd/.upd

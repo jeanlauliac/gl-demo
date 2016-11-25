@@ -15,6 +15,7 @@ import nullthrows from './nullthrows';
 import Agent from './Agent';
 import {spawn} from 'child_process';
 import dnode from 'dnode';
+import leftPad from 'left-pad';
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
@@ -118,6 +119,14 @@ function formatHRTime(hrtime) {
   return `${hrtime[0]}.${decimalPart.substr(2, 2)}s`;
 }
 
+function getProgressBar(ratio: number, length: number) {
+  const blockCount = Math.floor(ratio * length);
+  return (
+    '\u2593'.repeat(blockCount) +
+    '\u2591'.repeat(length - blockCount)
+  );
+}
+
 function updatePrompt(status, totalCount, startHRTime) {
   if (totalCount === 0) {
     terminal.setPrompt('All files are already up-to-date.');
@@ -125,15 +134,19 @@ function updatePrompt(status, totalCount, startHRTime) {
   }
   const updatedCount = totalCount - status.staleFileCount;
   const percent = Math.ceil((updatedCount / totalCount) * 100);
-  const finish = totalCount === updatedCount
-    ? `, done. (${formatHRTime(process.hrtime(startHRTime))})`
+  const isDone = totalCount === updatedCount;
+  const finish = isDone
+    ? `, done in ${formatHRTime(process.hrtime(startHRTime))}.`
     : (
       status.scheduledFileCount === 0
         ? `, failed! (${formatHRTime(process.hrtime(startHRTime))})`
         : '...'
     );
+  const progress = isDone ? ''
+    : getProgressBar(updatedCount / totalCount, 20) + ' ';
   terminal.setPrompt(
-    `Updating files: ${percent}% (${updatedCount}/${totalCount})${finish}`,
+    `Updating ${progress}${percent}% ` +
+    `(${updatedCount}/${totalCount})${finish}`
   );
 }
 

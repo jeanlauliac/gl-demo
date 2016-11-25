@@ -189,7 +189,6 @@ int main(int argc, char* argv[]) {
   glm::mat4 projection = glm::perspective(1.221f, ratio, 0.01f, 100.0f);
 
   auto rot = 0.0f;
-  auto rot2 = 0.5f;
   while (!window.shouldClose()) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
@@ -197,11 +196,12 @@ int main(int argc, char* argv[]) {
     auto ident = glm::mat4();
     auto model =
       glm::translate(ident, glm::vec3(0.0f, 0.0f, -2.0f)) *
-      glm::rotate(ident, rot, glm::vec3(0.0f, 0.0f, 1.0f)) *
-      glm::rotate(ident, rot2, glm::vec3(0.0f, 1.0f, 0.0f));
+      glm::rotate(ident, 0.7f, glm::vec3(1.0f, 0.0f, 0.0f)) *
+      glm::rotate(ident, rot, glm::vec3(0.0f, 1.0f, 0.0f));
+      //glm::rotate(ident, rot2, glm::vec3(0.0f, 1.0f, 0.0f)) *
+      //glm::rotate(ident, rot3, glm::vec3(0.0f, 0.0f, 1.0f));
     glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
     rot += 0.01f;
-    rot2 += 0.008f;
 
     glDrawElements(
       GL_TRIANGLES,

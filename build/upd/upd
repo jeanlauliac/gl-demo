@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 var path = require('path');
 require('babel-register')({
-  only: [path.join(__dirname, 'build/gl-demo.js')],
+  only: [__dirname],
 });
-require('./build/gl-demo');
+require('./update.es6');

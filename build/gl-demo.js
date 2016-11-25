@@ -2,15 +2,15 @@
 
 'use strict';
 
-import type {FilePath} from './upd/src/file_path';
-import type {ProcessDesc} from './upd/src/process_desc';
+import type {FilePath} from './upd/dist/file_path';
+import type {ProcessDesc} from './upd/dist/process_desc';
 
-import * as adjacency_list from './upd/src/adjacency_list';
-import chain from './upd/src/chain';
-import upd from './upd';
-import * as file_path from './upd/src/file_path';
-import * as process_desc from './upd/src/process_desc';
-import * as update_process_desc from './upd/src/update_process_desc';
+import * as adjacency_list from './upd/dist/adjacency_list';
+import chain from './upd/dist/chain';
+import upd from './upd/dist';
+import * as file_path from './upd/dist/file_path';
+import * as process_desc from './upd/dist/process_desc';
+import * as update_process_desc from './upd/dist/update_process_desc';
 import glob from 'glob';
 import * as immutable from 'immutable';
 import path from 'path';

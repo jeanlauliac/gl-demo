@@ -8,11 +8,11 @@
 
 'use strict';
 
-import type {AgentCLIOptions, AgentConfig} from './src/agent-state';
+import type {AgentCLIOptions, AgentConfig} from './agent-state';
 
-import Terminal from './src/Terminal';
-import nullthrows from './src/nullthrows';
-import Agent from './src/Agent';
+import Terminal from './Terminal';
+import nullthrows from './nullthrows';
+import Agent from './Agent';
 import {spawn} from 'child_process';
 import dnode from 'dnode';
 import os from 'os';

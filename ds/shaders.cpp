@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include "SystemException.h"
 #include "shaders.h"
 
 namespace ds {
@@ -27,7 +28,7 @@ glpp::Shader loadAndCompileShader(std::string filePath, GLenum shaderType) {
     std::vector<char> log(logLength);
     shader.getInfoLog(log.size(), nullptr, &log[0]);
     errorMessage << &log[0] << std::endl;
-    throw std::runtime_error(errorMessage.str());
+    throw ds::SystemException(errorMessage.str());
   }
   return shader;
 }

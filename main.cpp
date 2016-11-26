@@ -14,6 +14,7 @@
 #include "glpp/Shader.h"
 #include "glpp/VertexArrays.h"
 #include "ds/shaders.h"
+#include "ds/SystemException.h"
 
 static void errorCallback(int error, const char* description)
 {
@@ -172,7 +173,7 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T>& vector) {
   return std::cout << std::endl << "}";
 }
 
-int main(int argc, char* argv[]) {
+int run(int argc, char* argv[]) {
   const auto options = parseOptions(argc, argv);
   if (options.showHelp) {
     return showHelp();
@@ -218,6 +219,10 @@ int main(int argc, char* argv[]) {
   glVertexAttribPointer(positionAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, position)));
   glEnableVertexAttribArray(positionAttribute);
 
+  GLint normalAttribute = program.getAttribLocation("normal");
+  glVertexAttribPointer(normalAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, normal)));
+  glEnableVertexAttribArray(normalAttribute);
+
   GLint colorAttribute = program.getAttribLocation("color");
   glVertexAttribPointer(colorAttribute, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<void*>(cubeVerticesByteCount));
   glEnableVertexAttribArray(colorAttribute);
@@ -256,5 +261,14 @@ int main(int argc, char* argv[]) {
     window.swapBuffers();
     glfwPollEvents();
   }
+  return 0;
+}
 
+int main(int argc, char* argv[]) {
+  try {
+    run(argc, argv);
+  } catch (ds::SystemException ex) {
+    std::cout << "Oooops: " << ex.message << std::endl;
+    return 2;
+  }
 }

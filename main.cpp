@@ -27,32 +27,6 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
   }
 }
 
-glm::vec3 VERTEX_POSITIONS[] = {
-  glm::vec3(-0.5, -0.5, -0.5),
-  glm::vec3(0.5, -0.5, -0.5),
-  glm::vec3(0.5, 0.5, -0.5),
-  glm::vec3(-0.5, 0.5, -0.5),
-  glm::vec3(-0.5, -0.5, 0.5),
-  glm::vec3(0.5, -0.5, 0.5),
-  glm::vec3(0.5, 0.5, 0.5),
-  glm::vec3(-0.5, 0.5, 0.5),
-};
-
-glm::uvec3 INDICES[] = {
-  glm::uvec3(0, 1, 2),
-  glm::uvec3(2, 3, 0),
-  glm::uvec3(4, 5, 6),
-  glm::uvec3(6, 7, 4),
-  glm::uvec3(0, 1, 4),
-  glm::uvec3(5, 1, 4),
-  glm::uvec3(3, 2, 7),
-  glm::uvec3(7, 2, 6),
-  glm::uvec3(1, 2, 5),
-  glm::uvec3(5, 6, 2),
-  glm::uvec3(0, 3, 7),
-  glm::uvec3(0, 7, 4),
-};
-
 enum class WindowMode { WINDOW, FULLSCREEN, };
 
 struct Options {
@@ -130,6 +104,74 @@ glm::mat4 getPerspectiveProjection(const glfwpp::Window& window) {
   return glm::perspective(1.221f, ratio, 0.01f, 100.0f);
 }
 
+glm::vec3 CUBE_FACES[] = {
+  glm::vec3(-0.5, 0, 0),
+  glm::vec3(0.5, 0, 0),
+  glm::vec3(0, -0.5, 0),
+  glm::vec3(0, 0.5, 0),
+  glm::vec3(0, 0, -0.5),
+  glm::vec3(0, 0, 0.5),
+};
+
+struct Vertex {
+  glm::vec3 position;
+  glm::vec3 normal;
+};
+
+struct Mesh {
+  std::vector<Vertex> vertices;
+  std::vector<glm::uvec3> triangles;
+};
+
+Mesh createCube() {
+  std::vector<Vertex> vertices;
+  std::vector<glm::uvec3> triangles;
+  for (int dimension = 0; dimension < 3; ++dimension) {
+    for (int direction = -1; direction <= 1; direction += 2) {
+      auto base = vertices.size();
+      glm::vec3 faceNormal;
+      faceNormal[dimension] = static_cast<float>(direction);
+      for (int sideways = -1; sideways <= 1; sideways += 2) {
+        for (int vertically = -1; vertically <= 1; vertically += 2) {
+          glm::vec3 position;
+          position[dimension] = static_cast<float>(direction) * 0.5f;
+          position[(dimension + 1) % 3] = static_cast<float>(sideways) * 0.5f;
+          position[(dimension + 2) % 3] = static_cast<float>(vertically) * 0.5f;
+          Vertex vertex = {.normal = faceNormal, .position = position};
+          vertices.push_back(vertex);
+        }
+      }
+      triangles.push_back(glm::uvec3(base, base + 1, base + 2));
+      triangles.push_back(glm::uvec3(base + 1, base + 2, base + 3));
+    }
+  }
+  return {.vertices = vertices, .triangles = triangles};
+}
+
+std::ostream &operator<<(std::ostream &os, const glm::vec3& vec) {
+  return os << "[" << vec.x << ", " << vec.y << ", " << vec.z << "]";
+}
+
+std::ostream &operator<<(std::ostream &os, const Vertex& vertex) {
+  return
+    os << "CubeVertex {position: " << vertex.position
+    << ", normal: " << vertex.normal << "}";
+}
+
+template <typename T>
+std::ostream &operator<<(std::ostream &os, const std::vector<T>& vector) {
+  std::cout << "std::vector {" << std::endl;
+  auto first = true;
+  for (auto& item : vector) {
+    if (!first) {
+      std::cout << ", " << std::endl;
+    }
+    first = false;
+    std::cout << "  " << item;
+  }
+  return std::cout << std::endl << "}";
+}
+
 int main(int argc, char* argv[]) {
   const auto options = parseOptions(argc, argv);
   if (options.showHelp) {
@@ -152,38 +194,40 @@ int main(int argc, char* argv[]) {
     ds::loadAndLinkProgram("shaders/basic.vs", "shaders/basic.fs");
   program.use();
 
-  GLfloat colorData[36];
+  auto cube = createCube();
+
+  std::vector<GLfloat> colorData(cube.vertices.size() * 3);
   srand(42);
-  int k = 0;
-  for(int i = 0; i < sizeof(colorData) / sizeof(float) / 3; ++i) {
+  for(int i = 0; i < colorData.size(); i += 3) {
     float t = (float)rand()/(float)RAND_MAX;
-    colorData[k] = 9*(1-t)*t*t*t;
-    k++;
-    colorData[k] = 15*(1-t)*(1-t)*t*t;
-    k++;
-    colorData[k] = 8.5*(1-t)*(1-t)*(1-t)*t;
-    k++;
+    colorData[i] = 9*(1-t)*t*t*t;
+    colorData[i + 1] = 15*(1-t)*(1-t)*t*t;
+    colorData[i + 2] = 8.5*(1-t)*(1-t)*(1-t)*t;
   }
 
   // Allocate space and upload the data from CPU to GPU
+  auto cubeVerticesByteCount = sizeof(Vertex) * cube.vertices.size();
+  auto colorsByteCount = sizeof(GLfloat) * colorData.size();
   glBindBuffer(GL_ARRAY_BUFFER, vbo.handles()[0]);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(VERTEX_POSITIONS) + sizeof(colorData), nullptr, GL_STATIC_DRAW);
-  glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(VERTEX_POSITIONS), VERTEX_POSITIONS);
-  glBufferSubData(GL_ARRAY_BUFFER, sizeof(VERTEX_POSITIONS), sizeof(colorData), colorData);
+  auto totalSize = cubeVerticesByteCount + colorsByteCount;
+  glBufferData(GL_ARRAY_BUFFER, totalSize, nullptr, GL_STATIC_DRAW);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, cubeVerticesByteCount, cube.vertices.data());
+  glBufferSubData(GL_ARRAY_BUFFER, cubeVerticesByteCount, colorsByteCount, colorData.data());
 
   GLint positionAttribute = program.getAttribLocation("position");
-  glVertexAttribPointer(positionAttribute, 3, GL_FLOAT, GL_FALSE, 0, 0);
+  glVertexAttribPointer(positionAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, position)));
   glEnableVertexAttribArray(positionAttribute);
 
   GLint colorAttribute = program.getAttribLocation("color");
-  glVertexAttribPointer(colorAttribute, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)sizeof(VERTEX_POSITIONS));
+  glVertexAttribPointer(colorAttribute, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<void*>(cubeVerticesByteCount));
   glEnableVertexAttribArray(colorAttribute);
 
   // Transfer the data from indices to eab
   GLuint eab;
   glGenBuffers(1, &eab);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eab);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(INDICES), INDICES, GL_STATIC_DRAW);
+  auto trianglesByteSize = sizeof(cube.triangles[0]) * cube.triangles.size();
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, trianglesByteSize, cube.triangles.data(), GL_STATIC_DRAW);
 
   GLint modelUniform = program.getUniformLocation("Model");
   GLint viewUniform = program.getUniformLocation("View");
@@ -206,7 +250,7 @@ int main(int argc, char* argv[]) {
     glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
     rot += 0.01f;
 
-    auto vertexCount = sizeof(INDICES) / sizeof(GLuint);
+    auto vertexCount = cube.triangles.size() * 3;
     glDrawElements(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0);
 
     window.swapBuffers();

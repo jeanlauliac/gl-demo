@@ -9,8 +9,10 @@
 #include <vector>
 #include "glfwpp/Context.h"
 #include "glfwpp/Window.h"
+#include "glpp/Buffers.h"
 #include "glpp/Program.h"
 #include "glpp/Shader.h"
+#include "glpp/VertexArrays.h"
 #include "ds/shaders.h"
 
 static void errorCallback(int error, const char* description)
@@ -110,17 +112,7 @@ static glfwpp::Context createContext() {
   return context;
 }
 
-int main(int argc, char* argv[]) {
-  const auto options = parseOptions(argc, argv);
-  if (options.showHelp) {
-    return showHelp();
-  }
-  glfwpp::Context context = createContext();
-  glfwSetErrorCallback(errorCallback);
-  glfwpp::Window window = createWindow(context, options.windowMode);
-  context.makeContextCurrent(window);
-  context.setKeyCallback(window, keyCallback);
-
+void enableGlew() {
   glewExperimental = GL_TRUE;
   GLenum err = glewInit();
   if(err != GLEW_OK) {
@@ -129,23 +121,35 @@ int main(int argc, char* argv[]) {
       reinterpret_cast<const char*>(glewGetErrorString(err))
     );
   }
+}
+
+glm::mat4 getPerspectiveProjection(const glfwpp::Window& window) {
+  int width, height;
+  window.getFramebufferSize(&width, &height);
+  float ratio = static_cast<float>(width) / static_cast<float>(height);
+  return glm::perspective(1.221f, ratio, 0.01f, 100.0f);
+}
+
+int main(int argc, char* argv[]) {
+  const auto options = parseOptions(argc, argv);
+  if (options.showHelp) {
+    return showHelp();
+  }
+  auto context = createContext();
+  glfwSetErrorCallback(errorCallback);
+  auto window = createWindow(context, options.windowMode);
+  context.makeContextCurrent(window);
+  context.setKeyCallback(window, keyCallback);
+  enableGlew();
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
 
-  GLuint vao;
-  glGenVertexArrays(1, &vao);
-  glBindVertexArray(vao);
-
-  GLuint vbo;
-  glGenBuffers(1, &vbo);
-
-  GLuint eab;
-  glGenBuffers(1, &eab);
-
-  glpp::Program program = (
-    ds::loadAndLinkProgram("shaders/basic.vs", "shaders/basic.fs")
-  );
+  glpp::VertexArrays<1> vao;
+  glBindVertexArray(vao.handles()[0]);
+  glpp::Buffers<1> vbo;
+  glpp::Program program =
+    ds::loadAndLinkProgram("shaders/basic.vs", "shaders/basic.fs");
   program.use();
 
   GLfloat colorData[36];
@@ -162,7 +166,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Allocate space and upload the data from CPU to GPU
-  glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo.handles()[0]);
   glBufferData(GL_ARRAY_BUFFER, sizeof(VERTEX_POSITIONS) + sizeof(colorData), nullptr, GL_STATIC_DRAW);
   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(VERTEX_POSITIONS), VERTEX_POSITIONS);
   glBufferSubData(GL_ARRAY_BUFFER, sizeof(VERTEX_POSITIONS), sizeof(colorData), colorData);
@@ -176,6 +180,8 @@ int main(int argc, char* argv[]) {
   glEnableVertexAttribArray(colorAttribute);
 
   // Transfer the data from indices to eab
+  GLuint eab;
+  glGenBuffers(1, &eab);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eab);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(INDICES), INDICES, GL_STATIC_DRAW);
 
@@ -185,24 +191,18 @@ int main(int argc, char* argv[]) {
 
   glm::mat4 view;
   glUniformMatrix4fv(viewUniform, 1, GL_FALSE, glm::value_ptr(view));
-
-  int width, height;
-  window.getFramebufferSize(&width, &height);
-  float ratio = static_cast<float>(width) / static_cast<float>(height);
-  glm::mat4 projection = glm::perspective(1.221f, ratio, 0.01f, 100.0f);
+  glm::mat4 projection = getPerspectiveProjection(window);
+  glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
 
   auto rot = 0.0f;
   while (!window.shouldClose()) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
 
     auto ident = glm::mat4();
     auto model =
       glm::translate(ident, glm::vec3(0.0f, 0.0f, -2.0f)) *
       glm::rotate(ident, 0.7f, glm::vec3(1.0f, 0.0f, 0.0f)) *
       glm::rotate(ident, rot, glm::vec3(0.0f, 1.0f, 0.0f));
-      //glm::rotate(ident, rot2, glm::vec3(0.0f, 1.0f, 0.0f)) *
-      //glm::rotate(ident, rot3, glm::vec3(0.0f, 0.0f, 1.0f));
     glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
     rot += 0.01f;
 

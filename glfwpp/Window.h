@@ -8,8 +8,8 @@ public:
   Window(int width, int height, const char *title, GLFWmonitor *monitor, GLFWwindow *share);
   Window(const Window&& window);
   ~Window();
-  void getFramebufferSize(int* width, int* height);
-  int shouldClose();
+  void getFramebufferSize(int* width, int* height) const;
+  int shouldClose() const;
   void swapBuffers();
   GLFWwindow* handle() const {
     return handle_;

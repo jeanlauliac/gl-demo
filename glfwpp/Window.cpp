@@ -18,11 +18,11 @@ Window::~Window() {
   glfwDestroyWindow(handle_);
 }
 
-void Window::getFramebufferSize(int* width, int* height) {
+void Window::getFramebufferSize(int* width, int* height) const {
   glfwGetFramebufferSize(handle_, width, height);
 }
 
-int Window::shouldClose() {
+int Window::shouldClose() const {
   return glfwWindowShouldClose(handle_);
 }
 

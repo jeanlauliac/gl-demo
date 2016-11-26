@@ -13,4 +13,7 @@ Context::~Context() {
   glfwTerminate();
 }
 
+Context::Context(Context&&) {
+}
+
 }

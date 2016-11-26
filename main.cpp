@@ -100,12 +100,14 @@ static glfwpp::Window createWindow(
   return glfwpp::Window(mode->width, mode->height, "Demo", monitor, nullptr);
 }
 
-static void setupContext(glfwpp::Context& context) {
+static glfwpp::Context createContext() {
+  glfwpp::Context context;
   context.windowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   context.windowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   context.windowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   context.windowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
   context.windowHint(GLFW_RESIZABLE, GL_FALSE);
+  return context;
 }
 
 int main(int argc, char* argv[]) {
@@ -113,8 +115,7 @@ int main(int argc, char* argv[]) {
   if (options.showHelp) {
     return showHelp();
   }
-  glfwpp::Context context;
-  setupContext(context);
+  glfwpp::Context context = createContext();
   glfwSetErrorCallback(errorCallback);
   glfwpp::Window window = createWindow(context, options.windowMode);
   context.makeContextCurrent(window);

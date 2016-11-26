@@ -8,6 +8,7 @@ class Context {
 public:
   Context();
   ~Context();
+  Context(Context&&);
 
   void windowHint(int target, int value) {
     glfwWindowHint(target, value);

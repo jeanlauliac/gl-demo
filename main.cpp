@@ -27,30 +27,30 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
   }
 }
 
-GLfloat VERTEX_POSITIONS[] = {
-  -0.5, -0.5, -0.5,
-  0.5, -0.5, -0.5,
-  0.5, 0.5, -0.5,
-  -0.5, 0.5, -0.5,
-  -0.5, -0.5, 0.5,
-  0.5, -0.5, 0.5,
-  0.5, 0.5, 0.5,
-  -0.5, 0.5, 0.5,
+glm::vec3 VERTEX_POSITIONS[] = {
+  glm::vec3(-0.5, -0.5, -0.5),
+  glm::vec3(0.5, -0.5, -0.5),
+  glm::vec3(0.5, 0.5, -0.5),
+  glm::vec3(-0.5, 0.5, -0.5),
+  glm::vec3(-0.5, -0.5, 0.5),
+  glm::vec3(0.5, -0.5, 0.5),
+  glm::vec3(0.5, 0.5, 0.5),
+  glm::vec3(-0.5, 0.5, 0.5),
 };
 
-GLuint INDICES[] = {
-  0, 1, 2,
-  2, 3, 0,
-  4, 5, 6,
-  6, 7, 4,
-  0, 1, 4,
-  5, 1, 4,
-  3, 2, 7,
-  7, 2, 6,
-  1, 2, 5,
-  5, 6, 2,
-  0, 3, 7,
-  0, 7, 4,
+glm::uvec3 INDICES[] = {
+  glm::uvec3(0, 1, 2),
+  glm::uvec3(2, 3, 0),
+  glm::uvec3(4, 5, 6),
+  glm::uvec3(6, 7, 4),
+  glm::uvec3(0, 1, 4),
+  glm::uvec3(5, 1, 4),
+  glm::uvec3(3, 2, 7),
+  glm::uvec3(7, 2, 6),
+  glm::uvec3(1, 2, 5),
+  glm::uvec3(5, 6, 2),
+  glm::uvec3(0, 3, 7),
+  glm::uvec3(0, 7, 4),
 };
 
 enum class WindowMode { WINDOW, FULLSCREEN, };
@@ -206,12 +206,8 @@ int main(int argc, char* argv[]) {
     glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
     rot += 0.01f;
 
-    glDrawElements(
-      GL_TRIANGLES,
-      sizeof(INDICES) / sizeof(GLuint),
-      GL_UNSIGNED_INT,
-      0
-    );
+    auto vertexCount = sizeof(INDICES) / sizeof(GLuint);
+    glDrawElements(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0);
 
     window.swapBuffers();
     glfwPollEvents();

@@ -60,7 +60,7 @@ struct Options {
   WindowMode windowMode;
 };
 
-Options parseOptions(int argc, char* argv[]) {
+static Options parseOptions(int argc, char* argv[]) {
   Options options;
   for (++argv, --argc; argc > 0; ++argv, --argc) {
     const auto arg = std::string(*argv);
@@ -75,7 +75,7 @@ Options parseOptions(int argc, char* argv[]) {
   return options;
 }
 
-int showHelp() {
+static int showHelp() {
   std::cout << R"END(Usage: gl-demo [options]
 Options:
   --fullscreen, -f          Create a fullscreen window
@@ -84,7 +84,10 @@ Options:
   return 0;
 }
 
-glfwpp::Window createWindow(glfwpp::Context& context, WindowMode windowMode) {
+static glfwpp::Window createWindow(
+  glfwpp::Context& context,
+  WindowMode windowMode
+) {
   if (windowMode == WindowMode::WINDOW) {
     return glfwpp::Window(800, 600, "Demo", nullptr, nullptr);
   }
@@ -97,24 +100,23 @@ glfwpp::Window createWindow(glfwpp::Context& context, WindowMode windowMode) {
   return glfwpp::Window(mode->width, mode->height, "Demo", monitor, nullptr);
 }
 
-int main(int argc, char* argv[]) {
-  const auto options = parseOptions(argc, argv);
-  if (options.showHelp) {
-    return showHelp();
-  }
-
-  glfwSetErrorCallback(errorCallback);
-
-  glfwpp::Context context;
-
+static void setupContext(glfwpp::Context& context) {
   context.windowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   context.windowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   context.windowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   context.windowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
   context.windowHint(GLFW_RESIZABLE, GL_FALSE);
+}
 
+int main(int argc, char* argv[]) {
+  const auto options = parseOptions(argc, argv);
+  if (options.showHelp) {
+    return showHelp();
+  }
+  glfwpp::Context context;
+  setupContext(context);
+  glfwSetErrorCallback(errorCallback);
   glfwpp::Window window = createWindow(context, options.windowMode);
-
   context.makeContextCurrent(window);
   context.setKeyCallback(window, keyCallback);
 

@@ -7,22 +7,17 @@
 
 namespace ds {
 
-glpp::Shader loadAndCompileShader(std::string filePath, GLenum shaderType) {
-  std::ifstream ifs(filePath);
-  std::string str(
-    (std::istreambuf_iterator<char>(ifs)),
-    std::istreambuf_iterator<char>()
-  );
-
+glpp::Shader loadAndCompileShader(const Resource& resource, GLenum shaderType) {
   glpp::Shader shader(shaderType);
-  const char* cstr = str.c_str();
+  const char* cstr = reinterpret_cast<const char*>(resource.data);
   shader.source(1, &cstr, nullptr);
   shader.compile();
   GLint status;
   shader.getShaderiv(GL_COMPILE_STATUS, &status);
   if (!status) {
     std::ostringstream errorMessage;
-    errorMessage << filePath << ": shader compilation failed:" << std::endl;
+    errorMessage << resource.filePath
+      << ": shader compilation failed:" << std::endl;
     GLint logLength;
     shader.getShaderiv(GL_INFO_LOG_LENGTH, &logLength);
     std::vector<char> log(logLength);
@@ -34,15 +29,15 @@ glpp::Shader loadAndCompileShader(std::string filePath, GLenum shaderType) {
 }
 
 glpp::Program loadAndLinkProgram(
-  std::string vertexShaderPath,
-  std::string fragmentShaderPath
+  const Resource& vertexShader,
+  const Resource& fragmentShader
 ) {
   glpp::Program program;
   program.attachShader(
-    loadAndCompileShader(vertexShaderPath, GL_VERTEX_SHADER)
+    loadAndCompileShader(vertexShader, GL_VERTEX_SHADER)
   );
   program.attachShader(
-    loadAndCompileShader(fragmentShaderPath, GL_FRAGMENT_SHADER)
+    loadAndCompileShader(fragmentShader, GL_FRAGMENT_SHADER)
   );
   program.link();
   GLint status;

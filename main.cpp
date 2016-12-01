@@ -193,7 +193,10 @@ int run(int argc, char* argv[]) {
   glBindVertexArray(vao.handles()[0]);
   glpp::Buffers<1> vbo;
   glpp::Program program =
-    ds::loadAndLinkProgram("shaders/basic.vs", "shaders/basic.fs");
+    ds::loadAndLinkProgram(
+      resources::shaders::BASIC_VS,
+      resources::shaders::BASIC_FS
+    );
   program.use();
 
   auto cube = createCube();

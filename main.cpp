@@ -15,6 +15,7 @@
 #include "glpp/VertexArrays.h"
 #include "ds/shaders.h"
 #include "ds/SystemException.h"
+#include "ds/cube.h"
 #include "resources/index.h"
 
 static void errorCallback(int error, const char* description)
@@ -115,46 +116,11 @@ glm::vec3 CUBE_FACES[] = {
   glm::vec3(0, 0, 0.5),
 };
 
-struct Vertex {
-  glm::vec3 position;
-  glm::vec3 normal;
-};
-
-struct Mesh {
-  std::vector<Vertex> vertices;
-  std::vector<glm::uvec3> triangles;
-};
-
-Mesh createCube() {
-  std::vector<Vertex> vertices;
-  std::vector<glm::uvec3> triangles;
-  for (int dimension = 0; dimension < 3; ++dimension) {
-    for (int direction = -1; direction <= 1; direction += 2) {
-      auto base = vertices.size();
-      glm::vec3 faceNormal;
-      faceNormal[dimension] = static_cast<float>(direction);
-      for (int sideways = -1; sideways <= 1; sideways += 2) {
-        for (int vertically = -1; vertically <= 1; vertically += 2) {
-          glm::vec3 position;
-          position[dimension] = static_cast<float>(direction) * 0.5f;
-          position[(dimension + 1) % 3] = static_cast<float>(sideways) * 0.5f;
-          position[(dimension + 2) % 3] = static_cast<float>(vertically) * 0.5f;
-          Vertex vertex = {.normal = faceNormal, .position = position};
-          vertices.push_back(vertex);
-        }
-      }
-      triangles.push_back(glm::uvec3(base, base + 1, base + 2));
-      triangles.push_back(glm::uvec3(base + 1, base + 2, base + 3));
-    }
-  }
-  return {.vertices = vertices, .triangles = triangles};
-}
-
 std::ostream &operator<<(std::ostream &os, const glm::vec3& vec) {
   return os << "[" << vec.x << ", " << vec.y << ", " << vec.z << "]";
 }
 
-std::ostream &operator<<(std::ostream &os, const Vertex& vertex) {
+std::ostream &operator<<(std::ostream &os, const ds::Vertex& vertex) {
   return
     os << "CubeVertex {position: " << vertex.position
     << ", normal: " << vertex.normal << "}";
@@ -199,7 +165,7 @@ int run(int argc, char* argv[]) {
     );
   program.use();
 
-  auto cube = createCube();
+  auto cube = ds::getCube();
 
   std::vector<GLfloat> colorData(cube.vertices.size() * 3);
   srand(42);
@@ -211,7 +177,7 @@ int run(int argc, char* argv[]) {
   }
 
   // Allocate space and upload the data from CPU to GPU
-  auto cubeVerticesByteCount = sizeof(Vertex) * cube.vertices.size();
+  auto cubeVerticesByteCount = sizeof(ds::Vertex) * cube.vertices.size();
   auto colorsByteCount = sizeof(GLfloat) * colorData.size();
   glBindBuffer(GL_ARRAY_BUFFER, vbo.handles()[0]);
   auto totalSize = cubeVerticesByteCount + colorsByteCount;
@@ -220,11 +186,25 @@ int run(int argc, char* argv[]) {
   glBufferSubData(GL_ARRAY_BUFFER, cubeVerticesByteCount, colorsByteCount, colorData.data());
 
   GLint positionAttribute = program.getAttribLocation("position");
-  glVertexAttribPointer(positionAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, position)));
+  glVertexAttribPointer(
+    positionAttribute,
+    3,
+    GL_FLOAT,
+    GL_FALSE,
+    sizeof(ds::Vertex),
+    reinterpret_cast<void*>(offsetof(ds::Vertex, position))
+  );
   glEnableVertexAttribArray(positionAttribute);
 
   GLint normalAttribute = program.getAttribLocation("normal");
-  glVertexAttribPointer(normalAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, normal)));
+  glVertexAttribPointer(
+    normalAttribute,
+    3,
+    GL_FLOAT,
+    GL_FALSE,
+    sizeof(ds::Vertex),
+    reinterpret_cast<void*>(offsetof(ds::Vertex, normal))
+  );
   glEnableVertexAttribArray(normalAttribute);
 
   GLint colorAttribute = program.getAttribLocation("color");

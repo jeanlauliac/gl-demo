@@ -107,15 +107,6 @@ glm::mat4 getPerspectiveProjection(const glfwpp::Window& window) {
   return glm::perspective(1.221f, ratio, 0.01f, 100.0f);
 }
 
-glm::vec3 CUBE_FACES[] = {
-  glm::vec3(-0.5, 0, 0),
-  glm::vec3(0.5, 0, 0),
-  glm::vec3(0, -0.5, 0),
-  glm::vec3(0, 0.5, 0),
-  glm::vec3(0, 0, -0.5),
-  glm::vec3(0, 0, 0.5),
-};
-
 std::ostream &operator<<(std::ostream &os, const glm::vec3& vec) {
   return os << "[" << vec.x << ", " << vec.y << ", " << vec.z << "]";
 }

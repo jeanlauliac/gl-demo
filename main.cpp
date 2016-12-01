@@ -15,6 +15,7 @@
 #include "glpp/VertexArrays.h"
 #include "ds/shaders.h"
 #include "ds/SystemException.h"
+#include "resources/index.h"
 
 static void errorCallback(int error, const char* description)
 {

@@ -66,6 +66,15 @@ function embedResource(filePath, sourcePaths) {
   );
 }
 
+function buildResourceIndex(filePath, sourcePaths) {
+  return update_process_desc.create(
+    process_desc.create(
+      path.resolve(__dirname, 'build-resource-index.js'),
+      immutable.List([filePath]).concat((sourcePaths: immutable.Set<string>)),
+    ),
+  );
+}
+
 /**
  * Entry point: build the lists of all the files we need to build.
  */
@@ -97,6 +106,9 @@ upd(cliOpts => {
     return [sourceFilePath, objectFilePath];
   }).concat(resourceTuples.map(t => t.slice(1)));
   const distBinPath = file_path.create('dist/gl-demo');
+  const resourceIndexPath = file_path.create(
+    path.resolve(__dirname, '../resources/index.h'),
+  );
   const fileAdjacencyList = chain([
     fileAdj =>
       sourceObjectPairs.reduce((fileAdj, [sourcePath, objectPath]) => {
@@ -109,6 +121,10 @@ upd(cliOpts => {
       resourceTuples.reduce((fileAdj, [resourceFilePath, sourceFilePath]) => {
         return adjacency_list.add(fileAdj, resourceFilePath, sourceFilePath);
       }, fileAdj),
+    fileAdj =>
+      resourceTuples.reduce((fileAdj, [resourceFilePath]) => {
+        return adjacency_list.add(fileAdj, resourceFilePath, resourceIndexPath);
+      }, fileAdj)
   ], adjacency_list.empty());
   const fileBuilders = chain([
     builders => sourceObjectPairs.reduce((builders, pair) => {
@@ -118,6 +134,7 @@ upd(cliOpts => {
       return builders.set(tup[1], embedResource);
     }, builders),
     builders => builders.set(distBinPath, link),
+    builders => builders.set(resourceIndexPath, buildResourceIndex),
   ], immutable.Map());
   return {cliOpts, fileAdjacencyList, fileBuilders};
 });

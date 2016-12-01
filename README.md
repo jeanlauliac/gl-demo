@@ -1,5 +1,4 @@
 # gl-demo
 
-    $ npm install
-    $ ./upd
-    $ ./gl-demo
+    $ yarn
+    $ ./upd && ./dist/gl-demo

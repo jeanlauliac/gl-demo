@@ -42,7 +42,8 @@ try {
   fs.writeSync(fd, `\nextern const ds::Resource ${name} = {\n`);
   const relResourceFilePath = path.relative(topDir, resourceFilePath);
   fs.writeSync(fd, `  .filePath = "${relResourceFilePath}",\n`);
-  fs.writeSync(fd, `  .data = data\n};`);
+  fs.writeSync(fd, `  .data = data,\n`);
+  fs.writeSync(fd, `  .size = sizeof(data) - 1\n};`);
   fs.writeSync(fd, `\n\n${namespaces.map(() => '}\n').join('')}`);
 } finally {
   fs.closeSync(fd);

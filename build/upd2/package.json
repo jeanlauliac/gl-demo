@@ -1,0 +1,8 @@
+{
+  "name": "upd2",
+  "version": "0.1",
+  "description": "Update files, fast.",
+  "main": "dist/index.js",
+  "author": "Jean Lauliac <jean@lauliac.com>",
+  "license": "MIT"
+}

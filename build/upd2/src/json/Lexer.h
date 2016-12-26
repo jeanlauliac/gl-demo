@@ -4,8 +4,7 @@
 
 namespace json {
 
-enum class TokenType: int {
-  boolean_literal,
+enum class TokenType {
   brace_close,
   brace_open,
   bracket_close,
@@ -25,19 +24,11 @@ struct Token {
 
 template <size_t BufferSize>
 class Lexer {
-public:
-  Lexer(std::unique_ptr<FILE, decltype(&pclose)>&& file): file_(std::move(file)) {
-    next_char_ = fgets(buffer_, BufferSize, file_.get());
-    token = read_token_();
-  }
-
-  void forward() {
-    token = read_token_();
-  }
-
-  Token token;
-
 private:
+  char* next_char_;
+  char buffer_[BufferSize];
+  std::unique_ptr<FILE, decltype(&pclose)> file_;
+
   void read_char_() {
     ++next_char_;
     if (*next_char_ != 0) {
@@ -46,9 +37,9 @@ private:
     next_char_ = fgets(buffer_, BufferSize, file_.get());
   }
 
-  Token read_char_for_(const Token& token) {
+  Token read_char_for_(TokenType type) {
     read_char_();
-    return token;
+    return { .type = type };
   }
 
   Token read_string_() {
@@ -62,7 +53,7 @@ private:
       throw std::runtime_error("unexpected end in string literal");
     }
     read_char_();
-    return {.type = TokenType::string_literal, .string_value = value};
+    return { .type = TokenType::string_literal, .string_value = value };
   }
 
   Token read_number_() {
@@ -74,8 +65,7 @@ private:
     if (next_char_ == nullptr) {
       throw std::runtime_error("unexpected end in number literal");
     }
-    read_char_();
-    return {.type = TokenType::number_literal, .number_value = value};
+    return { .type = TokenType::number_literal, .number_value = value };
   }
 
   Token read_token_() {
@@ -86,25 +76,24 @@ private:
       read_char_();
     }
     if (next_char_ == nullptr) {
-      return {.type = TokenType::end};
+      return { .type = TokenType::end };
     }
     char cc = *next_char_;
     switch (cc) {
       case '[':
-        return read_char_for_({.type = TokenType::bracket_open});
+        return read_char_for_(TokenType::bracket_open);
       case ']':
-        return read_char_for_({.type = TokenType::bracket_close});
+        return read_char_for_(TokenType::bracket_close);
       case '{':
-        return read_char_for_({.type = TokenType::brace_open});
+        return read_char_for_(TokenType::brace_open);
       case '}':
-        return read_char_for_({.type = TokenType::brace_close});
+        return read_char_for_(TokenType::brace_close);
       case ':':
-        return read_char_for_({.type = TokenType::colon});
+        return read_char_for_(TokenType::colon);
       case ',':
-        return read_char_for_({.type = TokenType::comma});
-    }
-    if (cc == '"') {
-      return read_string_();
+        return read_char_for_(TokenType::comma);
+      case '"':
+        return read_string_();
     }
     if (cc >= '0' && cc <= '9') {
       return read_number_();
@@ -112,9 +101,19 @@ private:
     throw std::runtime_error(std::string("unknown JSON char: `") + cc + '`');
   }
 
-  char* next_char_;
-  char buffer_[BufferSize];
-  std::unique_ptr<FILE, decltype(&pclose)> file_;
+public:
+  Token token;
+
+  Lexer(std::unique_ptr<FILE, decltype(&pclose)>&& file): file_(std::move(file)) {
+    next_char_ = fgets(buffer_, BufferSize, file_.get());
+    token = read_token_();
+  }
+
+  void forward() {
+    std::cout << token.string_value << ' ' << (int)token.type << std::endl;
+    token = read_token_();
+  }
+
 };
 
 }

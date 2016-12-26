@@ -121,6 +121,9 @@ void parse_json_object(
       if (lexer.token.type == json::TokenType::brace_close) {
         throw std::runtime_error("unexpected closing brace after comma");
       }
+    } else if (lexer.token.type != json::TokenType::brace_close) {
+      std::cout << ">>>>" << (int)lexer.token.type << std::endl;
+      throw std::runtime_error("expected closing brace");
     }
   }
   lexer.forward();
@@ -258,13 +261,21 @@ std::string pretty_print_struct(
   return stream.str();
 }
 
-template <typename T>
 std::string inspect(
-  T value,
+  unsigned int value,
   const InspectOptions& options
 ) {
   std::ostringstream stream;
   stream << value;
+  return stream.str();
+}
+
+std::string inspect(
+  std::string value,
+  const InspectOptions& options
+) {
+  std::ostringstream stream;
+  stream << '"' << value << '"';
   return stream.str();
 }
 
@@ -294,21 +305,28 @@ std::string inspect(
       stream << ',';
     }
     stream << std::endl << indent_spaces
-      << '{' << iter->first << ", " << iter->second << '}';
+      << "{ " << iter->first << ", " << iter->second << " }";
   }
   stream << " })";
   return stream.str();
 }
 
 std::string inspect(
-  const ManifestGroup& manifest,
+  const ManifestGroup& group,
   const InspectOptions& options
 ) {
   return pretty_print_struct(
     "ManifestGroup",
     options,
-    [&manifest](const InspectOptions& options) {
-      return std::map<std::string, std::string>();
+    [&group](const InspectOptions& options) {
+      return std::map<std::string, std::string>({
+        { "type", inspect(group.type, options) },
+        { "pattern", inspect(group.pattern, options) },
+        { "command", inspect(group.command, options) },
+        { "input_group", inspect(group.input_group, options) },
+        { "output_pattern", inspect(group.output_pattern, options) },
+        { "name", inspect(group.name, options) }
+      });
     }
   );
 }
@@ -318,17 +336,17 @@ std::string inspect(const Manifest& manifest, const InspectOptions& options) {
     "Manifest",
     options,
     [&manifest](const InspectOptions& options) {
-      return std::map<std::string, std::string>(
-        {{"groups", inspect(manifest.groups, options)}}
-      );
+      return std::map<std::string, std::string>({
+        { "groups", inspect(manifest.groups, options) }
+      });
     }
   );
 }
 
 template <typename T>
 std::string inspect(const T& value) {
-  GlobalInspectOptions global = {.indent = 2, .width = 60};
-  return inspect(value, {.global = global, .depth = 0});
+  GlobalInspectOptions global = { .indent = 2, .width = 60 };
+  return inspect(value, { .global = global, .depth = 0 });
 }
 
 int main(int argc, char *argv[]) {

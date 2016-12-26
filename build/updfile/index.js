@@ -45,7 +45,7 @@ class Updfile {
 function export_(fun) {
   const updfile = new Updfile();
   fun(updfile);
-  console.log(JSON.stringify(updfile.data, null, 2));
+  console.log(JSON.stringify(updfile.data));
 }
 
 module.exports = {

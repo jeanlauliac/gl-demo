@@ -110,7 +110,6 @@ public:
   }
 
   void forward() {
-    std::cout << token.string_value << ' ' << (int)token.type << std::endl;
     token = read_token_();
   }
 

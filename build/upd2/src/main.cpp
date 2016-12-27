@@ -150,8 +150,29 @@ std::string read_json_string(json::Lexer<BufferSize>& lexer) {
   return str;
 }
 
+enum class ManifestGroupType {
+  glob,
+  rule,
+  alias,
+};
+
+std::string inspect(
+  const ManifestGroupType& type,
+  const InspectOptions& options
+) {
+  switch (type) {
+    case ManifestGroupType::glob:
+      return "ManifestGroupType::glob";
+    case ManifestGroupType::rule:
+      return "ManifestGroupType::rule";
+    case ManifestGroupType::alias:
+      return "ManifestGroupType::alias";
+  }
+  throw std::runtime_error("cannot inspect ManifestGroupType");
+}
+
 struct ManifestGroup {
-  std::string type;
+  ManifestGroupType type;
   std::string pattern;
   std::string command;
   int input_group;
@@ -164,7 +185,18 @@ ManifestGroup read_json_group(json::Lexer<BufferSize>& lexer) {
   ManifestGroup group;
   parse_json_object(lexer, [&group, &lexer](const std::string& name) {
     if (name == "type") {
-      group.type = read_json_string(lexer);
+      auto type_str = read_json_string(lexer);
+      if (type_str == "glob") {
+        group.type = ManifestGroupType::glob;
+      } else if (type_str == "rule") {
+        group.type = ManifestGroupType::rule;
+      } else if (type_str == "alias") {
+        group.type = ManifestGroupType::alias;
+      } else {
+        throw std::runtime_error(
+          std::string("invalid group type `") + type_str + '`'
+        );
+      }
     } else if (name == "pattern") {
       group.pattern = read_json_string(lexer);
     } else if (name == "command") {

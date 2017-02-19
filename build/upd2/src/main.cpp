@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
     std::cerr << "upd: fatal: invalid argument: `" << error.arg << "`" << std::endl;
     return 1;
   } catch (upd::io::cannot_find_updfile_error) {
-    std::cerr << "upd: fatal: cannot find Updfile, in any of the parent directories" << std::endl;
+    std::cerr << "upd: fatal: cannot find Updfile in the current directory or in any of the parent directories" << std::endl;
     return 2;
   }
 }

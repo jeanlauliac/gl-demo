@@ -1,0 +1,10 @@
+#include "src/json/Lexer.h"
+
+@case "Verify all the stuff" {
+  @expect(true);
+}
+
+@case "Do something else" {
+  int a = 42;
+  @expect(a == (40 + 2));
+}

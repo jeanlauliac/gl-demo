@@ -61,39 +61,45 @@ std::string find_root_path() {
   return path;
 }
 
-struct Options {
-  Options(): root(false), help(false), version(false) {};
-  bool root;
+struct options {
+  options(): dev(false), help(false), root(false), version(false) {};
+  bool dev;
   bool help;
+  bool root;
   bool version;
 };
 
-Options parse_options(int argc, char *argv[]) {
-  Options options;
+struct option_parse_error {
+  option_parse_error(const std::string& arg): arg(arg) {}
+  std::string arg;
+};
+
+options parse_options(int argc, char *argv[]) {
+  options result;
   for (++argv, --argc; argc > 0; ++argv, --argc) {
     const auto arg = std::string(*argv);
     if (arg == "--root") {
-      options.root = true;
+      result.root = true;
     } else if (arg == "--version") {
-      options.version = true;
+      result.version = true;
     } else if (arg == "--help") {
-      options.help = true;
+      result.help = true;
+    } else if (arg == "--dev") {
+      result.dev = true;
     } else {
-      throw std::runtime_error(
-        std::string("invalid argument: ") + arg
-      );
+      throw option_parse_error(arg);
     }
   }
-  return options;
+  return result;
 }
 
 void print_help() {
   std::cout
     << "usage: upd [targets] [options]" << std::endl
     << "options:" << std::endl
-    << "  --version   Print semantic version and exit" << std::endl
-    << "  --help      Print usage help and exit" << std::endl
-    << "  --root      Print the root directory path and exit" << std::endl
+    << "  --version     print semantic version and exit" << std::endl
+    << "  --help        print usage help and exit" << std::endl
+    << "  --root        print the root directory path and exit" << std::endl
     ;
 }
 
@@ -288,21 +294,29 @@ std::string inspect(const Manifest& manifest, const InspectOptions& options) {
 }
 
 int main(int argc, char *argv[]) {
-  auto options = parse_options(argc, argv);
-  auto root_path = find_root_path();
-  if (options.version) {
-    std::cout << "Upd version 0.1" << std::endl;
-    return 0;
+  try {
+    auto arg_opts = parse_options(argc, argv);
+    auto root_path = find_root_path();
+    if (arg_opts.version) {
+      std::cout << "upd v0.1" << std::endl;
+      return 0;
+    }
+    if (arg_opts.help) {
+      print_help();
+      return 0;
+    }
+    if (arg_opts.root) {
+      std::cout << root_path << std::endl;
+      return 0;
+    }
+    if (arg_opts.dev) {
+      auto manifest = read_manifest<128>(root_path);
+      std::cout << inspect(manifest) << std::endl;
+      return 0;
+    }
+    compile_itself(root_path);
+  } catch (option_parse_error error) {
+    std::cerr << "upd: invalid argument: `" << error.arg << "`" << std::endl;
+    return 1;
   }
-  if (options.help) {
-    print_help();
-    return 0;
-  }
-  if (options.root) {
-    std::cout << root_path << std::endl;
-    return 0;
-  }
-  auto manifest = read_manifest<128>(root_path);
-  std::cout << inspect(manifest) << std::endl;
-  //compile_itself(root_path);
 }

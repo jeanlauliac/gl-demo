@@ -4,4 +4,6 @@
 /build/upd/node_modules
 /build/upd/dist
 /build/upd/.upd
+/build/upd2/node_modules
+/build/upd2/dist
 /resources/index.h

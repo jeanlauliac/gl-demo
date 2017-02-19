@@ -6,7 +6,6 @@ class Updfile {
     this._nextID = 1;
     this.data = {
       groups: {},
-
     };
   }
 

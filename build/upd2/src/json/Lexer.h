@@ -2,6 +2,14 @@
 
 #include <iostream>
 
+
+// std::istringstream iss("{\"foo\": 23}");
+// json::lexer lex(iss);
+// reader rd;
+// lex.read(rd);
+
+//upd::json::stream_lexer source_lexer;
+
 namespace json {
 
 enum class TokenType {

@@ -1,4 +1,5 @@
 #include "inspect.h"
+#include "io.h"
 #include "json/Lexer.h"
 #include <cstdlib>
 #include <fstream>
@@ -10,55 +11,33 @@
 #include <sys/param.h>
 #include <unistd.h>
 
-void compile_itself(const std::string& root_path) {
+void compile_cpp_file(const std::string& cpp_path, const std::string& obj_path) {
+  std::cout << "compile... " << cpp_path << std::endl;
   auto ret = system((
-    std::string("clang++ -c -o ") + root_path + "/dist/main.o " +
-    "-Wall -std=c++14 -fcolor-diagnostics " +
-    "-I /usr/local/include " + root_path + "/src/main.cpp"
+    std::string("clang++ -c -o ") + obj_path +
+    " -Wall -std=c++14 -fcolor-diagnostics " +
+    "-I /usr/local/include " + cpp_path
   ).c_str());
   if (ret != 0) {
     throw "compile failed";
   }
-  ret = system((
+}
+
+void compile_itself(const std::string& root_path) {
+  auto main_obj_path = root_path + "/dist/main.o";
+  auto io_obj_path = root_path + "/dist/io.o";
+  compile_cpp_file(root_path + "/src/main.cpp", main_obj_path);
+  compile_cpp_file(root_path + "/src/io.cpp", io_obj_path);
+  std::cout << "link..." << std::endl;
+  auto ret = system((
     std::string("clang++ -o ") + root_path + "/dist/upd " +
     "-Wall -std=c++14 -fcolor-diagnostics -L /usr/local/lib " +
-    root_path + "/dist/main.o"
+    main_obj_path + " " + io_obj_path
   ).c_str());
   if (ret != 0) {
     throw "link failed";
   }
-}
-
-std::string getcwd_string() {
-  char temp[MAXPATHLEN];
-  if (getcwd(temp, MAXPATHLEN) == nullptr) {
-    throw std::runtime_error("unable to get current working directory");
-  }
-  return temp;
-}
-
-const char* UPDFILE_SUFFIX = "/Updfile";
-
-std::string dirname_string(const std::string& path) {
-  if (path.size() >= MAXPATHLEN) {
-    throw std::runtime_error("string too long");
-  }
-  char temp[MAXPATHLEN];
-  strcpy(temp, path.c_str());
-  return dirname(temp);
-}
-
-std::string find_root_path() {
-  std::string path = getcwd_string();
-  std::ifstream updfile(path + UPDFILE_SUFFIX);
-  while (!updfile.is_open() && path != "/") {
-    path = dirname_string(path);
-    updfile.open(path + UPDFILE_SUFFIX);
-  }
-  if (!updfile.is_open()) {
-    throw std::runtime_error("unable to find Updfile directory");
-  }
-  return path;
+  std::cout << "done" << std::endl;
 }
 
 struct options {
@@ -251,7 +230,7 @@ Manifest read_json_manifest(json::Lexer<BufferSize>& lexer) {
 
 template <size_t BufferSize>
 Manifest read_manifest(const std::string& root_path) {
-  auto manifest_path = root_path + UPDFILE_SUFFIX;
+  auto manifest_path = root_path + upd::io::UPDFILE_SUFFIX;
   std::unique_ptr<FILE, decltype(&pclose)>
     pipe(popen(manifest_path.c_str(), "r"), pclose);
   if (!pipe) {
@@ -295,28 +274,31 @@ std::string inspect(const Manifest& manifest, const InspectOptions& options) {
 
 int main(int argc, char *argv[]) {
   try {
-    auto arg_opts = parse_options(argc, argv);
-    auto root_path = find_root_path();
-    if (arg_opts.version) {
+    auto cli_opts = parse_options(argc, argv);
+    if (cli_opts.version) {
       std::cout << "upd v0.1" << std::endl;
       return 0;
     }
-    if (arg_opts.help) {
+    if (cli_opts.help) {
       print_help();
       return 0;
     }
-    if (arg_opts.root) {
+    auto root_path = upd::io::find_root_path();
+    if (cli_opts.root) {
       std::cout << root_path << std::endl;
       return 0;
     }
-    if (arg_opts.dev) {
+    if (cli_opts.dev) {
       auto manifest = read_manifest<128>(root_path);
       std::cout << inspect(manifest) << std::endl;
       return 0;
     }
     compile_itself(root_path);
   } catch (option_parse_error error) {
-    std::cerr << "upd: invalid argument: `" << error.arg << "`" << std::endl;
+    std::cerr << "upd: fatal: invalid argument: `" << error.arg << "`" << std::endl;
     return 1;
+  } catch (upd::io::cannot_find_updfile_error) {
+    std::cerr << "upd: fatal: cannot find Updfile, in any of the parent directories" << std::endl;
+    return 2;
   }
 }

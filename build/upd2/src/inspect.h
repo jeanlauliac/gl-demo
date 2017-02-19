@@ -4,6 +4,8 @@
 #include <map>
 #include <sstream>
 
+namespace upd {
+
 struct GlobalInspectOptions {
   unsigned int indent;
   unsigned int width;
@@ -46,20 +48,12 @@ std::string pretty_print_struct(
 std::string inspect(
   unsigned int value,
   const InspectOptions& options
-) {
-  std::ostringstream stream;
-  stream << value;
-  return stream.str();
-}
+);
 
 std::string inspect(
   std::string value,
   const InspectOptions& options
-) {
-  std::ostringstream stream;
-  stream << '"' << value << '"';
-  return stream.str();
-}
+);
 
 template <typename TKey, typename TValue>
 std::string inspect(
@@ -97,4 +91,6 @@ template <typename T>
 std::string inspect(const T& value) {
   GlobalInspectOptions global = { .indent = 2, .width = 60 };
   return inspect(value, { .global = global, .depth = 0 });
+}
+
 }

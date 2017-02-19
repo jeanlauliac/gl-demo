@@ -68,7 +68,7 @@ enum class ManifestGroupType {
 
 std::string inspect(
   const ManifestGroupType& type,
-  const InspectOptions& options
+  const inspect_options& options
 );
 
 struct ManifestGroup {
@@ -126,25 +126,25 @@ ManifestGroups read_json_groups(json::Lexer<BufferSize>& lexer) {
   return groups;
 }
 
-struct Manifest {
+struct manifest {
   ManifestGroups groups;
 };
 
 template <size_t BufferSize>
-Manifest read_json_manifest(json::Lexer<BufferSize>& lexer) {
-  Manifest manifest;
-  parse_json_object(lexer, [&manifest, &lexer](const std::string& name) {
+manifest read_json_manifest(json::Lexer<BufferSize>& lexer) {
+  manifest result;
+  parse_json_object(lexer, [&result, &lexer](const std::string& name) {
     if (name == "groups") {
-      manifest.groups = read_json_groups(lexer);
+      result.groups = read_json_groups(lexer);
     } else {
       throw std::runtime_error(std::string("unexpected field `") + name + '`');
     }
   });
-  return manifest;
+  return result;
 }
 
 template <size_t BufferSize>
-Manifest read_manifest(const std::string& root_path) {
+manifest read_manifest(const std::string& root_path) {
   auto manifest_path = root_path + upd::io::UPDFILE_SUFFIX;
   std::unique_ptr<FILE, decltype(&pclose)>
     pipe(popen(manifest_path.c_str(), "r"), pclose);
@@ -157,9 +157,9 @@ Manifest read_manifest(const std::string& root_path) {
 
 std::string inspect(
   const ManifestGroup& group,
-  const InspectOptions& options
+  const inspect_options& options
 );
 
-std::string inspect(const Manifest& manifest, const InspectOptions& options);
+std::string inspect(const manifest& manifest, const inspect_options& options);
 
 }

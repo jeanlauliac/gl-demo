@@ -4,7 +4,7 @@ namespace upd {
 
 std::string inspect(
   const ManifestGroupType& type,
-  const InspectOptions& options
+  const inspect_options& options
 ) {
   switch (type) {
     case ManifestGroupType::glob:
@@ -19,12 +19,12 @@ std::string inspect(
 
 std::string inspect(
   const ManifestGroup& group,
-  const InspectOptions& options
+  const inspect_options& options
 ) {
   return pretty_print_struct(
     "ManifestGroup",
     options,
-    [&group](const InspectOptions& options) {
+    [&group](const inspect_options& options) {
       return std::map<std::string, std::string>({
         { "type", inspect(group.type, options) },
         { "pattern", inspect(group.pattern, options) },
@@ -37,11 +37,11 @@ std::string inspect(
   );
 }
 
-std::string inspect(const Manifest& manifest, const InspectOptions& options) {
+std::string inspect(const manifest& manifest, const inspect_options& options) {
   return pretty_print_struct(
-    "Manifest",
+    "manifest",
     options,
-    [&manifest](const InspectOptions& options) {
+    [&manifest](const inspect_options& options) {
       return std::map<std::string, std::string>({
         { "groups", inspect(manifest.groups, options) }
       });

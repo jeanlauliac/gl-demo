@@ -6,23 +6,23 @@
 
 namespace upd {
 
-struct GlobalInspectOptions {
+struct global_inspect_options {
   unsigned int indent;
   unsigned int width;
 };
 
-struct InspectOptions {
-  GlobalInspectOptions& global;
+struct inspect_options {
+  global_inspect_options& global;
   unsigned int depth;
 };
 
 template <typename FieldMapper>
 std::string pretty_print_struct(
   const std::string& name,
-  const InspectOptions& options,
+  const inspect_options& options,
   FieldMapper field_mapper
 ) {
-  InspectOptions inner_options =
+  inspect_options inner_options =
     {.depth = options.depth + 1, .global = options.global};
   std::map<std::string, std::string> string_map = field_mapper(inner_options);
   std::ostringstream stream;
@@ -45,22 +45,15 @@ std::string pretty_print_struct(
   return stream.str();
 }
 
-std::string inspect(
-  unsigned int value,
-  const InspectOptions& options
-);
-
-std::string inspect(
-  std::string value,
-  const InspectOptions& options
-);
+std::string inspect(unsigned int value, const inspect_options& options);
+std::string inspect(std::string value, const inspect_options& options);
 
 template <typename TKey, typename TValue>
 std::string inspect(
   const std::map<TKey, TValue>& map,
-  const InspectOptions& options
+  const inspect_options& options
 ) {
-  InspectOptions inner_options =
+  inspect_options inner_options =
     {.depth = options.depth + 1, .global = options.global};
   std::map<std::string, std::string> string_map;
   for (auto iter = map.begin(); iter != map.end(); ++iter) {
@@ -89,7 +82,7 @@ std::string inspect(
 
 template <typename T>
 std::string inspect(const T& value) {
-  GlobalInspectOptions global = { .indent = 2, .width = 60 };
+  global_inspect_options global = { .indent = 2, .width = 60 };
   return inspect(value, { .global = global, .depth = 0 });
 }
 

@@ -46,10 +46,22 @@ std::string find_root_path() {
     path = dirname_string(path);
     found = is_regular_file(path + UPDFILE_SUFFIX);
   }
-  if (!found) {
-    throw cannot_find_updfile_error();
-  }
+  if (!found) throw cannot_find_updfile_error();
   return path;
+}
+
+dir::dir(const std::string& path): ptr_(opendir(path.c_str())) {
+  if (ptr_ == nullptr) throw std::runtime_error("opendir() failed");
+}
+
+dir::~dir() {
+  closedir(ptr_);
+}
+
+dir_files::dir_files(const std::string& path): target_(path) {}
+
+struct dirent* dir_files::next() {
+  return readdir(target_.ptr());
 }
 
 }

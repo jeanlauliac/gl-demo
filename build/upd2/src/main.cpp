@@ -2,6 +2,7 @@
 #include "io.h"
 #include "json/Lexer.h"
 #include "manifest.h"
+#include <dirent.h>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -10,7 +11,9 @@
 #include <sstream>
 #include <stdlib.h>
 #include <sys/param.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <vector>
 
 void compile_cpp_file(const std::string& cpp_path, const std::string& obj_path) {
   std::cout << "compile... " << cpp_path << std::endl;
@@ -24,7 +27,29 @@ void compile_cpp_file(const std::string& cpp_path, const std::string& obj_path) 
   }
 }
 
+bool ends_with(const std::string& value, const std::string& ending) {
+  if (ending.size() > value.size()) return false;
+  return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
+}
+
+std::vector<std::string> find_all_cpp_files(const std::string& root_path) {
+  std::vector<std::string> result;
+  std::string src_path = root_path + "/src";
+  upd::io::dir_files src_files(src_path);
+  auto ent = src_files.next();
+  while (ent != nullptr) {
+    std::string name(ent->d_name);
+    if (ends_with(name, ".cpp")) {
+      result.push_back(src_path + "/" + name);
+    }
+    ent = src_files.next();
+  }
+  return result;
+}
+
 void compile_itself(const std::string& root_path) {
+  find_all_cpp_files(root_path);
+  return;
   auto main_obj_path = root_path + "/dist/main.o";
   auto io_obj_path = root_path + "/dist/io.o";
   auto mn_obj_path = root_path + "/dist/manifest.o";

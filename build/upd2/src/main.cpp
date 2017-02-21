@@ -32,38 +32,57 @@ bool ends_with(const std::string& value, const std::string& ending) {
   return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
 }
 
-std::vector<std::string> find_all_cpp_files(const std::string& root_path) {
-  std::vector<std::string> result;
+struct target_file {
+  std::string full_path;
+  std::string basename;
+};
+
+std::vector<target_file> find_all_cpp_files(const std::string& root_path) {
+  std::vector<target_file> result;
   std::string src_path = root_path + "/src";
   upd::io::dir_files src_files(src_path);
   auto ent = src_files.next();
   while (ent != nullptr) {
     std::string name(ent->d_name);
     if (ends_with(name, ".cpp")) {
-      result.push_back(src_path + "/" + name);
+      result.push_back({
+        .full_path = src_path + "/" + name,
+        .basename = name.substr(0, name.size() - 4)
+      });
     }
     ent = src_files.next();
   }
   return result;
 }
 
+std::ostream& stream_join(
+  std::ostream& os,
+  const std::vector<std::string> elems,
+  std::string sep
+) {
+  bool first = true;
+  for (auto elem : elems) {
+    if (!first) os << " ";
+    os << elem;
+    first = false;
+  }
+  return os;
+}
+
 void compile_itself(const std::string& root_path) {
-  find_all_cpp_files(root_path);
-  return;
-  auto main_obj_path = root_path + "/dist/main.o";
-  auto io_obj_path = root_path + "/dist/io.o";
-  auto mn_obj_path = root_path + "/dist/manifest.o";
-  auto in_obj_path = root_path + "/dist/inspect.o";
-  compile_cpp_file(root_path + "/src/main.cpp", main_obj_path);
-  compile_cpp_file(root_path + "/src/io.cpp", io_obj_path);
-  compile_cpp_file(root_path + "/src/manifest.cpp", mn_obj_path);
-  compile_cpp_file(root_path + "/src/inspect.cpp", in_obj_path);
+  auto cpp_files = find_all_cpp_files(root_path);
+  std::vector<std::string> obj_file_paths;
+  for (auto cpp_file : cpp_files) {
+    auto obj_path = root_path + "/dist/" + cpp_file.basename + ".o";
+    compile_cpp_file(cpp_file.full_path, obj_path);
+    obj_file_paths.push_back(obj_path);
+  }
   std::cout << "link..." << std::endl;
-  auto ret = system((
-    std::string("clang++ -o ") + root_path + "/dist/upd " +
-    "-Wall -std=c++14 -fcolor-diagnostics -L /usr/local/lib " +
-    main_obj_path + " " + io_obj_path + " " + mn_obj_path + " " + in_obj_path
-  ).c_str());
+  std::ostringstream oss;
+  oss << "clang++ -o " << root_path << "/dist/upd "
+      << "-Wall -std=c++14 -fcolor-diagnostics -L /usr/local/lib ";
+  stream_join(oss, obj_file_paths, " ");
+  auto ret = system(oss.str().c_str());
   if (ret != 0) {
     throw "link failed";
   }

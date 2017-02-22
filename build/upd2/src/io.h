@@ -43,5 +43,10 @@ private:
   dir target_;
 };
 
+struct ifstream_failed_error {
+  ifstream_failed_error(const std::string& file_path): file_path(file_path) {}
+  std::string file_path;
+};
+
 }
 }

@@ -20,4 +20,6 @@ private:
   std::unique_ptr<XXH64_state_t, XXH_errorcode(*)(XXH64_state_t*)> state_;
 };
 
+XXH64_hash_t hash_file(unsigned long long seed, const std::string file_path);
+
 }

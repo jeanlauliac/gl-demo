@@ -3,6 +3,7 @@
 #include "json/Lexer.h"
 #include "xxhash64.h"
 #include "manifest.h"
+#include <array>
 #include <dirent.h>
 #include <cstdlib>
 #include <fstream>
@@ -23,7 +24,8 @@ void compile_src_file(
   const std::string& obj_path,
   src_file_type type
 ) {
-  std::cout << "compile... " << src_path << std::endl;
+  auto hash = upd::hash_file(0, src_path);
+  std::cout << "compile... " << src_path << " (" << hash << ")" << std::endl;
   std::ostringstream oss;
   oss << "clang++ -c -o " << obj_path << " -Wall -fcolor-diagnostics";
   if (type == src_file_type::cpp) {
@@ -179,9 +181,6 @@ int main(int argc, char *argv[]) {
       return 0;
     }
     if (cli_opts.dev) {
-      upd::xxhash64 hash(0);
-      hash.update("Foobat", 6);
-      std::cout << hash.digest() << std::endl;
       // auto manifest = upd::read_manifest<128>(root_path);
       // std::cout << upd::inspect(manifest) << std::endl;
       return 0;
@@ -192,6 +191,9 @@ int main(int argc, char *argv[]) {
     return 1;
   } catch (upd::io::cannot_find_updfile_error) {
     std::cerr << "upd: fatal: cannot find Updfile in the current directory or in any of the parent directories" << std::endl;
+    return 2;
+  } catch (upd::io::ifstream_failed_error error) {
+    std::cerr << "upd: fatal: failed to read file `" << error.file_path << "`" << std::endl;
     return 2;
   }
 }

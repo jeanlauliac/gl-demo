@@ -20,6 +20,11 @@ private:
   std::unique_ptr<XXH64_state_t, XXH_errorcode(*)(XXH64_state_t*)> state_;
 };
 
+/**
+ * Hashes an entire file, fast. Since the hash will be different for
+ * small changes, this is a handy way to check if a source file changed
+ * since a previous update.
+ */
 XXH64_hash_t hash_file(unsigned long long seed, const std::string file_path);
 
 }

@@ -1,6 +1,7 @@
 #include "inspect.h"
 #include "io.h"
 #include "json/Lexer.h"
+#include "xxhash.h"
 #include "manifest.h"
 #include <dirent.h>
 #include <cstdlib>
@@ -15,13 +16,23 @@
 #include <unistd.h>
 #include <vector>
 
-void compile_cpp_file(const std::string& cpp_path, const std::string& obj_path) {
-  std::cout << "compile... " << cpp_path << std::endl;
-  auto ret = system((
-    std::string("clang++ -c -o ") + obj_path +
-    " -Wall -std=c++14 -fcolor-diagnostics " +
-    "-I /usr/local/include " + cpp_path
-  ).c_str());
+enum class src_file_type { cpp, c };
+
+void compile_src_file(
+  const std::string& src_path,
+  const std::string& obj_path,
+  src_file_type type
+) {
+  std::cout << "compile... " << src_path << std::endl;
+  std::ostringstream oss;
+  oss << "clang++ -c -o " << obj_path << " -Wall -fcolor-diagnostics";
+  if (type == src_file_type::cpp) {
+    oss << " -std=c++14";
+  } else if (type == src_file_type::c) {
+    oss << " -x c";
+  }
+  oss << " -I /usr/local/include " << src_path;
+  auto ret = system(oss.str().c_str());
   if (ret != 0) {
     throw "compile failed";
   }
@@ -32,21 +43,34 @@ bool ends_with(const std::string& value, const std::string& ending) {
   return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
 }
 
-struct target_file {
+struct src_file {
   std::string full_path;
   std::string basename;
+  src_file_type type;
 };
 
-struct cpp_files_finder {
-  cpp_files_finder(const std::string& root_path):
+bool get_file_type(const std::string& entname, src_file_type& type) {
+  if (ends_with(entname, ".cpp")) {
+    type = src_file_type::cpp;
+    return true;
+  }
+  if (ends_with(entname, ".c")) {
+    type = src_file_type::c;
+    return true;
+  }
+  return false;
+}
+
+struct src_files_finder {
+  src_files_finder(const std::string& root_path):
     src_path_(root_path + "/src"),
     src_files_reader_(src_path_) {}
 
-  target_file* next() {
+  src_file* next() {
     auto ent = src_files_reader_.next();
     while (ent != nullptr) {
       std::string name(ent->d_name);
-      if (ends_with(name, ".cpp")) {
+      if (get_file_type(name, current_file_.type)) {
         current_file_.full_path = src_path_ + "/" + name;
         current_file_.basename = name.substr(0, name.size() - 4);
         break;
@@ -62,7 +86,7 @@ struct cpp_files_finder {
 private:
   std::string src_path_;
   upd::io::dir_files_reader src_files_reader_;
-  target_file current_file_;
+  src_file current_file_;
 };
 
 std::ostream& stream_join(
@@ -80,14 +104,14 @@ std::ostream& stream_join(
 }
 
 void compile_itself(const std::string& root_path) {
-  cpp_files_finder cpp_files(root_path);
+  src_files_finder src_files(root_path);
   std::vector<std::string> obj_file_paths;
-  auto cpp_file = cpp_files.next();
-  while (cpp_file != nullptr) {
-    auto obj_path = root_path + "/dist/" + cpp_file->basename + ".o";
-    compile_cpp_file(cpp_file->full_path, obj_path);
+  auto src_file = src_files.next();
+  while (src_file != nullptr) {
+    auto obj_path = root_path + "/dist/" + src_file->basename + ".o";
+    compile_src_file(src_file->full_path, obj_path, src_file->type);
     obj_file_paths.push_back(obj_path);
-    cpp_file = cpp_files.next();
+    src_file = src_files.next();
   }
   std::cout << "link..." << std::endl;
   std::ostringstream oss;
@@ -160,8 +184,11 @@ int main(int argc, char *argv[]) {
       return 0;
     }
     if (cli_opts.dev) {
-      auto manifest = upd::read_manifest<128>(root_path);
-      std::cout << upd::inspect(manifest) << std::endl;
+      // auto xxh = XXH64_createState();
+      // XXH64_update(xxh, "foobar", 6);
+      // XXH64_freeState(xxh);
+      // auto manifest = upd::read_manifest<128>(root_path);
+      // std::cout << upd::inspect(manifest) << std::endl;
       return 0;
     }
     compile_itself(root_path);

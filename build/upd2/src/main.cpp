@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <libgen.h>
 #include <map>
@@ -17,15 +18,36 @@
 #include <unistd.h>
 #include <vector>
 
+static const char* CACHE_FOLDER = ".upd";
+
 enum class src_file_type { cpp, c };
 
+struct update_log_recorder {
+  update_log_recorder(const std::string& root_path) {
+    log_file_.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+    log_file_.open(root_path + "/" + CACHE_FOLDER + "/log", std::ios::app);
+  }
+
+  /**
+   * Record the imprint of a file that was just generated.
+   */
+  void record(unsigned long long imprint, const std::string& file_path) {
+    log_file_ << std::setfill('0') << std::setw(2) << std::hex << imprint;
+    log_file_ << " " << file_path << std::endl;
+  }
+
+private:
+  std::ofstream log_file_;
+};
+
 void compile_src_file(
+  update_log_recorder& log_rec,
   const std::string& src_path,
   const std::string& obj_path,
   src_file_type type
 ) {
-  auto hash = upd::hash_file(0, src_path);
-  std::cout << "compile... " << src_path << " (" << hash << ")" << std::endl;
+  auto src_hash = upd::hash_file(0, src_path);
+  std::cout << "compile... " << src_path << " (" << src_hash << ")" << std::endl;
   std::ostringstream oss;
   oss << "clang++ -c -o " << obj_path << " -Wall -fcolor-diagnostics";
   if (type == src_file_type::cpp) {
@@ -34,10 +56,13 @@ void compile_src_file(
     oss << " -x c";
   }
   oss << " -I /usr/local/include " << src_path;
-  auto ret = system(oss.str().c_str());
+  auto str = oss.str();
+  auto ret = system(str.c_str());
   if (ret != 0) {
     throw "compile failed";
   }
+  auto imprint = XXH64(str.c_str(), str.size(), src_hash);
+  log_rec.record(imprint, obj_path);
 }
 
 bool ends_with(const std::string& value, const std::string& ending) {
@@ -102,12 +127,13 @@ std::ostream& stream_join(
 }
 
 void compile_itself(const std::string& root_path) {
+  update_log_recorder log_rec(root_path);
   src_files_finder src_files(root_path);
   std::vector<std::string> obj_file_paths;
   src_file target_file;
   while (src_files.next(target_file)) {
     auto obj_path = root_path + "/dist/" + target_file.basename + ".o";
-    compile_src_file(target_file.full_path, obj_path, target_file.type);
+    compile_src_file(log_rec, target_file.full_path, obj_path, target_file.type);
     obj_file_paths.push_back(obj_path);
   }
   std::cout << "link..." << std::endl;

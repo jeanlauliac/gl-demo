@@ -1,9 +1,10 @@
 /.upd
+/build/upd/.upd
+/build/upd/dist
+/build/upd/node_modules
+/build/upd2/.upd
+/build/upd2/dist
+/build/upd2/node_modules
 /dist
 /node_modules
-/build/upd/node_modules
-/build/upd/dist
-/build/upd/.upd
-/build/upd2/node_modules
-/build/upd2/dist
 /resources/index.h

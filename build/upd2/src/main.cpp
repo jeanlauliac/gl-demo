@@ -66,27 +66,23 @@ struct src_files_finder {
     src_path_(root_path + "/src"),
     src_files_reader_(src_path_) {}
 
-  src_file* next() {
+  bool next(src_file& file) {
     auto ent = src_files_reader_.next();
     while (ent != nullptr) {
       std::string name(ent->d_name);
-      if (get_file_type(name, current_file_.type)) {
-        current_file_.full_path = src_path_ + "/" + name;
-        current_file_.basename = name.substr(0, name.size() - 4);
-        break;
+      if (get_file_type(name, file.type)) {
+        file.full_path = src_path_ + "/" + name;
+        file.basename = name.substr(0, name.size() - 4);
+        return true;
       }
       ent = src_files_reader_.next();
     }
-    if (ent == nullptr) {
-      return nullptr;
-    }
-    return &current_file_;
+    return false;
   }
 
 private:
   std::string src_path_;
   upd::io::dir_files_reader src_files_reader_;
-  src_file current_file_;
 };
 
 std::ostream& stream_join(
@@ -106,12 +102,11 @@ std::ostream& stream_join(
 void compile_itself(const std::string& root_path) {
   src_files_finder src_files(root_path);
   std::vector<std::string> obj_file_paths;
-  auto src_file = src_files.next();
-  while (src_file != nullptr) {
-    auto obj_path = root_path + "/dist/" + src_file->basename + ".o";
-    compile_src_file(src_file->full_path, obj_path, src_file->type);
+  src_file target_file;
+  while (src_files.next(target_file)) {
+    auto obj_path = root_path + "/dist/" + target_file.basename + ".o";
+    compile_src_file(target_file.full_path, obj_path, target_file.type);
     obj_file_paths.push_back(obj_path);
-    src_file = src_files.next();
   }
   std::cout << "link..." << std::endl;
   std::ostringstream oss;

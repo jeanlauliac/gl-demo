@@ -1,7 +1,7 @@
 #include "inspect.h"
 #include "io.h"
 #include "json/Lexer.h"
-#include "xxhash.h"
+#include "xxhash64.h"
 #include "manifest.h"
 #include <dirent.h>
 #include <cstdlib>
@@ -179,9 +179,9 @@ int main(int argc, char *argv[]) {
       return 0;
     }
     if (cli_opts.dev) {
-      // auto xxh = XXH64_createState();
-      // XXH64_update(xxh, "foobar", 6);
-      // XXH64_freeState(xxh);
+      upd::xxhash64 hash(0);
+      hash.update("Foobat", 6);
+      std::cout << hash.digest() << std::endl;
       // auto manifest = upd::read_manifest<128>(root_path);
       // std::cout << upd::inspect(manifest) << std::endl;
       return 0;

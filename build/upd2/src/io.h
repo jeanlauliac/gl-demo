@@ -36,8 +36,8 @@ private:
   DIR* ptr_;
 };
 
-struct dir_files {
-  dir_files(const std::string& path);
+struct dir_files_reader {
+  dir_files_reader(const std::string& path);
   struct dirent* next();
 private:
   dir target_;

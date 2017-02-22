@@ -58,9 +58,9 @@ dir::~dir() {
   closedir(ptr_);
 }
 
-dir_files::dir_files(const std::string& path): target_(path) {}
+dir_files_reader::dir_files_reader(const std::string& path): target_(path) {}
 
-struct dirent* dir_files::next() {
+struct dirent* dir_files_reader::next() {
   return readdir(target_.ptr());
 }
 

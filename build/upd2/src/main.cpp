@@ -37,23 +37,33 @@ struct target_file {
   std::string basename;
 };
 
-std::vector<target_file> find_all_cpp_files(const std::string& root_path) {
-  std::vector<target_file> result;
-  std::string src_path = root_path + "/src";
-  upd::io::dir_files src_files(src_path);
-  auto ent = src_files.next();
-  while (ent != nullptr) {
-    std::string name(ent->d_name);
-    if (ends_with(name, ".cpp")) {
-      result.push_back({
-        .full_path = src_path + "/" + name,
-        .basename = name.substr(0, name.size() - 4)
-      });
+struct cpp_files_finder {
+  cpp_files_finder(const std::string& root_path):
+    src_path_(root_path + "/src"),
+    src_files_reader_(src_path_) {}
+
+  target_file* next() {
+    auto ent = src_files_reader_.next();
+    while (ent != nullptr) {
+      std::string name(ent->d_name);
+      if (ends_with(name, ".cpp")) {
+        current_file_.full_path = src_path_ + "/" + name;
+        current_file_.basename = name.substr(0, name.size() - 4);
+        break;
+      }
+      ent = src_files_reader_.next();
     }
-    ent = src_files.next();
+    if (ent == nullptr) {
+      return nullptr;
+    }
+    return &current_file_;
   }
-  return result;
-}
+
+private:
+  std::string src_path_;
+  upd::io::dir_files_reader src_files_reader_;
+  target_file current_file_;
+};
 
 std::ostream& stream_join(
   std::ostream& os,
@@ -70,12 +80,14 @@ std::ostream& stream_join(
 }
 
 void compile_itself(const std::string& root_path) {
-  auto cpp_files = find_all_cpp_files(root_path);
+  cpp_files_finder cpp_files(root_path);
   std::vector<std::string> obj_file_paths;
-  for (auto cpp_file : cpp_files) {
-    auto obj_path = root_path + "/dist/" + cpp_file.basename + ".o";
-    compile_cpp_file(cpp_file.full_path, obj_path);
+  auto cpp_file = cpp_files.next();
+  while (cpp_file != nullptr) {
+    auto obj_path = root_path + "/dist/" + cpp_file->basename + ".o";
+    compile_cpp_file(cpp_file->full_path, obj_path);
     obj_file_paths.push_back(obj_path);
+    cpp_file = cpp_files.next();
   }
   std::cout << "link..." << std::endl;
   std::ostringstream oss;

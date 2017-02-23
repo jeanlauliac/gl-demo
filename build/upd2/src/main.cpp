@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include <sys/param.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -24,7 +26,7 @@ enum class src_file_type { cpp, c };
 
 struct update_log_recorder {
   update_log_recorder(const std::string& root_path) {
-    log_file_.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+    log_file_.exceptions(std::ofstream::failbit | std::ofstream::badbit);
     log_file_.open(root_path + "/" + CACHE_FOLDER + "/log", std::ios::app);
     log_file_ << std::setfill('0') << std::setw(16) << std::hex;
   }
@@ -40,11 +42,24 @@ private:
   std::ofstream log_file_;
 };
 
+void read_depfile(const std::string& depfile_path) {
+  std::cout << "whohoo!" << std::endl;
+  std::ifstream depfile;
+  depfile.exceptions(std::ifstream::badbit);
+  depfile.open(depfile_path);
+  std::string line;
+  do {
+    std::getline(depfile, line);
+    std::cout << line << std::endl;
+  } while (depfile.good());
+}
+
 void compile_src_file(
   update_log_recorder& log_rec,
   const std::string& root_path,
   const std::string& local_src_path,
   const std::string& local_obj_path,
+  const std::string& depfile_path,
   src_file_type type
 ) {
   auto src_path = root_path + '/' + local_src_path;
@@ -58,12 +73,15 @@ void compile_src_file(
   } else if (type == src_file_type::c) {
     oss << " -x c";
   }
+  std::thread::thread read_depfile_thread(&read_depfile, depfile_path);
+  oss << " -MMD -MF " << depfile_path;
   oss << " -I /usr/local/include " << src_path;
   auto str = oss.str();
   auto ret = system(str.c_str());
   if (ret != 0) {
     throw "compile failed";
   }
+  read_depfile_thread.join();
   auto imprint = XXH64(str.c_str(), str.size(), src_hash);
   log_rec.record(imprint, local_obj_path);
 }
@@ -131,12 +149,16 @@ std::ostream& stream_join(
 
 void compile_itself(const std::string& root_path) {
   update_log_recorder log_rec(root_path);
+  auto depfile_path = root_path + "/.upd/depfile";
+  if (mkfifo(depfile_path.c_str(), 0644) != 0 && errno != EEXIST) {
+    throw std::runtime_error("cannot make depfile FIFO");
+  }
   src_files_finder src_files(root_path);
   std::vector<std::string> obj_file_paths;
   src_file target_file;
   while (src_files.next(target_file)) {
     auto obj_path = "dist/" + target_file.basename + ".o";
-    compile_src_file(log_rec, root_path, target_file.local_path, obj_path, target_file.type);
+    compile_src_file(log_rec, root_path, target_file.local_path, obj_path, depfile_path, target_file.type);
     obj_file_paths.push_back(root_path + '/' + obj_path);
   }
   std::cout << "linking: dist/upd" << std::endl;

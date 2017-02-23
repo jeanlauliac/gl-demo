@@ -26,14 +26,14 @@ struct update_log_recorder {
   update_log_recorder(const std::string& root_path) {
     log_file_.exceptions(std::ifstream::failbit | std::ifstream::badbit);
     log_file_.open(root_path + "/" + CACHE_FOLDER + "/log", std::ios::app);
+    log_file_ << std::setfill('0') << std::setw(16) << std::hex;
   }
 
   /**
    * Record the imprint of a file that was just generated.
    */
-  void record(unsigned long long imprint, const std::string& file_path) {
-    log_file_ << std::setfill('0') << std::setw(2) << std::hex << imprint;
-    log_file_ << " " << file_path << std::endl;
+  void record(unsigned long long imprint, const std::string& local_file_path) {
+    log_file_ << imprint << " " << local_file_path << std::endl;
   }
 
 private:
@@ -42,14 +42,17 @@ private:
 
 void compile_src_file(
   update_log_recorder& log_rec,
-  const std::string& src_path,
-  const std::string& obj_path,
+  const std::string& root_path,
+  const std::string& local_src_path,
+  const std::string& local_obj_path,
   src_file_type type
 ) {
+  auto src_path = root_path + '/' + local_src_path;
   auto src_hash = upd::hash_file(0, src_path);
-  std::cout << "compile... " << src_path << " (" << src_hash << ")" << std::endl;
+  std::cout << "compiling: " << local_src_path << " (" << src_hash << ")" << std::endl;
   std::ostringstream oss;
-  oss << "clang++ -c -o " << obj_path << " -Wall -fcolor-diagnostics";
+  oss << "clang++ -c -o " << root_path << '/' << local_obj_path;
+  oss << " -Wall -fcolor-diagnostics";
   if (type == src_file_type::cpp) {
     oss << " -std=c++14";
   } else if (type == src_file_type::c) {
@@ -62,7 +65,7 @@ void compile_src_file(
     throw "compile failed";
   }
   auto imprint = XXH64(str.c_str(), str.size(), src_hash);
-  log_rec.record(imprint, obj_path);
+  log_rec.record(imprint, local_obj_path);
 }
 
 bool ends_with(const std::string& value, const std::string& ending) {
@@ -71,7 +74,7 @@ bool ends_with(const std::string& value, const std::string& ending) {
 }
 
 struct src_file {
-  std::string full_path;
+  std::string local_path;
   std::string basename;
   src_file_type type;
 };
@@ -98,7 +101,7 @@ struct src_files_finder {
     while (ent != nullptr) {
       std::string name(ent->d_name);
       if (get_file_type(name, file.type)) {
-        file.full_path = src_path_ + "/" + name;
+        file.local_path = "src/" + name;
         file.basename = name.substr(0, name.size() - 4);
         return true;
       }
@@ -132,11 +135,11 @@ void compile_itself(const std::string& root_path) {
   std::vector<std::string> obj_file_paths;
   src_file target_file;
   while (src_files.next(target_file)) {
-    auto obj_path = root_path + "/dist/" + target_file.basename + ".o";
-    compile_src_file(log_rec, target_file.full_path, obj_path, target_file.type);
-    obj_file_paths.push_back(obj_path);
+    auto obj_path = "dist/" + target_file.basename + ".o";
+    compile_src_file(log_rec, root_path, target_file.local_path, obj_path, target_file.type);
+    obj_file_paths.push_back(root_path + '/' + obj_path);
   }
-  std::cout << "link..." << std::endl;
+  std::cout << "linking: dist/upd" << std::endl;
   std::ostringstream oss;
   oss << "clang++ -o " << root_path << "/dist/upd "
       << "-Wall -std=c++14 -fcolor-diagnostics -L /usr/local/lib ";

@@ -192,33 +192,41 @@ private:
  *
  */
 template <typename istream_t>
-depfile_data parse_depfile(istream_t& stream) {
-  depfile_data data;
+depfile_data parse_depfile(istream_t& stream, depfile_data& data) {
   depfile_tokenizer<istream_t> tokens(stream);
   parse_depfile_token_handler handler(data);
   while (tokens.template next<parse_depfile_token_handler, bool>(handler));
   return data;
 }
 
-void read_depfile(const std::string& depfile_path) {
+void read_depfile(const std::string& depfile_path, depfile_data& data) {
   std::ifstream depfile;
   depfile.exceptions(std::ifstream::badbit);
   depfile.open(depfile_path);
-  auto deps = parse_depfile(depfile);
-  std::cout << "whohoo!" << std::endl;
-  std::cout << deps.target_path << std::endl;
-  for (auto dep : deps.dependency_paths) {
-    std::cout << "  " << dep << std::endl;
-  }
-  std::cout << std::endl;
+  auto deps = parse_depfile(depfile, data);
+  // std::cout << "whohoo!" << std::endl;
+  // std::cout << deps.target_path << std::endl;
+  // for (auto dep : deps.dependency_paths) {
+  //   std::cout << "  " << dep << std::endl;
+  // }
+  // std::cout << std::endl;
 }
 
-void read_depfile_thread_entry(const std::string& depfile_path, bool& has_error) {
+struct depfile_thread_result {
+  depfile_data data;
+  bool has_error;
+};
+
+void read_depfile_thread_entry(
+  const std::string& depfile_path,
+  depfile_thread_result& result
+) {
   try {
-    read_depfile(depfile_path);
+    read_depfile(depfile_path, result.data);
+    result.has_error = false;
   } catch (depfile_parse_error error) {
     std::cerr << "upd: fatal: while reading depfile: " << error.message() << std::endl;
-    has_error = true;
+    result.has_error = true;
   }
 }
 
@@ -241,8 +249,8 @@ void compile_src_file(
   } else if (type == src_file_type::c) {
     oss << " -x c";
   }
-  bool depfile_has_error = false;
-  std::thread::thread read_depfile_thread(&read_depfile_thread_entry, depfile_path, std::ref(depfile_has_error));
+  depfile_thread_result depfile_result;
+  std::thread::thread read_depfile_thread(&read_depfile_thread_entry, depfile_path, std::ref(depfile_result));
   oss << " -MMD -MF " << depfile_path;
   oss << " -I /usr/local/include " << src_path;
   auto str = oss.str();
@@ -251,8 +259,8 @@ void compile_src_file(
     throw std::runtime_error("compile failed");
   }
   read_depfile_thread.join();
-  if (depfile_has_error) {
-    throw std::runtime_error("depfile reading had errors");
+  if (depfile_result.has_error) {
+    throw std::runtime_error("depfile reading thread had errors");
   }
   auto imprint = XXH64(str.c_str(), str.size(), src_hash);
   log_rec.record(imprint, local_obj_path);

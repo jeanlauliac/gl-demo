@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
+#include <unordered_map>
 #include <vector>
 
 static const char* CACHE_FOLDER = ".upd";
@@ -260,8 +261,24 @@ void read_depfile_thread_entry(
   }
 }
 
+struct file_hash_cache {
+  unsigned long long hash(const std::string& file_path) {
+    auto search = cache_.find(file_path);
+    if (search != cache_.end()) {
+      return search->second;
+    }
+    auto hash = upd::hash_file(0, file_path);
+    cache_.insert({file_path, hash});
+    return hash;
+  }
+
+private:
+  std::unordered_map<std::string, unsigned long long> cache_;
+};
+
 void compile_src_file(
   update_log_recorder& log_rec,
+  file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::string& local_src_path,
   const std::string& local_obj_path,
@@ -270,8 +287,7 @@ void compile_src_file(
 ) {
   auto root_folder_path = root_path + '/';
   auto src_path = root_folder_path + local_src_path;
-  auto src_hash = upd::hash_file(0, src_path);
-  std::cout << "compiling: " << local_src_path << " (" << src_hash << ")" << std::endl;
+  std::cout << "compiling: " << local_src_path << std::endl;
   std::ostringstream oss;
   oss << "clang++ -c -o " << root_folder_path << local_obj_path;
   oss << " -Wall -fcolor-diagnostics";
@@ -293,13 +309,15 @@ void compile_src_file(
   if (depfile_result.has_error) {
     throw std::runtime_error("depfile reading thread had errors");
   }
-  auto imprint = XXH64(str.c_str(), str.size(), src_hash);
+  auto imprint = XXH64(str.c_str(), str.size(), 0);
+  imprint ^= hash_cache.hash(src_path);
   std::vector<std::string> dep_local_paths;
   for (auto dep_path: depfile_result.data.dependency_paths) {
     if (dep_path.compare(0, root_folder_path.size(), root_folder_path) != 0) {
       throw std::runtime_error("depfile has a file out of root");
     }
     dep_local_paths.push_back(dep_path.substr(root_folder_path.size()));
+    imprint ^= hash_cache.hash(dep_path);
   }
   log_rec.record(imprint, local_obj_path, dep_local_paths);
 }
@@ -354,6 +372,7 @@ private:
 
 void compile_itself(const std::string& root_path) {
   update_log_recorder log_rec(root_path);
+  file_hash_cache hash_cache;
   auto depfile_path = root_path + "/.upd/depfile";
   if (mkfifo(depfile_path.c_str(), 0644) != 0 && errno != EEXIST) {
     throw std::runtime_error("cannot make depfile FIFO");
@@ -363,7 +382,7 @@ void compile_itself(const std::string& root_path) {
   src_file target_file;
   while (src_files.next(target_file)) {
     auto obj_path = "dist/" + target_file.basename + ".o";
-    compile_src_file(log_rec, root_path, target_file.local_path, obj_path, depfile_path, target_file.type);
+    compile_src_file(log_rec, hash_cache, root_path, target_file.local_path, obj_path, depfile_path, target_file.type);
     obj_file_paths.push_back(root_path + '/' + obj_path);
   }
   std::cout << "linking: dist/upd" << std::endl;

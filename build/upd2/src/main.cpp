@@ -22,6 +22,35 @@
 
 static const char* CACHE_FOLDER = ".upd";
 
+template <typename ostream_t>
+struct stream_string_joiner {
+  stream_string_joiner(ostream_t& os, const std::string& separator):
+    os_(os), first_(true), separator_(separator) {}
+  template <typename elem_t>
+  stream_string_joiner<ostream_t>& push(const elem_t& elem) {
+    if (!first_) os_ << separator_;
+    os_ << elem;
+    first_ = false;
+    return *this;
+  }
+
+private:
+  ostream_t& os_;
+  bool first_;
+  std::string separator_;
+};
+
+template <typename ostream_t>
+ostream_t& stream_join(
+  ostream_t& os,
+  const std::vector<std::string> elems,
+  std::string sep
+) {
+  stream_string_joiner<ostream_t> joiner(os, sep);
+  for (auto elem: elems) joiner.push(elem);
+  return os;
+}
+
 enum class src_file_type { cpp, c };
 
 struct update_log_recorder {
@@ -34,8 +63,15 @@ struct update_log_recorder {
   /**
    * Record the imprint of a file that was just generated.
    */
-  void record(unsigned long long imprint, const std::string& local_file_path) {
-    log_file_ << imprint << " " << local_file_path << std::endl;
+  void record(
+    unsigned long long imprint,
+    const std::string& local_file_path,
+    const std::vector<std::string>& dependency_paths
+  ) {
+    stream_string_joiner<std::ofstream> joiner(log_file_, " ");
+    joiner.push(imprint).push(local_file_path);
+    for (auto path: dependency_paths) joiner.push(path);
+    log_file_ << std::endl;
   }
 
 private:
@@ -204,12 +240,6 @@ void read_depfile(const std::string& depfile_path, depfile_data& data) {
   depfile.exceptions(std::ifstream::badbit);
   depfile.open(depfile_path);
   auto deps = parse_depfile(depfile, data);
-  // std::cout << "whohoo!" << std::endl;
-  // std::cout << deps.target_path << std::endl;
-  // for (auto dep : deps.dependency_paths) {
-  //   std::cout << "  " << dep << std::endl;
-  // }
-  // std::cout << std::endl;
 }
 
 struct depfile_thread_result {
@@ -238,11 +268,12 @@ void compile_src_file(
   const std::string& depfile_path,
   src_file_type type
 ) {
-  auto src_path = root_path + '/' + local_src_path;
+  auto root_folder_path = root_path + '/';
+  auto src_path = root_folder_path + local_src_path;
   auto src_hash = upd::hash_file(0, src_path);
   std::cout << "compiling: " << local_src_path << " (" << src_hash << ")" << std::endl;
   std::ostringstream oss;
-  oss << "clang++ -c -o " << root_path << '/' << local_obj_path;
+  oss << "clang++ -c -o " << root_folder_path << local_obj_path;
   oss << " -Wall -fcolor-diagnostics";
   if (type == src_file_type::cpp) {
     oss << " -std=c++14";
@@ -263,7 +294,14 @@ void compile_src_file(
     throw std::runtime_error("depfile reading thread had errors");
   }
   auto imprint = XXH64(str.c_str(), str.size(), src_hash);
-  log_rec.record(imprint, local_obj_path);
+  std::vector<std::string> dep_local_paths;
+  for (auto dep_path: depfile_result.data.dependency_paths) {
+    if (dep_path.compare(0, root_folder_path.size(), root_folder_path) != 0) {
+      throw std::runtime_error("depfile has a file out of root");
+    }
+    dep_local_paths.push_back(dep_path.substr(root_folder_path.size()));
+  }
+  log_rec.record(imprint, local_obj_path, dep_local_paths);
 }
 
 bool ends_with(const std::string& value, const std::string& ending) {
@@ -313,20 +351,6 @@ private:
   std::string src_path_;
   upd::io::dir_files_reader src_files_reader_;
 };
-
-std::ostream& stream_join(
-  std::ostream& os,
-  const std::vector<std::string> elems,
-  std::string sep
-) {
-  bool first = true;
-  for (auto elem : elems) {
-    if (!first) os << " ";
-    os << elem;
-    first = false;
-  }
-  return os;
-}
 
 void compile_itself(const std::string& root_path) {
   update_log_recorder log_rec(root_path);

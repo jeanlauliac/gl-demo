@@ -18,7 +18,6 @@
 #include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
-#include <unordered_map>
 #include <vector>
 
 static const char* CACHE_FOLDER = ".upd";
@@ -261,24 +260,9 @@ void read_depfile_thread_entry(
   }
 }
 
-struct file_hash_cache {
-  unsigned long long hash(const std::string& file_path) {
-    auto search = cache_.find(file_path);
-    if (search != cache_.end()) {
-      return search->second;
-    }
-    auto hash = upd::hash_file(0, file_path);
-    cache_.insert({file_path, hash});
-    return hash;
-  }
-
-private:
-  std::unordered_map<std::string, unsigned long long> cache_;
-};
-
 void compile_src_file(
   update_log_recorder& log_rec,
-  file_hash_cache& hash_cache,
+  upd::file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::string& local_src_path,
   const std::string& local_obj_path,
@@ -372,7 +356,7 @@ private:
 
 void compile_itself(const std::string& root_path) {
   update_log_recorder log_rec(root_path);
-  file_hash_cache hash_cache;
+  upd::file_hash_cache hash_cache;
   auto depfile_path = root_path + "/.upd/depfile";
   if (mkfifo(depfile_path.c_str(), 0644) != 0 && errno != EEXIST) {
     throw std::runtime_error("cannot make depfile FIFO");

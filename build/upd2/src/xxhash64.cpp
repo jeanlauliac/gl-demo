@@ -19,4 +19,14 @@ XXH64_hash_t hash_file(unsigned long long seed, const std::string file_path) {
   return hash.digest();
 }
 
+unsigned long long file_hash_cache::hash(const std::string& file_path) {
+  auto search = cache_.find(file_path);
+  if (search != cache_.end()) {
+    return search->second;
+  }
+  auto hash = upd::hash_file(0, file_path);
+  cache_.insert({file_path, hash});
+  return hash;
+}
+
 }

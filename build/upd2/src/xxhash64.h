@@ -1,6 +1,7 @@
 #pragma once
 
 #include "xxhash.h"
+#include <unordered_map>
 
 namespace upd {
 
@@ -26,5 +27,16 @@ private:
  * since a previous update.
  */
 XXH64_hash_t hash_file(unsigned long long seed, const std::string file_path);
+
+/**
+ * Many source files, such as C++ headers, have an impact on the compilation of
+ * multiple object files at a time. So it's handy to cache the hashes for these
+ * source files.
+ */
+struct file_hash_cache {
+  unsigned long long hash(const std::string& file_path);
+private:
+  std::unordered_map<std::string, unsigned long long> cache_;
+};
 
 }

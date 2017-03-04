@@ -104,6 +104,10 @@ struct update_log_cache {
     return data_.find(local_file_path);
   }
 
+  update_log_data::iterator end() {
+    return data_.end();
+  }
+
   void record(
     const std::string& local_file_path,
     const update_log_file_data& file_data
@@ -376,6 +380,28 @@ std::string get_compile_command_line(
   return oss.str();
 }
 
+bool is_file_up_to_date(
+  update_log_cache& log_cache,
+  upd::file_hash_cache& hash_cache,
+  const std::string& root_path,
+  const std::string& local_obj_path,
+  const std::string& src_path,
+  const std::string& command_line
+) {
+  auto entry = log_cache.find(local_obj_path);
+  if (entry == log_cache.end()) {
+    return false;
+  }
+  upd::xxhash64_stream imprint_s(0);
+  imprint_s << XXH64(command_line.c_str(), command_line.size(), 0);
+  imprint_s << hash_cache.hash(src_path);
+  auto record = entry->second;
+  for (auto local_dep_path: record.dependency_local_paths) {
+    imprint_s << hash_cache.hash(root_path + '/' + local_dep_path);
+  }
+  return imprint_s.digest() == record.imprint;
+}
+
 void compile_src_file(
   update_log_cache& log_cache,
   upd::file_hash_cache& hash_cache,
@@ -387,9 +413,12 @@ void compile_src_file(
 ) {
   auto root_folder_path = root_path + '/';
   auto src_path = root_folder_path + local_src_path;
-  std::cout << "compiling: " << local_src_path << std::endl;
   auto obj_path = root_folder_path + local_obj_path;
   auto command_line = get_compile_command_line(root_folder_path, src_path, obj_path, depfile_path, type);
+  if (is_file_up_to_date(log_cache, hash_cache, root_path, local_obj_path, src_path, command_line)) {
+    return;
+  }
+  std::cout << "compiling: " << local_src_path << std::endl;
   depfile_thread_result depfile_result;
   std::thread::thread read_depfile_thread(&read_depfile_thread_entry, depfile_path, std::ref(depfile_result));
   auto ret = system(command_line.c_str());
@@ -400,18 +429,19 @@ void compile_src_file(
   if (depfile_result.has_error) {
     throw std::runtime_error("depfile reading thread had errors");
   }
-  auto imprint = XXH64(command_line.c_str(), command_line.size(), 0);
-  imprint ^= hash_cache.hash(src_path);
+  upd::xxhash64_stream imprint_s(0);
+  imprint_s << XXH64(command_line.c_str(), command_line.size(), 0);
+  imprint_s << hash_cache.hash(src_path);
   std::vector<std::string> dep_local_paths;
   for (auto dep_path: depfile_result.data.dependency_paths) {
     if (dep_path.compare(0, root_folder_path.size(), root_folder_path) != 0) {
       throw std::runtime_error("depfile has a file out of root");
     }
     dep_local_paths.push_back(dep_path.substr(root_folder_path.size()));
-    imprint ^= hash_cache.hash(dep_path);
+    imprint_s << hash_cache.hash(dep_path);
   }
   log_cache.record(local_obj_path, {
-    .imprint = imprint,
+    .imprint = imprint_s.digest(),
     .dependency_local_paths = dep_local_paths
   });
 }

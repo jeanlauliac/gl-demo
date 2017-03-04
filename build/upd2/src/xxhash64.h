@@ -21,6 +21,18 @@ private:
   std::unique_ptr<XXH64_state_t, XXH_errorcode(*)(XXH64_state_t*)> state_;
 };
 
+struct xxhash64_stream {
+  xxhash64_stream(unsigned long long seed): hash_(seed) {}
+  xxhash64_stream& operator<<(unsigned long long value) {
+    hash_.update(&value, sizeof(value));
+    return *this;
+  }
+  XXH64_hash_t digest() { return hash_.digest(); }
+
+private:
+  xxhash64 hash_;
+};
+
 /**
  * Hashes an entire file, fast. Since the hash will be different for
  * small changes, this is a handy way to check if a source file changed

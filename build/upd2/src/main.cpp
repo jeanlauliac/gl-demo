@@ -356,6 +356,26 @@ void read_depfile_thread_entry(
   }
 }
 
+std::string get_compile_command_line(
+  const std::string& root_folder_path,
+  const std::string& src_path,
+  const std::string& obj_path,
+  const std::string& depfile_path,
+  src_file_type type
+) {
+  std::ostringstream oss;
+  oss << "clang++ -c -o " << obj_path;
+  oss << " -Wall -fcolor-diagnostics";
+  if (type == src_file_type::cpp) {
+    oss << " -std=c++14";
+  } else if (type == src_file_type::c) {
+    oss << " -x c";
+  }
+  oss << " -MMD -MF " << depfile_path;
+  oss << " -I /usr/local/include " << src_path;
+  return oss.str();
+}
+
 void compile_src_file(
   update_log_cache& log_cache,
   upd::file_hash_cache& hash_cache,
@@ -368,20 +388,11 @@ void compile_src_file(
   auto root_folder_path = root_path + '/';
   auto src_path = root_folder_path + local_src_path;
   std::cout << "compiling: " << local_src_path << std::endl;
-  std::ostringstream oss;
-  oss << "clang++ -c -o " << root_folder_path << local_obj_path;
-  oss << " -Wall -fcolor-diagnostics";
-  if (type == src_file_type::cpp) {
-    oss << " -std=c++14";
-  } else if (type == src_file_type::c) {
-    oss << " -x c";
-  }
+  auto obj_path = root_folder_path + local_obj_path;
+  auto command_line = get_compile_command_line(root_folder_path, src_path, obj_path, depfile_path, type);
   depfile_thread_result depfile_result;
   std::thread::thread read_depfile_thread(&read_depfile_thread_entry, depfile_path, std::ref(depfile_result));
-  oss << " -MMD -MF " << depfile_path;
-  oss << " -I /usr/local/include " << src_path;
-  auto str = oss.str();
-  auto ret = system(str.c_str());
+  auto ret = system(command_line.c_str());
   if (ret != 0) {
     throw std::runtime_error("compile failed");
   }
@@ -389,7 +400,7 @@ void compile_src_file(
   if (depfile_result.has_error) {
     throw std::runtime_error("depfile reading thread had errors");
   }
-  auto imprint = XXH64(str.c_str(), str.size(), 0);
+  auto imprint = XXH64(command_line.c_str(), command_line.size(), 0);
   imprint ^= hash_cache.hash(src_path);
   std::vector<std::string> dep_local_paths;
   for (auto dep_path: depfile_result.data.dependency_paths) {

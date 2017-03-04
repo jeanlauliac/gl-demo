@@ -12,6 +12,7 @@
 #include <libgen.h>
 #include <map>
 #include <sstream>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/param.h>
 #include <sys/types.h>
@@ -53,10 +54,15 @@ ostream_t& stream_join(
 
 enum class src_file_type { cpp, c };
 
+struct update_log_file_data {
+  unsigned long long imprint;
+  std::vector<std::string> dependency_local_paths;
+};
+
 struct update_log_recorder {
-  update_log_recorder(const std::string& root_path) {
+  update_log_recorder(const std::string& log_file_path) {
     log_file_.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-    log_file_.open(root_path + "/" + CACHE_FOLDER + "/log", std::ios::app);
+    log_file_.open(log_file_path, std::ios::app);
     log_file_ << std::setfill('0') << std::setw(16) << std::hex;
   }
 
@@ -64,19 +70,98 @@ struct update_log_recorder {
    * Record the imprint of a file that was just generated.
    */
   void record(
-    unsigned long long imprint,
     const std::string& local_file_path,
-    const std::vector<std::string>& dependency_paths
+    const update_log_file_data& file_data
   ) {
     stream_string_joiner<std::ofstream> joiner(log_file_, " ");
-    joiner.push(imprint).push(local_file_path);
-    for (auto path: dependency_paths) joiner.push(path);
+    joiner.push(file_data.imprint).push(local_file_path);
+    for (auto path: file_data.dependency_local_paths) joiner.push(path);
     log_file_ << std::endl;
+  }
+
+  void close() {
+    log_file_.close();
   }
 
 private:
   std::ofstream log_file_;
 };
+
+typedef std::unordered_map<std::string, update_log_file_data> update_log_data;
+
+/**
+ * We keep of copy of the update log in memory. New additions are written right
+ * away to the log so that even if the process crashes we keep track of
+ * what files are already updated.
+ */
+struct update_log_cache {
+  update_log_cache(const std::string& log_file_path, const update_log_data& data):
+    recorder_(log_file_path), data_(data) {}
+
+  update_log_data::iterator find(const std::string& local_file_path) {
+    return data_.find(local_file_path);
+  }
+
+  void record(
+    const std::string& local_file_path,
+    const update_log_file_data& file_data
+  ) {
+    recorder_.record(local_file_path, file_data);
+    data_[local_file_path] = file_data;
+  }
+
+  void close() {
+    recorder_.close();
+  }
+
+  const update_log_data& data() const {
+    return data_;
+  }
+
+  static update_log_cache from_log_file(const std::string& log_file_path) {
+    update_log_data data;
+    {
+      std::ifstream log_file;
+      log_file.exceptions(std::ifstream::badbit);
+      log_file.open(log_file_path);
+      std::string line, local_file_path, dep_file_path;
+      std::istringstream iss;
+      update_log_file_data file_data;
+      while (std::getline(log_file, line)) {
+        file_data.dependency_local_paths.clear();
+        iss.str(line);
+        iss.clear();
+        iss >> std::hex;
+        iss >> file_data.imprint >> local_file_path;
+        while (!iss.eof()) {
+          iss >> dep_file_path;
+          file_data.dependency_local_paths.push_back(dep_file_path);
+        }
+        data[local_file_path] = file_data;
+      }
+    }
+    return update_log_cache(log_file_path, data);
+  }
+
+private:
+  update_log_recorder recorder_;
+  update_log_data data_;
+};
+
+void rewrite_log_file(
+  const std::string& log_file_path,
+  const std::string& temporary_log_file_path,
+  const update_log_data& data
+) {
+  update_log_recorder recorder(temporary_log_file_path);
+  for (auto file_data: data) {
+    recorder.record(file_data.first, file_data.second);
+  }
+  recorder.close();
+  if (rename(temporary_log_file_path.c_str(), log_file_path.c_str()) != 0) {
+    throw std::runtime_error("failed to overwrite log file");
+  }
+}
 
 /**
  * We want to read the stream on a character basis, but do some caching to avoid
@@ -261,7 +346,7 @@ void read_depfile_thread_entry(
 }
 
 void compile_src_file(
-  update_log_recorder& log_rec,
+  update_log_cache& log_cache,
   upd::file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::string& local_src_path,
@@ -303,7 +388,10 @@ void compile_src_file(
     dep_local_paths.push_back(dep_path.substr(root_folder_path.size()));
     imprint ^= hash_cache.hash(dep_path);
   }
-  log_rec.record(imprint, local_obj_path, dep_local_paths);
+  log_cache.record(local_obj_path, {
+    .imprint = imprint,
+    .dependency_local_paths = dep_local_paths
+  });
 }
 
 bool ends_with(const std::string& value, const std::string& ending) {
@@ -355,7 +443,9 @@ private:
 };
 
 void compile_itself(const std::string& root_path) {
-  update_log_recorder log_rec(root_path);
+  std::string log_file_path = root_path + "/" + CACHE_FOLDER + "/log";
+  std::string temp_log_file_path = root_path + "/" + CACHE_FOLDER + "/log_rewritten";
+  update_log_cache log_cache = update_log_cache::from_log_file(log_file_path);
   upd::file_hash_cache hash_cache;
   auto depfile_path = root_path + "/.upd/depfile";
   if (mkfifo(depfile_path.c_str(), 0644) != 0 && errno != EEXIST) {
@@ -366,7 +456,7 @@ void compile_itself(const std::string& root_path) {
   src_file target_file;
   while (src_files.next(target_file)) {
     auto obj_path = "dist/" + target_file.basename + ".o";
-    compile_src_file(log_rec, hash_cache, root_path, target_file.local_path, obj_path, depfile_path, target_file.type);
+    compile_src_file(log_cache, hash_cache, root_path, target_file.local_path, obj_path, depfile_path, target_file.type);
     obj_file_paths.push_back(root_path + '/' + obj_path);
   }
   std::cout << "linking: dist/upd" << std::endl;
@@ -379,6 +469,8 @@ void compile_itself(const std::string& root_path) {
     throw "link failed";
   }
   std::cout << "done" << std::endl;
+  log_cache.close();
+  rewrite_log_file(log_file_path, temp_log_file_path, log_cache.data());
 }
 
 struct options {

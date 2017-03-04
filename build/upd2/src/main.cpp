@@ -59,10 +59,12 @@ struct update_log_file_data {
   std::vector<std::string> dependency_local_paths;
 };
 
+enum class update_log_record_mode { append, truncate };
+
 struct update_log_recorder {
-  update_log_recorder(const std::string& log_file_path) {
+  update_log_recorder(const std::string& log_file_path, update_log_record_mode mode) {
     log_file_.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-    log_file_.open(log_file_path, std::ios::app);
+    log_file_.open(log_file_path, mode == update_log_record_mode::append ? std::ios::app : 0);
     log_file_ << std::setfill('0') << std::setw(16) << std::hex;
   }
 
@@ -96,7 +98,7 @@ typedef std::unordered_map<std::string, update_log_file_data> update_log_data;
  */
 struct update_log_cache {
   update_log_cache(const std::string& log_file_path, const update_log_data& data):
-    recorder_(log_file_path), data_(data) {}
+    recorder_(log_file_path, update_log_record_mode::append), data_(data) {}
 
   update_log_data::iterator find(const std::string& local_file_path) {
     return data_.find(local_file_path);
@@ -118,28 +120,31 @@ struct update_log_cache {
     return data_;
   }
 
-  static update_log_cache from_log_file(const std::string& log_file_path) {
+  static update_log_data data_from_log_file(const std::string& log_file_path) {
     update_log_data data;
-    {
-      std::ifstream log_file;
-      log_file.exceptions(std::ifstream::badbit);
-      log_file.open(log_file_path);
-      std::string line, local_file_path, dep_file_path;
-      std::istringstream iss;
-      update_log_file_data file_data;
-      while (std::getline(log_file, line)) {
-        file_data.dependency_local_paths.clear();
-        iss.str(line);
-        iss.clear();
-        iss >> std::hex;
-        iss >> file_data.imprint >> local_file_path;
-        while (!iss.eof()) {
-          iss >> dep_file_path;
-          file_data.dependency_local_paths.push_back(dep_file_path);
-        }
-        data[local_file_path] = file_data;
+    std::ifstream log_file;
+    log_file.exceptions(std::ifstream::badbit);
+    log_file.open(log_file_path);
+    std::string line, local_file_path, dep_file_path;
+    std::istringstream iss;
+    update_log_file_data file_data;
+    while (std::getline(log_file, line)) {
+      file_data.dependency_local_paths.clear();
+      iss.str(line);
+      iss.clear();
+      iss >> std::hex;
+      iss >> file_data.imprint >> local_file_path;
+      while (!iss.eof()) {
+        iss >> dep_file_path;
+        file_data.dependency_local_paths.push_back(dep_file_path);
       }
+      data[local_file_path] = file_data;
     }
+    return data;
+  }
+
+  static update_log_cache from_log_file(const std::string& log_file_path) {
+    auto data = data_from_log_file(log_file_path);
     return update_log_cache(log_file_path, data);
   }
 
@@ -148,12 +153,18 @@ private:
   update_log_data data_;
 };
 
+/**
+ * Once all the updates has happened, we have appended the new entries to the
+ * update log, but there may be duplicates. To finalize the log, we rewrite
+ * it from scratch, and we replace the existing log. `rename` is normally an
+ * atomic operation, so we ensure no data is lost.
+ */
 void rewrite_log_file(
   const std::string& log_file_path,
   const std::string& temporary_log_file_path,
   const update_log_data& data
 ) {
-  update_log_recorder recorder(temporary_log_file_path);
+  update_log_recorder recorder(temporary_log_file_path, update_log_record_mode::truncate);
   for (auto file_data: data) {
     recorder.record(file_data.first, file_data.second);
   }

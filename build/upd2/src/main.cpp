@@ -7,6 +7,7 @@
 #include <array>
 #include <dirent.h>
 #include <cstdlib>
+#include <future>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -18,7 +19,6 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -179,24 +179,6 @@ void rewrite_log_file(
   }
 }
 
-struct depfile_thread_result {
-  upd::depfile::depfile_data data;
-  bool has_error;
-};
-
-void read_depfile_thread_entry(
-  const std::string& depfile_path,
-  depfile_thread_result& result
-) {
-  try {
-    upd::depfile::read(depfile_path, result.data);
-    result.has_error = false;
-  } catch (upd::depfile::parse_error error) {
-    std::cerr << "upd: fatal: while reading depfile: " << error.message() << std::endl;
-    result.has_error = true;
-  }
-}
-
 std::string get_compile_command_line(
   const std::string& root_folder_path,
   const std::string& src_path,
@@ -256,21 +238,18 @@ void compile_src_file(
     return;
   }
   std::cout << "compiling: " << local_src_path << std::endl;
-  depfile_thread_result depfile_result;
-  std::thread::thread read_depfile_thread(&read_depfile_thread_entry, depfile_path, std::ref(depfile_result));
+  //std::thread::thread read_depfile_thread(&read_depfile_thread_entry, depfile_path, std::ref(depfile_result));
+  auto read_depfile_future = std::async(std::launch::async, &upd::depfile::read, depfile_path);
   auto ret = system(command_line.c_str());
   if (ret != 0) {
     throw std::runtime_error("compile failed");
   }
-  read_depfile_thread.join();
-  if (depfile_result.has_error) {
-    throw std::runtime_error("depfile reading thread had errors");
-  }
+  upd::depfile::depfile_data depfile_data = read_depfile_future.get();
   upd::xxhash64_stream imprint_s(0);
   imprint_s << XXH64(command_line.c_str(), command_line.size(), 0);
   imprint_s << hash_cache.hash(src_path);
   std::vector<std::string> dep_local_paths;
-  for (auto dep_path: depfile_result.data.dependency_paths) {
+  for (auto dep_path: depfile_data.dependency_paths) {
     if (dep_path.compare(0, root_folder_path.size(), root_folder_path) != 0) {
       throw std::runtime_error("depfile has a file out of root");
     }

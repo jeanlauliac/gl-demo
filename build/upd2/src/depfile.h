@@ -124,14 +124,15 @@ private:
  *
  */
 template <typename istream_t>
-depfile_data parse(istream_t& stream, depfile_data& data) {
+depfile_data parse(istream_t& stream) {
+  depfile_data data;
   tokenizer<istream_t> tokens(stream);
   parse_token_handler handler(data);
   while (tokens.template next<parse_token_handler, bool>(handler));
   return data;
 }
 
-void read(const std::string& depfile_path, depfile_data& data);
+depfile_data read(const std::string& depfile_path);
 
 }
 }

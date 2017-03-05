@@ -43,11 +43,11 @@ bool parse_token_handler::new_line() {
   return true;
 }
 
-void read(const std::string& depfile_path, depfile_data& data) {
+depfile_data read(const std::string& depfile_path) {
   std::ifstream depfile;
   depfile.exceptions(std::ifstream::badbit);
   depfile.open(depfile_path);
-  auto deps = parse(depfile, data);
+  return parse(depfile);
 }
 
 }

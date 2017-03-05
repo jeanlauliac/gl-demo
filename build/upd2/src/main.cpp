@@ -1,3 +1,4 @@
+#include "cli.h"
 #include "depfile.h"
 #include "inspect.h"
 #include "io.h"
@@ -23,6 +24,8 @@
 #include <unistd.h>
 #include <vector>
 
+namespace upd {
+
 static const char* CACHE_FOLDER = ".upd";
 
 template <typename ostream_t>
@@ -31,7 +34,7 @@ ostream_t& stream_join(
   const std::vector<std::string> elems,
   std::string sep
 ) {
-  upd::io::stream_string_joiner<ostream_t> joiner(os, sep);
+  io::stream_string_joiner<ostream_t> joiner(os, sep);
   for (auto elem: elems) joiner.push(elem);
   return os;
 }
@@ -59,8 +62,8 @@ std::string get_compile_command_line(
 }
 
 bool is_file_up_to_date(
-  upd::update_log::cache& log_cache,
-  upd::file_hash_cache& hash_cache,
+  update_log::cache& log_cache,
+  file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::string& local_obj_path,
   const std::string& src_path,
@@ -70,7 +73,7 @@ bool is_file_up_to_date(
   if (entry == log_cache.end()) {
     return false;
   }
-  upd::xxhash64_stream imprint_s(0);
+  xxhash64_stream imprint_s(0);
   imprint_s << XXH64(command_line.c_str(), command_line.size(), 0);
   imprint_s << hash_cache.hash(src_path);
   auto record = entry->second;
@@ -81,8 +84,8 @@ bool is_file_up_to_date(
 }
 
 void compile_src_file(
-  upd::update_log::cache& log_cache,
-  upd::file_hash_cache& hash_cache,
+  update_log::cache& log_cache,
+  file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::string& local_src_path,
   const std::string& local_obj_path,
@@ -98,13 +101,13 @@ void compile_src_file(
   }
   std::cout << "compiling: " << local_src_path << std::endl;
   //std::thread::thread read_depfile_thread(&read_depfile_thread_entry, depfile_path, std::ref(depfile_result));
-  auto read_depfile_future = std::async(std::launch::async, &upd::depfile::read, depfile_path);
+  auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
   auto ret = system(command_line.c_str());
   if (ret != 0) {
     throw std::runtime_error("compile failed");
   }
-  upd::depfile::depfile_data depfile_data = read_depfile_future.get();
-  upd::xxhash64_stream imprint_s(0);
+  depfile::depfile_data depfile_data = read_depfile_future.get();
+  xxhash64_stream imprint_s(0);
   imprint_s << XXH64(command_line.c_str(), command_line.size(), 0);
   imprint_s << hash_cache.hash(src_path);
   std::vector<std::string> dep_local_paths;
@@ -166,14 +169,14 @@ struct src_files_finder {
 
 private:
   std::string src_path_;
-  upd::io::dir_files_reader src_files_reader_;
+  io::dir_files_reader src_files_reader_;
 };
 
 void compile_itself(const std::string& root_path) {
   std::string log_file_path = root_path + "/" + CACHE_FOLDER + "/log";
   std::string temp_log_file_path = root_path + "/" + CACHE_FOLDER + "/log_rewritten";
-  upd::update_log::cache log_cache = upd::update_log::cache::from_log_file(log_file_path);
-  upd::file_hash_cache hash_cache;
+  update_log::cache log_cache = update_log::cache::from_log_file(log_file_path);
+  file_hash_cache hash_cache;
   auto depfile_path = root_path + "/.upd/depfile";
   if (mkfifo(depfile_path.c_str(), 0644) != 0 && errno != EEXIST) {
     throw std::runtime_error("cannot make depfile FIFO");
@@ -197,81 +200,46 @@ void compile_itself(const std::string& root_path) {
   }
   std::cout << "done" << std::endl;
   log_cache.close();
-  upd::update_log::rewrite_file(log_file_path, temp_log_file_path, log_cache.records());
+  update_log::rewrite_file(log_file_path, temp_log_file_path, log_cache.records());
 }
 
-struct options {
-  options(): dev(false), help(false), root(false), version(false) {};
-  bool dev;
-  bool help;
-  bool root;
-  bool version;
-};
-
-struct option_parse_error {
-  option_parse_error(const std::string& arg): arg(arg) {}
-  std::string arg;
-};
-
-options parse_options(int argc, char *argv[]) {
-  options result;
-  for (++argv, --argc; argc > 0; ++argv, --argc) {
-    const auto arg = std::string(*argv);
-    if (arg == "--root") {
-      result.root = true;
-    } else if (arg == "--version") {
-      result.version = true;
-    } else if (arg == "--help") {
-      result.help = true;
-    } else if (arg == "--dev") {
-      result.dev = true;
-    } else {
-      throw option_parse_error(arg);
-    }
-  }
-  return result;
-}
-
-void print_help() {
-  std::cout
-    << "usage: upd [targets] [options]" << std::endl
-    << "options:" << std::endl
-    << "  --version     print semantic version and exit" << std::endl
-    << "  --help        print usage help and exit" << std::endl
-    << "  --root        print the root directory path and exit" << std::endl
-    ;
-}
-
-int main(int argc, char *argv[]) {
+int run(int argc, char *argv[]) {
   try {
-    auto cli_opts = parse_options(argc, argv);
+    auto cli_opts = cli::parse_options(argc, argv);
     if (cli_opts.version) {
       std::cout << "upd v0.1" << std::endl;
       return 0;
     }
     if (cli_opts.help) {
-      print_help();
+      cli::print_help();
       return 0;
     }
-    auto root_path = upd::io::find_root_path();
+    auto root_path = io::find_root_path();
     if (cli_opts.root) {
       std::cout << root_path << std::endl;
       return 0;
     }
     if (cli_opts.dev) {
-      // auto manifest = upd::read_manifest<128>(root_path);
-      // std::cout << upd::inspect(manifest) << std::endl;
+      // auto manifest = read_manifest<128>(root_path);
+      // std::cout << inspect(manifest) << std::endl;
       return 0;
     }
     compile_itself(root_path);
-  } catch (option_parse_error error) {
+    return 0;
+  } catch (cli::option_parse_error error) {
     std::cerr << "upd: fatal: invalid argument: `" << error.arg << "`" << std::endl;
     return 1;
-  } catch (upd::io::cannot_find_updfile_error) {
+  } catch (io::cannot_find_updfile_error) {
     std::cerr << "upd: fatal: cannot find Updfile in the current directory or in any of the parent directories" << std::endl;
     return 2;
-  } catch (upd::io::ifstream_failed_error error) {
+  } catch (io::ifstream_failed_error error) {
     std::cerr << "upd: fatal: failed to read file `" << error.file_path << "`" << std::endl;
     return 2;
   }
+}
+
+}
+
+int main(int argc, char *argv[]) {
+  return upd::run(argc, argv);
 }

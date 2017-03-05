@@ -25,30 +25,12 @@
 static const char* CACHE_FOLDER = ".upd";
 
 template <typename ostream_t>
-struct stream_string_joiner {
-  stream_string_joiner(ostream_t& os, const std::string& separator):
-    os_(os), first_(true), separator_(separator) {}
-  template <typename elem_t>
-  stream_string_joiner<ostream_t>& push(const elem_t& elem) {
-    if (!first_) os_ << separator_;
-    os_ << elem;
-    first_ = false;
-    return *this;
-  }
-
-private:
-  ostream_t& os_;
-  bool first_;
-  std::string separator_;
-};
-
-template <typename ostream_t>
 ostream_t& stream_join(
   ostream_t& os,
   const std::vector<std::string> elems,
   std::string sep
 ) {
-  stream_string_joiner<ostream_t> joiner(os, sep);
+  upd::io::stream_string_joiner<ostream_t> joiner(os, sep);
   for (auto elem: elems) joiner.push(elem);
   return os;
 }
@@ -76,7 +58,7 @@ struct update_log_recorder {
     const std::string& local_file_path,
     const update_log_file_data& file_data
   ) {
-    stream_string_joiner<std::ofstream> joiner(log_file_, " ");
+    upd::io::stream_string_joiner<std::ofstream> joiner(log_file_, " ");
     joiner.push(file_data.imprint).push(local_file_path);
     for (auto path: file_data.dependency_local_paths) joiner.push(path);
     log_file_ << std::endl;

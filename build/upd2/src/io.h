@@ -48,5 +48,23 @@ struct ifstream_failed_error {
   std::string file_path;
 };
 
+template <typename ostream_t>
+struct stream_string_joiner {
+  stream_string_joiner(ostream_t& os, const std::string& separator):
+    os_(os), first_(true), separator_(separator) {}
+  template <typename elem_t>
+  stream_string_joiner<ostream_t>& push(const elem_t& elem) {
+    if (!first_) os_ << separator_;
+    os_ << elem;
+    first_ = false;
+    return *this;
+  }
+
+private:
+  ostream_t& os_;
+  bool first_;
+  std::string separator_;
+};
+
 }
 }

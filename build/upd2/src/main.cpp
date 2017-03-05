@@ -2,13 +2,14 @@
 #include "inspect.h"
 #include "io.h"
 #include "json/Lexer.h"
-#include "xxhash64.h"
 #include "manifest.h"
+#include "update_log.h"
+#include "xxhash64.h"
 #include <array>
-#include <dirent.h>
 #include <cstdlib>
-#include <future>
+#include <dirent.h>
 #include <fstream>
+#include <future>
 #include <iomanip>
 #include <iostream>
 #include <libgen.h>
@@ -17,8 +18,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/param.h>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <vector>
 
@@ -36,130 +37,6 @@ ostream_t& stream_join(
 }
 
 enum class src_file_type { cpp, c };
-
-struct update_log_file_data {
-  unsigned long long imprint;
-  std::vector<std::string> dependency_local_paths;
-};
-
-enum class update_log_record_mode { append, truncate };
-
-struct update_log_recorder {
-  update_log_recorder(const std::string& log_file_path, update_log_record_mode mode) {
-    log_file_.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-    log_file_.open(log_file_path, mode == update_log_record_mode::append ? std::ios::app : 0);
-    log_file_ << std::setfill('0') << std::setw(16) << std::hex;
-  }
-
-  /**
-   * Record the imprint of a file that was just generated.
-   */
-  void record(
-    const std::string& local_file_path,
-    const update_log_file_data& file_data
-  ) {
-    upd::io::stream_string_joiner<std::ofstream> joiner(log_file_, " ");
-    joiner.push(file_data.imprint).push(local_file_path);
-    for (auto path: file_data.dependency_local_paths) joiner.push(path);
-    log_file_ << std::endl;
-  }
-
-  void close() {
-    log_file_.close();
-  }
-
-private:
-  std::ofstream log_file_;
-};
-
-typedef std::unordered_map<std::string, update_log_file_data> update_log_data;
-
-/**
- * We keep of copy of the update log in memory. New additions are written right
- * away to the log so that even if the process crashes we keep track of
- * what files are already updated.
- */
-struct update_log_cache {
-  update_log_cache(const std::string& log_file_path, const update_log_data& data):
-    recorder_(log_file_path, update_log_record_mode::append), data_(data) {}
-
-  update_log_data::iterator find(const std::string& local_file_path) {
-    return data_.find(local_file_path);
-  }
-
-  update_log_data::iterator end() {
-    return data_.end();
-  }
-
-  void record(
-    const std::string& local_file_path,
-    const update_log_file_data& file_data
-  ) {
-    recorder_.record(local_file_path, file_data);
-    data_[local_file_path] = file_data;
-  }
-
-  void close() {
-    recorder_.close();
-  }
-
-  const update_log_data& data() const {
-    return data_;
-  }
-
-  static update_log_data data_from_log_file(const std::string& log_file_path) {
-    update_log_data data;
-    std::ifstream log_file;
-    log_file.exceptions(std::ifstream::badbit);
-    log_file.open(log_file_path);
-    std::string line, local_file_path, dep_file_path;
-    std::istringstream iss;
-    update_log_file_data file_data;
-    while (std::getline(log_file, line)) {
-      file_data.dependency_local_paths.clear();
-      iss.str(line);
-      iss.clear();
-      iss >> std::hex;
-      iss >> file_data.imprint >> local_file_path;
-      while (!iss.eof()) {
-        iss >> dep_file_path;
-        file_data.dependency_local_paths.push_back(dep_file_path);
-      }
-      data[local_file_path] = file_data;
-    }
-    return data;
-  }
-
-  static update_log_cache from_log_file(const std::string& log_file_path) {
-    auto data = data_from_log_file(log_file_path);
-    return update_log_cache(log_file_path, data);
-  }
-
-private:
-  update_log_recorder recorder_;
-  update_log_data data_;
-};
-
-/**
- * Once all the updates has happened, we have appended the new entries to the
- * update log, but there may be duplicates. To finalize the log, we rewrite
- * it from scratch, and we replace the existing log. `rename` is normally an
- * atomic operation, so we ensure no data is lost.
- */
-void rewrite_log_file(
-  const std::string& log_file_path,
-  const std::string& temporary_log_file_path,
-  const update_log_data& data
-) {
-  update_log_recorder recorder(temporary_log_file_path, update_log_record_mode::truncate);
-  for (auto file_data: data) {
-    recorder.record(file_data.first, file_data.second);
-  }
-  recorder.close();
-  if (rename(temporary_log_file_path.c_str(), log_file_path.c_str()) != 0) {
-    throw std::runtime_error("failed to overwrite log file");
-  }
-}
 
 std::string get_compile_command_line(
   const std::string& root_folder_path,
@@ -182,7 +59,7 @@ std::string get_compile_command_line(
 }
 
 bool is_file_up_to_date(
-  update_log_cache& log_cache,
+  upd::update_log::cache& log_cache,
   upd::file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::string& local_obj_path,
@@ -204,7 +81,7 @@ bool is_file_up_to_date(
 }
 
 void compile_src_file(
-  update_log_cache& log_cache,
+  upd::update_log::cache& log_cache,
   upd::file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::string& local_src_path,
@@ -295,7 +172,7 @@ private:
 void compile_itself(const std::string& root_path) {
   std::string log_file_path = root_path + "/" + CACHE_FOLDER + "/log";
   std::string temp_log_file_path = root_path + "/" + CACHE_FOLDER + "/log_rewritten";
-  update_log_cache log_cache = update_log_cache::from_log_file(log_file_path);
+  upd::update_log::cache log_cache = upd::update_log::cache::from_log_file(log_file_path);
   upd::file_hash_cache hash_cache;
   auto depfile_path = root_path + "/.upd/depfile";
   if (mkfifo(depfile_path.c_str(), 0644) != 0 && errno != EEXIST) {
@@ -320,7 +197,7 @@ void compile_itself(const std::string& root_path) {
   }
   std::cout << "done" << std::endl;
   log_cache.close();
-  rewrite_log_file(log_file_path, temp_log_file_path, log_cache.data());
+  upd::update_log::rewrite_file(log_file_path, temp_log_file_path, log_cache.records());
 }
 
 struct options {

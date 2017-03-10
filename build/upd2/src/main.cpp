@@ -41,6 +41,81 @@ ostream_t& stream_join(
 
 enum class src_file_type { cpp, c };
 
+enum class parametric_command_line_variable {
+  input_files,
+  output_files,
+  dependency_file
+};
+
+struct parametric_command_line_part {
+  parametric_command_line_part(
+    std::vector<std::string> literal_args_,
+    std::vector<parametric_command_line_variable> variable_args_
+  ): literal_args(literal_args_), variable_args(variable_args_) {}
+
+  std::vector<std::string> literal_args;
+  std::vector<parametric_command_line_variable> variable_args;
+};
+
+struct parametric_command_line {
+  std::string binary_path;
+  std::vector<parametric_command_line_part> parts;
+};
+
+struct reified_command_line {
+  std::string binary_path;
+  std::vector<std::string> args;
+};
+
+struct command_line_parameters {
+  std::string dependency_file;
+  std::vector<std::string> input_files;
+  std::vector<std::string> output_files;
+};
+
+void reify_command_line_arg(
+  std::vector<std::string>& args,
+  const parametric_command_line_variable& variable_arg,
+  const command_line_parameters& parameters
+) {
+  switch (variable_arg) {
+    case parametric_command_line_variable::input_files:
+      args.insert(
+        args.cend(),
+        parameters.input_files.cbegin(),
+        parameters.input_files.cend()
+      );
+      break;
+    case parametric_command_line_variable::output_files:
+      args.insert(
+        args.cend(),
+        parameters.output_files.cbegin(),
+        parameters.output_files.cend()
+      );
+      break;
+    case parametric_command_line_variable::dependency_file:
+      args.push_back(parameters.dependency_file);
+      break;
+  }
+}
+
+reified_command_line reify_command_line(
+  const parametric_command_line& base,
+  const command_line_parameters& parameters
+) {
+  reified_command_line result;
+  result.binary_path = base.binary_path;
+  for (auto part: base.parts) {
+    for (auto literal_arg: part.literal_args) {
+      result.args.push_back(literal_arg);
+    }
+    for (auto variable_arg: part.variable_args) {
+      reify_command_line_arg(result.args, variable_arg, parameters);
+    }
+  }
+  return result;
+}
+
 std::string get_compile_command_line(
   const std::string& root_folder_path,
   const std::string& src_path,
@@ -48,16 +123,39 @@ std::string get_compile_command_line(
   const std::string& depfile_path,
   src_file_type type
 ) {
+  parametric_command_line base = {
+    .binary_path = "clang++",
+    .parts = {
+      parametric_command_line_part(
+        { "-c", "-o" },
+        { parametric_command_line_variable::output_files }
+      ),
+      parametric_command_line_part(
+        type == src_file_type::cpp
+          ? std::vector<std::string>({ "-std=c++14" })
+          : std::vector<std::string>({ "-x", "c" }),
+        {}
+      ),
+      parametric_command_line_part(
+        { "-Wall", "-fcolor-diagnostics", "-MMD", "-MF" },
+        { parametric_command_line_variable::dependency_file }
+      ),
+      parametric_command_line_part(
+        { "-I", "/usr/local/include" },
+        { parametric_command_line_variable::input_files }
+      )
+    }
+  };
+  auto cli = reify_command_line(base, {
+    .dependency_file = depfile_path,
+    .input_files = { src_path },
+    .output_files = { obj_path }
+  });
   std::ostringstream oss;
-  oss << "clang++ -c -o " << obj_path;
-  oss << " -Wall -fcolor-diagnostics";
-  if (type == src_file_type::cpp) {
-    oss << " -std=c++14";
-  } else if (type == src_file_type::c) {
-    oss << " -x c";
+  oss << cli.binary_path;
+  for (auto arg: cli.args) {
+    oss << " " << arg;
   }
-  oss << " -MMD -MF " << depfile_path;
-  oss << " -I /usr/local/include " << src_path;
   return oss.str();
 }
 
@@ -100,7 +198,6 @@ void compile_src_file(
     return;
   }
   std::cout << "compiling: " << local_src_path << std::endl;
-  //std::thread::thread read_depfile_thread(&read_depfile_thread_entry, depfile_path, std::ref(depfile_result));
   auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
   auto ret = system(command_line.c_str());
   if (ret != 0) {

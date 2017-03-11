@@ -2,6 +2,7 @@
 
 #include "xxhash.h"
 #include <unordered_map>
+#include <vector>
 
 namespace upd {
 
@@ -34,11 +35,31 @@ private:
 };
 
 /**
+ * Short hand for hashing std::string instances.
+ */
+XXH64_hash_t hash(const std::string& str);
+
+/**
+ * A sensible way to hash a vector is to hash each element separately
+ * and hash the hashes together. We don't want to hash everything using a
+ * single stream, for example strings, because collisions could happen.
+ * Ex. `{ "foo", "bar" }` versus `{ "f", "oobar" }`.
+ */
+template <typename T>
+XXH64_hash_t hash(const std::vector<T>& target) {
+  xxhash64_stream target_hash(0);
+  for (auto const& item: target) {
+    target_hash << hash(item);
+  }
+  return target_hash.digest();
+}
+
+/**
  * Hashes an entire file, fast. Since the hash will be different for
  * small changes, this is a handy way to check if a source file changed
  * since a previous update.
  */
-XXH64_hash_t hash_file(unsigned long long seed, const std::string file_path);
+XXH64_hash_t hash_file(unsigned long long seed, const std::string& file_path);
 
 /**
  * Many source files, such as C++ headers, have an impact on the compilation of

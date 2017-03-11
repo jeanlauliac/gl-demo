@@ -21,6 +21,7 @@
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
@@ -35,7 +36,7 @@ ostream_t& stream_join(
   std::string sep
 ) {
   io::stream_string_joiner<ostream_t> joiner(os, sep);
-  for (auto elem: elems) joiner.push(elem);
+  for (auto const& elem: elems) joiner.push(elem);
   return os;
 }
 
@@ -105,18 +106,18 @@ reified_command_line reify_command_line(
 ) {
   reified_command_line result;
   result.binary_path = base.binary_path;
-  for (auto part: base.parts) {
-    for (auto literal_arg: part.literal_args) {
+  for (auto const& part: base.parts) {
+    for (auto const& literal_arg: part.literal_args) {
       result.args.push_back(literal_arg);
     }
-    for (auto variable_arg: part.variable_args) {
+    for (auto const& variable_arg: part.variable_args) {
       reify_command_line_arg(result.args, variable_arg, parameters);
     }
   }
   return result;
 }
 
-std::string get_compile_command_line(
+reified_command_line get_compile_command_line(
   const std::string& root_folder_path,
   const std::string& src_path,
   const std::string& obj_path,
@@ -146,17 +147,44 @@ std::string get_compile_command_line(
       )
     }
   };
-  auto cli = reify_command_line(base, {
+  return reify_command_line(base, {
     .dependency_file = depfile_path,
     .input_files = { src_path },
     .output_files = { obj_path }
   });
-  std::ostringstream oss;
-  oss << cli.binary_path;
-  for (auto arg: cli.args) {
-    oss << " " << arg;
+}
+
+XXH64_hash_t hash_command_line(const reified_command_line& command_line) {
+  xxhash64_stream cli_hash(0);
+  cli_hash << upd::hash(command_line.binary_path);
+  cli_hash << upd::hash(command_line.args);
+  return cli_hash.digest();
+}
+
+XXH64_hash_t hash_files(
+  file_hash_cache& hash_cache,
+  const std::string& root_path,
+  const std::vector<std::string>& local_paths
+) {
+  xxhash64_stream imprint_s(0);
+  for (auto const& local_path: local_paths) {
+    imprint_s << hash_cache.hash(root_path + '/' + local_path);
   }
-  return oss.str();
+  return imprint_s.digest();
+}
+
+XXH64_hash_t get_target_imprint(
+  file_hash_cache& hash_cache,
+  const std::string& root_path,
+  const std::vector<std::string>& local_src_paths,
+  std::vector<std::string> dependency_local_paths,
+  const reified_command_line& command_line
+) {
+  xxhash64_stream imprint_s(0);
+  imprint_s << hash_command_line(command_line);
+  imprint_s << hash_files(hash_cache, root_path, local_src_paths);
+  imprint_s << hash_files(hash_cache, root_path, dependency_local_paths);
+  return imprint_s.digest();
 }
 
 bool is_file_up_to_date(
@@ -164,21 +192,49 @@ bool is_file_up_to_date(
   file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::string& local_obj_path,
-  const std::string& src_path,
-  const std::string& command_line
+  const std::string& local_src_path,
+  const reified_command_line& command_line
 ) {
   auto entry = log_cache.find(local_obj_path);
   if (entry == log_cache.end()) {
     return false;
   }
-  xxhash64_stream imprint_s(0);
-  imprint_s << XXH64(command_line.c_str(), command_line.size(), 0);
-  imprint_s << hash_cache.hash(src_path);
-  auto record = entry->second;
-  for (auto local_dep_path: record.dependency_local_paths) {
-    imprint_s << hash_cache.hash(root_path + '/' + local_dep_path);
+  auto const& record = entry->second;
+  auto new_imprint = get_target_imprint(
+    hash_cache,
+    root_path,
+    { local_src_path },
+    record.dependency_local_paths,
+    command_line
+  );
+  return new_imprint == record.imprint;
+}
+
+void run_command_line(reified_command_line target) {
+  pid_t child_pid = fork();
+  if (child_pid == 0) {
+    std::vector<char*> argv;
+    argv.push_back(const_cast<char*>(target.binary_path.c_str()));
+    for (auto const& arg: target.args) {
+      argv.push_back(const_cast<char*>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+    execvp(target.binary_path.c_str(), argv.data());
+    _exit(1);
   }
-  return imprint_s.digest() == record.imprint;
+  if (child_pid < 0) {
+    throw std::runtime_error("command line failed");
+  }
+  int status;
+  if (waitpid(child_pid, &status, 0) != child_pid) {
+    throw std::runtime_error("waitpid failed");
+  }
+  if (!WIFEXITED(status)) {
+    throw std::runtime_error("process did not terminate normally");
+  }
+  if (WEXITSTATUS(status) != 0) {
+    throw std::runtime_error("process terminated with errors");
+  }
 }
 
 void compile_src_file(
@@ -194,29 +250,29 @@ void compile_src_file(
   auto src_path = root_folder_path + local_src_path;
   auto obj_path = root_folder_path + local_obj_path;
   auto command_line = get_compile_command_line(root_folder_path, src_path, obj_path, depfile_path, type);
-  if (is_file_up_to_date(log_cache, hash_cache, root_path, local_obj_path, src_path, command_line)) {
+  if (is_file_up_to_date(log_cache, hash_cache, root_path, local_obj_path, local_src_path, command_line)) {
     return;
   }
   std::cout << "compiling: " << local_src_path << std::endl;
   auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
-  auto ret = system(command_line.c_str());
-  if (ret != 0) {
-    throw std::runtime_error("compile failed");
-  }
+  run_command_line(command_line);
   depfile::depfile_data depfile_data = read_depfile_future.get();
-  xxhash64_stream imprint_s(0);
-  imprint_s << XXH64(command_line.c_str(), command_line.size(), 0);
-  imprint_s << hash_cache.hash(src_path);
   std::vector<std::string> dep_local_paths;
-  for (auto dep_path: depfile_data.dependency_paths) {
+  for (auto const& dep_path: depfile_data.dependency_paths) {
     if (dep_path.compare(0, root_folder_path.size(), root_folder_path) != 0) {
       throw std::runtime_error("depfile has a file out of root");
     }
     dep_local_paths.push_back(dep_path.substr(root_folder_path.size()));
-    imprint_s << hash_cache.hash(dep_path);
   }
+  auto new_imprint = get_target_imprint(
+    hash_cache,
+    root_path,
+    { local_src_path },
+    dep_local_paths,
+    command_line
+  );
   log_cache.record(local_obj_path, {
-    .imprint = imprint_s.digest(),
+    .imprint = new_imprint,
     .dependency_local_paths = dep_local_paths
   });
 }

@@ -5,7 +5,11 @@
 
 namespace upd {
 
-XXH64_hash_t hash_file(unsigned long long seed, const std::string file_path) {
+XXH64_hash_t hash(const std::string& str) {
+  return XXH64(str.c_str(), str.size(), 0);
+}
+
+XXH64_hash_t hash_file(unsigned long long seed, const std::string& file_path) {
   upd::xxhash64 hash(seed);
   std::ifstream ifs(file_path, std::ifstream::binary);
   std::array<char, 1024> buffer;

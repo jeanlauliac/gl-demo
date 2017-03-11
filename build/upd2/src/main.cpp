@@ -118,8 +118,7 @@ reified_command_line reify_command_line(
 }
 
 reified_command_line get_compile_command_line(
-  const std::string& root_folder_path,
-  const std::string& src_path,
+  const std::vector<std::string>& src_paths,
   const std::string& obj_path,
   const std::string& depfile_path,
   src_file_type type
@@ -149,7 +148,7 @@ reified_command_line get_compile_command_line(
   };
   return reify_command_line(base, {
     .dependency_file = depfile_path,
-    .input_files = { src_path },
+    .input_files = src_paths,
     .output_files = { obj_path }
   });
 }
@@ -192,7 +191,7 @@ bool is_file_up_to_date(
   file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::string& local_obj_path,
-  const std::string& local_src_path,
+  const std::vector<std::string>& local_src_paths,
   const reified_command_line& command_line
 ) {
   auto entry = log_cache.find(local_obj_path);
@@ -203,7 +202,7 @@ bool is_file_up_to_date(
   auto new_imprint = get_target_imprint(
     hash_cache,
     root_path,
-    { local_src_path },
+    local_src_paths,
     record.dependency_local_paths,
     command_line
   );
@@ -241,19 +240,22 @@ void compile_src_file(
   update_log::cache& log_cache,
   file_hash_cache& hash_cache,
   const std::string& root_path,
-  const std::string& local_src_path,
+  const std::vector<std::string>& local_src_paths,
   const std::string& local_obj_path,
   const std::string& depfile_path,
   src_file_type type
 ) {
   auto root_folder_path = root_path + '/';
-  auto src_path = root_folder_path + local_src_path;
   auto obj_path = root_folder_path + local_obj_path;
-  auto command_line = get_compile_command_line(root_folder_path, src_path, obj_path, depfile_path, type);
-  if (is_file_up_to_date(log_cache, hash_cache, root_path, local_obj_path, local_src_path, command_line)) {
+  std::vector<std::string> src_paths;
+  for (auto const& local_src_path: local_src_paths) {
+    src_paths.push_back(root_folder_path + local_src_path);
+  }
+  auto command_line = get_compile_command_line(src_paths, obj_path, depfile_path, type);
+  if (is_file_up_to_date(log_cache, hash_cache, root_path, local_obj_path, local_src_paths, command_line)) {
     return;
   }
-  std::cout << "compiling: " << local_src_path << std::endl;
+  std::cout << "updating: " << local_obj_path << std::endl;
   auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
   run_command_line(command_line);
   depfile::depfile_data depfile_data = read_depfile_future.get();
@@ -267,7 +269,7 @@ void compile_src_file(
   auto new_imprint = get_target_imprint(
     hash_cache,
     root_path,
-    { local_src_path },
+    local_src_paths,
     dep_local_paths,
     command_line
   );
@@ -339,7 +341,7 @@ void compile_itself(const std::string& root_path) {
   src_file target_file;
   while (src_files.next(target_file)) {
     auto obj_path = "dist/" + target_file.basename + ".o";
-    compile_src_file(log_cache, hash_cache, root_path, target_file.local_path, obj_path, depfile_path, target_file.type);
+    compile_src_file(log_cache, hash_cache, root_path, { target_file.local_path }, obj_path, depfile_path, target_file.type);
     obj_file_paths.push_back(root_path + '/' + obj_path);
   }
   std::cout << "linking: dist/upd" << std::endl;

@@ -254,13 +254,15 @@ void update_file(
   std::ofstream depfile_writer(depfile_path);
   run_command_line(command_line);
   depfile_writer.close();
-  depfile::depfile_data depfile_data = read_depfile_future.get();
+  std::unique_ptr<depfile::depfile_data> depfile_data = read_depfile_future.get();
   std::vector<std::string> dep_local_paths;
-  for (auto const& dep_path: depfile_data.dependency_paths) {
-    if (dep_path.compare(0, root_folder_path.size(), root_folder_path) != 0) {
-      throw std::runtime_error("depfile has a file out of root");
+  if (depfile_data) {
+    for (auto const& dep_path: depfile_data->dependency_paths) {
+      if (dep_path.compare(0, root_folder_path.size(), root_folder_path) != 0) {
+        throw std::runtime_error("depfile has a file out of root");
+      }
+      dep_local_paths.push_back(dep_path.substr(root_folder_path.size()));
     }
-    dep_local_paths.push_back(dep_path.substr(root_folder_path.size()));
   }
   auto new_imprint = get_target_imprint(
     hash_cache,
@@ -323,6 +325,22 @@ private:
   io::dir_files_reader src_files_reader_;
 };
 
+parametric_command_line get_link_command_line() {
+  return {
+    .binary_path = "clang++",
+    .parts = {
+      parametric_command_line_part(
+        { "-o" },
+        { parametric_command_line_variable::output_files }
+      ),
+      parametric_command_line_part(
+        { "-Wall", "-fcolor-diagnostics", "-std=c++14", "-L", "/usr/local/lib" },
+        { parametric_command_line_variable::input_files }
+      )
+    }
+  };
+}
+
 void compile_itself(const std::string& root_path) {
   std::string log_file_path = root_path + "/" + CACHE_FOLDER + "/log";
   std::string temp_log_file_path = root_path + "/" + CACHE_FOLDER + "/log_rewritten";
@@ -333,23 +351,30 @@ void compile_itself(const std::string& root_path) {
     throw std::runtime_error("cannot make depfile FIFO");
   }
   src_files_finder src_files(root_path);
-  std::vector<std::string> obj_file_paths;
+  std::vector<std::string> local_obj_file_paths;
   src_file target_file;
   while (src_files.next(target_file)) {
-    auto obj_path = "dist/" + target_file.basename + ".o";
+    auto local_obj_path = "dist/" + target_file.basename + ".o";
     auto pcli = get_compile_command_line(target_file.type);
-    update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, obj_path, depfile_path);
-    obj_file_paths.push_back(root_path + '/' + obj_path);
+    update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_obj_path, depfile_path);
+    local_obj_file_paths.push_back(local_obj_path);
   }
-  std::cout << "linking: dist/upd" << std::endl;
-  std::ostringstream oss;
-  oss << "clang++ -o " << root_path << "/dist/upd "
-      << "-Wall -std=c++14 -fcolor-diagnostics -L /usr/local/lib ";
-  stream_join(oss, obj_file_paths, " ");
-  auto ret = system(oss.str().c_str());
-  if (ret != 0) {
-    throw "link failed";
-  }
+  auto pcli = get_link_command_line();
+  update_file(log_cache, hash_cache, root_path, pcli, local_obj_file_paths, "dist/upd", depfile_path);
+
+
+  // std::cout << "linking: dist/upd" << std::endl;
+  // std::ostringstream oss;
+  // oss << "clang++ -o " << root_path << "/dist/upd "
+  //     << "-Wall -std=c++14 -fcolor-diagnostics -L /usr/local/lib ";
+  // stream_join(oss, obj_file_paths, " ");
+  // auto ret = system(oss.str().c_str());
+  // if (ret != 0) {
+  //   throw "link failed";
+  // }
+
+
+
   std::cout << "done" << std::endl;
   log_cache.close();
   update_log::rewrite_file(log_file_path, temp_log_file_path, log_cache.records());

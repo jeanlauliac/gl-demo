@@ -99,7 +99,7 @@ private:
  * State machine that updates the depfile data for each type of token.
  */
 struct parse_token_handler {
-  parse_token_handler(depfile_data& data):
+  parse_token_handler(std::unique_ptr<depfile_data>& data):
     data_(data), state_(state_t::read_target) {}
   bool end();
   bool colon();
@@ -108,7 +108,7 @@ struct parse_token_handler {
 
 private:
   enum class state_t { read_target, read_colon, read_dep, done };
-  depfile_data& data_;
+  std::unique_ptr<depfile_data>& data_;
   state_t state_;
 };
 
@@ -122,17 +122,19 @@ private:
  *       some_header.h \
  *       another_header.h
  *
+ * If the stream only has whitespace, this is considered valid but will
+ * make it return an empty pointer.
  */
 template <typename istream_t>
-depfile_data parse(istream_t& stream) {
-  depfile_data data;
+std::unique_ptr<depfile_data> parse(istream_t& stream) {
+  std::unique_ptr<depfile_data> data;
   tokenizer<istream_t> tokens(stream);
   parse_token_handler handler(data);
   while (tokens.template next<parse_token_handler, bool>(handler));
   return data;
 }
 
-depfile_data read(const std::string& depfile_path);
+std::unique_ptr<depfile_data> read(const std::string& depfile_path);
 
 }
 }

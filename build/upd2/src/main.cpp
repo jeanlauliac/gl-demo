@@ -251,7 +251,9 @@ void update_file(
   }
   std::cout << "updating: " << local_obj_path << std::endl;
   auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
+  std::ofstream depfile_writer(depfile_path);
   run_command_line(command_line);
+  depfile_writer.close();
   depfile::depfile_data depfile_data = read_depfile_future.get();
   std::vector<std::string> dep_local_paths;
   for (auto const& dep_path: depfile_data.dependency_paths) {

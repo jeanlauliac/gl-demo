@@ -117,13 +117,8 @@ reified_command_line reify_command_line(
   return result;
 }
 
-reified_command_line get_compile_command_line(
-  const std::vector<std::string>& src_paths,
-  const std::string& obj_path,
-  const std::string& depfile_path,
-  src_file_type type
-) {
-  parametric_command_line base = {
+parametric_command_line get_compile_command_line(src_file_type type) {
+  return {
     .binary_path = "clang++",
     .parts = {
       parametric_command_line_part(
@@ -146,11 +141,6 @@ reified_command_line get_compile_command_line(
       )
     }
   };
-  return reify_command_line(base, {
-    .dependency_file = depfile_path,
-    .input_files = src_paths,
-    .output_files = { obj_path }
-  });
 }
 
 XXH64_hash_t hash_command_line(const reified_command_line& command_line) {
@@ -236,14 +226,14 @@ void run_command_line(reified_command_line target) {
   }
 }
 
-void compile_src_file(
+void update_file(
   update_log::cache& log_cache,
   file_hash_cache& hash_cache,
   const std::string& root_path,
+  const parametric_command_line& param_cli,
   const std::vector<std::string>& local_src_paths,
   const std::string& local_obj_path,
-  const std::string& depfile_path,
-  src_file_type type
+  const std::string& depfile_path
 ) {
   auto root_folder_path = root_path + '/';
   auto obj_path = root_folder_path + local_obj_path;
@@ -251,7 +241,11 @@ void compile_src_file(
   for (auto const& local_src_path: local_src_paths) {
     src_paths.push_back(root_folder_path + local_src_path);
   }
-  auto command_line = get_compile_command_line(src_paths, obj_path, depfile_path, type);
+  auto command_line = reify_command_line(param_cli, {
+    .dependency_file = depfile_path,
+    .input_files = src_paths,
+    .output_files = { obj_path }
+  });
   if (is_file_up_to_date(log_cache, hash_cache, root_path, local_obj_path, local_src_paths, command_line)) {
     return;
   }
@@ -341,7 +335,8 @@ void compile_itself(const std::string& root_path) {
   src_file target_file;
   while (src_files.next(target_file)) {
     auto obj_path = "dist/" + target_file.basename + ".o";
-    compile_src_file(log_cache, hash_cache, root_path, { target_file.local_path }, obj_path, depfile_path, target_file.type);
+    auto pcli = get_compile_command_line(target_file.type);
+    update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, obj_path, depfile_path);
     obj_file_paths.push_back(root_path + '/' + obj_path);
   }
   std::cout << "linking: dist/upd" << std::endl;

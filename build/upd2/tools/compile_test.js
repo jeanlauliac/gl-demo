@@ -96,8 +96,8 @@ function writeTestFunction(stream, caseCount, caseName, blockContent, reporterNa
   return functionName;
 }
 
-function writeHeader(stream, reporterName) {
-  const headerPath = path.relative('.', path.resolve(__dirname, 'lib/testing.h'));
+function writeHeader(stream, reporterName, targetDirPath) {
+  const headerPath = path.relative(targetDirPath, path.resolve(__dirname, 'lib/testing.h'));
   stream.write('#include <iostream>\n');
   stream.write(`#include "${headerPath}"\n`);
   //stream.write(`testing::Reporter ${reporterName};\n\n`);
@@ -115,13 +115,13 @@ function writeMain(stream, testFunctions) {
   stream.write('}\n');
 }
 
-function transform(content, stream, filePath) {
+function transform(content, stream, filePath, targetDirPath) {
   let i = 0;
   let caseCount = 0;
   const testFunctions = [];
   const reporterName =
     '__reporter_' + Math.floor(Math.random() * Math.pow(2,16)).toString(16);
-  writeHeader(stream, reporterName);
+  writeHeader(stream, reporterName, targetDirPath);
   while (i < content.length) {
     let j = content.indexOf('@case ', i);
     const unchangedContent = content.substring(i, j >= 0 ? j : content.length);
@@ -158,12 +158,43 @@ function transform(content, stream, filePath) {
   writeMain(stream, testFunctions);
 }
 
+function updateIncludes(sourceCode, sourceDirPath, targetDirPath) {
+  const lines = sourceCode.split('\n');
+  return lines.map(line => {
+    if (line.length === 0 || line[0] != '#') {
+      return line;
+    }
+    const match = line.match(/#include "([^"]+)"/);
+    if (match == null) {
+      return line;
+    }
+    const includedPath = path.resolve(sourceDirPath, match[1]);
+    return `#include "${path.relative(targetDirPath, includedPath)}"`;
+  }).join('\n');
+}
+
 cli(function () {
-  if (process.argv.length < 3) {
+  if (process.argv.length < 4) {
     reporting.fatalError(1, 'not enough arguments');
     return;
   }
   const sourcePath = process.argv[2];
-  const content = fs.readFileSync(sourcePath, 'utf8');
-  transform(content, process.stdout, sourcePath);
+  const targetPath = process.argv[3];
+  let targetStream, targetDirPath;
+  if (targetPath === '-') {
+    targetStream = process.stdout;
+    targetDirPath = process.cwd();
+  } else {
+    targetStream = fs.createWriteStream(targetPath);
+    targetDirPath = path.dirname(targetPath);
+  }
+  const content = updateIncludes(
+    fs.readFileSync(sourcePath, 'utf8'),
+    path.dirname(sourcePath),
+    targetDirPath
+  );
+  transform(content, targetStream, sourcePath, targetDirPath);
+  if (targetPath !== '-') {
+    targetStream.end();
+  }
 });

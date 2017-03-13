@@ -40,7 +40,7 @@ ostream_t& stream_join(
   return os;
 }
 
-enum class src_file_type { cpp, c };
+enum class src_file_type { cpp, c, cpp_test };
 
 enum class parametric_command_line_variable {
   input_files,
@@ -236,11 +236,11 @@ void update_file(
   const std::string& root_path,
   const parametric_command_line& param_cli,
   const std::vector<std::string>& local_src_paths,
-  const std::string& local_obj_path,
+  const std::string& local_target_path,
   const std::string& depfile_path
 ) {
   auto root_folder_path = root_path + '/';
-  auto obj_path = root_folder_path + local_obj_path;
+  auto obj_path = root_folder_path + local_target_path;
   std::vector<std::string> src_paths;
   for (auto const& local_src_path: local_src_paths) {
     src_paths.push_back(root_folder_path + local_src_path);
@@ -250,14 +250,14 @@ void update_file(
     .input_files = src_paths,
     .output_files = { obj_path }
   });
-  if (is_file_up_to_date(log_cache, hash_cache, root_path, local_obj_path, local_src_paths, command_line)) {
+  if (is_file_up_to_date(log_cache, hash_cache, root_path, local_target_path, local_src_paths, command_line)) {
     return;
   }
-  std::cout << "updating: " << local_obj_path << std::endl;
+  std::cout << "updating: " << local_target_path << std::endl;
   auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
   std::ofstream depfile_writer(depfile_path);
   run_command_line(command_line);
-  hash_cache.invalidate(root_path + '/' + local_obj_path);
+  hash_cache.invalidate(root_path + '/' + local_target_path);
   depfile_writer.close();
   std::unique_ptr<depfile::depfile_data> depfile_data = read_depfile_future.get();
   std::vector<std::string> dep_local_paths;
@@ -276,8 +276,8 @@ void update_file(
     dep_local_paths,
     command_line
   );
-  auto new_hash = hash_cache.hash(local_obj_path);
-  log_cache.record(local_obj_path, {
+  auto new_hash = hash_cache.hash(local_target_path);
+  log_cache.record(local_target_path, {
     .dependency_local_paths = dep_local_paths,
     .hash = new_hash,
     .imprint = new_imprint
@@ -306,6 +306,11 @@ bool get_file_type(const std::string& entname, src_file_type& type, std::string&
     basename = entname.substr(0, entname.size() - 2);
     return true;
   }
+  if (ends_with(entname, ".cppt")) {
+    type = src_file_type::cpp_test;
+    basename = entname.substr(0, entname.size() - 5);
+    return true;
+  }
   return false;
 }
 
@@ -331,6 +336,18 @@ private:
   std::string src_path_;
   io::dir_files_reader src_files_reader_;
 };
+
+parametric_command_line get_cppt_command_line(const std::string& root_path) {
+  return {
+    .binary_path = root_path + "/tools/compile_test.js",
+    .parts = {
+      parametric_command_line_part({}, {
+        parametric_command_line_variable::input_files,
+        parametric_command_line_variable::output_files
+      })
+    }
+  };
+}
 
 parametric_command_line get_link_command_line() {
   return {
@@ -361,26 +378,19 @@ void compile_itself(const std::string& root_path) {
   std::vector<std::string> local_obj_file_paths;
   src_file target_file;
   while (src_files.next(target_file)) {
-    auto local_obj_path = "dist/" + target_file.basename + ".o";
-    auto pcli = get_compile_command_line(target_file.type);
-    update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_obj_path, depfile_path);
-    local_obj_file_paths.push_back(local_obj_path);
+    if (target_file.type == src_file_type::cpp_test) {
+      auto local_cpp_path = "dist/" + target_file.basename + ".cpp";
+      auto pcli = get_cppt_command_line(root_path);
+      update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_cpp_path, depfile_path);
+    } else {
+      auto local_obj_path = "dist/" + target_file.basename + ".o";
+      auto pcli = get_compile_command_line(target_file.type);
+      update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_obj_path, depfile_path);
+      local_obj_file_paths.push_back(local_obj_path);
+    }
   }
   auto pcli = get_link_command_line();
   update_file(log_cache, hash_cache, root_path, pcli, local_obj_file_paths, "dist/upd", depfile_path);
-
-
-  // std::cout << "linking: dist/upd" << std::endl;
-  // std::ostringstream oss;
-  // oss << "clang++ -o " << root_path << "/dist/upd "
-  //     << "-Wall -std=c++14 -fcolor-diagnostics -L /usr/local/lib ";
-  // stream_join(oss, obj_file_paths, " ");
-  // auto ret = system(oss.str().c_str());
-  // if (ret != 0) {
-  //   throw "link failed";
-  // }
-
-
 
   std::cout << "done" << std::endl;
   log_cache.close();

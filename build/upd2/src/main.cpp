@@ -180,11 +180,11 @@ bool is_file_up_to_date(
   update_log::cache& log_cache,
   file_hash_cache& hash_cache,
   const std::string& root_path,
-  const std::string& local_obj_path,
+  const std::string& local_target_path,
   const std::vector<std::string>& local_src_paths,
   const reified_command_line& command_line
 ) {
-  auto entry = log_cache.find(local_obj_path);
+  auto entry = log_cache.find(local_target_path);
   if (entry == log_cache.end()) {
     return false;
   }
@@ -196,7 +196,11 @@ bool is_file_up_to_date(
     record.dependency_local_paths,
     command_line
   );
-  return new_imprint == record.imprint;
+  if (new_imprint != record.imprint) {
+    return false;
+  }
+  auto new_hash = hash_cache.hash(root_path + "/" + local_target_path);
+  return new_hash == record.hash;
 }
 
 void run_command_line(reified_command_line target) {
@@ -253,6 +257,7 @@ void update_file(
   auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
   std::ofstream depfile_writer(depfile_path);
   run_command_line(command_line);
+  hash_cache.invalidate(root_path + '/' + local_obj_path);
   depfile_writer.close();
   std::unique_ptr<depfile::depfile_data> depfile_data = read_depfile_future.get();
   std::vector<std::string> dep_local_paths;
@@ -271,9 +276,11 @@ void update_file(
     dep_local_paths,
     command_line
   );
+  auto new_hash = hash_cache.hash(local_obj_path);
   log_cache.record(local_obj_path, {
-    .imprint = new_imprint,
-    .dependency_local_paths = dep_local_paths
+    .dependency_local_paths = dep_local_paths,
+    .hash = new_hash,
+    .imprint = new_imprint
   });
 }
 

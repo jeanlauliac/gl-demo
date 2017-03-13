@@ -9,7 +9,22 @@ namespace upd {
 namespace update_log {
 
 struct file_record {
+  /**
+   * This is a hash digest of the command and the all the source files and that
+   * dependencies that generated that particular file.
+   */
   unsigned long long imprint;
+  /**
+   * This is a hash digest of the file content. This is handy to know if a file
+   * hasn't been corrupted after having been generated.
+   */
+  unsigned long long hash;
+  /**
+   * This is all the files on which this particular file depends on for
+   * generation, in addition to its direct sources. For example, in C/C++
+   * an object file depends on the c/cpp file, but headers are additional
+   * dependencies that we must consider.
+   */
   std::vector<std::string> dependency_local_paths;
 };
 

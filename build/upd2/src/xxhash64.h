@@ -68,6 +68,12 @@ XXH64_hash_t hash_file(unsigned long long seed, const std::string& file_path);
  */
 struct file_hash_cache {
   unsigned long long hash(const std::string& file_path);
+  /**
+   * After a file was updated, or we detected changes on the filesystem, we
+   * want to invalidate the digest we kept track of, as it likely changed.
+   */
+  void invalidate(const std::string& file_path);
+
 private:
   std::unordered_map<std::string, unsigned long long> cache_;
 };

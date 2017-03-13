@@ -33,4 +33,8 @@ unsigned long long file_hash_cache::hash(const std::string& file_path) {
   return hash;
 }
 
+void file_hash_cache::invalidate(const std::string& file_path) {
+  cache_.erase(file_path);
+}
+
 }

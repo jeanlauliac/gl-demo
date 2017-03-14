@@ -343,7 +343,8 @@ parametric_command_line get_cppt_command_line(const std::string& root_path) {
     .parts = {
       parametric_command_line_part({}, {
         parametric_command_line_variable::input_files,
-        parametric_command_line_variable::output_files
+        parametric_command_line_variable::output_files,
+        parametric_command_line_variable::dependency_file
       })
     }
   };

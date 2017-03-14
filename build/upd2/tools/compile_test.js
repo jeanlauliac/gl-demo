@@ -174,12 +174,13 @@ function updateIncludes(sourceCode, sourceDirPath, targetDirPath) {
 }
 
 cli(function () {
-  if (process.argv.length < 4) {
+  if (process.argv.length < 5) {
     reporting.fatalError(1, 'not enough arguments');
     return;
   }
   const sourcePath = process.argv[2];
   const targetPath = process.argv[3];
+  const depfilePath = process.argv[4];
   let targetStream, targetDirPath;
   if (targetPath === '-') {
     targetStream = process.stdout;
@@ -197,4 +198,11 @@ cli(function () {
   if (targetPath !== '-') {
     targetStream.end();
   }
+  const depfile = fs.createWriteStream(depfilePath);
+  const modulePaths = Object.values(require.cache)
+    .filter(module => !/\/node_modules\//.test(module.filename))
+    .map(module => module.filename)
+    .join(' \\\n  ');
+  depfile.write(`${targetPath}: ${modulePaths}\n`);
+  depfile.end();
 });

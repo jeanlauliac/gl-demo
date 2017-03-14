@@ -15,6 +15,7 @@
 #include <iostream>
 #include <libgen.h>
 #include <map>
+#include <queue>
 #include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -316,25 +317,42 @@ bool get_file_type(const std::string& entname, src_file_type& type, std::string&
 
 struct src_files_finder {
   src_files_finder(const std::string& root_path):
-    src_path_(root_path + "/src"),
-    src_files_reader_(src_path_) {}
+    root_path_(root_path),
+    src_path_suffix_(""),
+    src_files_reader_(root_path_ + "/src") {}
 
   bool next(src_file& file) {
-    auto ent = src_files_reader_.next();
-    while (ent != nullptr) {
-      std::string name(ent->d_name);
-      if (get_file_type(name, file.type, file.basename)) {
-        file.local_path = "src/" + name;
-        return true;
+    while (true) {
+      auto ent = src_files_reader_.next();
+      while (ent != nullptr) {
+        std::string name(ent->d_name);
+        if (ent->d_type == DT_DIR) {
+          if (!name.empty() && name[0] != '.') {
+            pending_src_path_folders_.push(src_path_suffix_ + name);
+          }
+        } else {
+          auto src_local_path = src_path_suffix_ + name;
+          file.local_path = "src/" + src_local_path;
+          if (get_file_type(src_local_path, file.type, file.basename)) {
+            return true;
+          }
+        }
+        ent = src_files_reader_.next();
       }
-      ent = src_files_reader_.next();
+      if (pending_src_path_folders_.empty()) {
+        return false;
+      }
+      src_path_suffix_ = pending_src_path_folders_.front() + '/';
+      pending_src_path_folders_.pop();
+      src_files_reader_.open(root_path_ + "/src/" + src_path_suffix_);
     }
-    return false;
   }
 
 private:
-  std::string src_path_;
+  const std::string root_path_;
+  std::string src_path_suffix_;
   io::dir_files_reader src_files_reader_;
+  std::queue<std::string> pending_src_path_folders_;
 };
 
 parametric_command_line get_cppt_command_line(const std::string& root_path) {

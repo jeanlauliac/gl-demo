@@ -58,10 +58,20 @@ dir::~dir() {
   closedir(ptr_);
 }
 
+void dir::open(const std::string& path) {
+  closedir(ptr_);
+  ptr_ = opendir(path.c_str());
+  if (ptr_ == nullptr) throw std::runtime_error("opendir() failed");
+}
+
 dir_files_reader::dir_files_reader(const std::string& path): target_(path) {}
 
 struct dirent* dir_files_reader::next() {
   return readdir(target_.ptr());
+}
+
+void dir_files_reader::open(const std::string& path) {
+  target_.open(path);
 }
 
 }

@@ -3,7 +3,7 @@
 namespace upd {
 namespace cli {
 
-options parse_options(int argc, char *argv[]) {
+options parse_options(int argc, const char* const argv[]) {
   options result;
   for (++argv, --argc; argc > 0; ++argv, --argc) {
     const auto arg = std::string(*argv);

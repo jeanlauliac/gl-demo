@@ -18,7 +18,7 @@ struct option_parse_error {
   std::string arg;
 };
 
-options parse_options(int argc, char *argv[]);
+options parse_options(int argc, const char* const argv[]);
 void print_help();
 
 }

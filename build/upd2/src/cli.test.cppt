@@ -1,0 +1,7 @@
+#include "cli.cpp"
+
+@case "parse help" {
+  const char* argv[] = { "upd", "--help" };
+  auto opts = upd::cli::parse_options(2, argv);
+  @expect(opts.help == true);
+}

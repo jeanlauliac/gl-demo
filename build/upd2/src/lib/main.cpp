@@ -322,8 +322,8 @@ bool get_file_type(const std::string& entname, src_file_type& type, std::string&
 struct src_files_finder {
   src_files_finder(const std::string& root_path):
     root_path_(root_path),
-    src_path_suffix_(""),
-    src_files_reader_(root_path_ + "/src") {}
+    src_path_suffix_("lib/"),
+    src_files_reader_(root_path_ + "/src/lib") {}
 
   bool next(src_file& file) {
     while (true) {

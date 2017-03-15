@@ -8,6 +8,8 @@
 namespace upd {
 namespace update_log {
 
+struct corruption_error {};
+
 struct file_record {
   /**
    * This is a hash digest of the command and the all the source files and that

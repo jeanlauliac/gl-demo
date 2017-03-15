@@ -466,6 +466,9 @@ int run(int argc, char *argv[]) {
   } catch (io::ifstream_failed_error error) {
     std::cerr << "upd: fatal: failed to read file `" << error.file_path << "`" << std::endl;
     return 2;
+  } catch (update_log::corruption_error) {
+    std::cerr << "upd: fatal: update log is corrupted; try deleting the `.upd/log` file" << std::endl;
+    return 2;
   }
 }
 

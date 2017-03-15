@@ -50,9 +50,12 @@ records_by_file cache::records_from_log_file(const std::string& log_file_path) {
     iss.clear();
     iss >> std::hex >> record_being_read.hash
         >> record_being_read.imprint >> local_file_path;
-    while (!iss.eof()) {
+    while (iss.good()) {
       iss >> dep_file_path;
       record_being_read.dependency_local_paths.push_back(dep_file_path);
+    }
+    if (iss.fail()) {
+      throw corruption_error();
     }
     records[local_file_path] = record_being_read;
   }

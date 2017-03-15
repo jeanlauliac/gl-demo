@@ -28,7 +28,7 @@
 
 namespace upd {
 
-static const char* CACHE_FOLDER = ".upd";
+static const std::string CACHE_FOLDER = ".upd";
 
 template <typename ostream_t>
 ostream_t& stream_join(
@@ -204,7 +204,7 @@ bool is_file_up_to_date(
   return new_hash == record.hash;
 }
 
-void run_command_line(reified_command_line target) {
+void run_command_line(const std::string& root_path, reified_command_line target) {
   pid_t child_pid = fork();
   if (child_pid == 0) {
     std::vector<char*> argv;
@@ -213,7 +213,12 @@ void run_command_line(reified_command_line target) {
       argv.push_back(const_cast<char*>(arg.c_str()));
     }
     argv.push_back(nullptr);
+    if (chdir(root_path.c_str()) != 0) {
+      std::cerr << "upd: chdir() failed" << std::endl;
+      _exit(1);
+    }
     execvp(target.binary_path.c_str(), argv.data());
+    std::cerr << "upd: execvp() failed" << std::endl;
     _exit(1);
   }
   if (child_pid < 0) {
@@ -238,36 +243,35 @@ void update_file(
   const parametric_command_line& param_cli,
   const std::vector<std::string>& local_src_paths,
   const std::string& local_target_path,
-  const std::string& depfile_path
+  const std::string& local_depfile_path
 ) {
   auto root_folder_path = root_path + '/';
-  auto obj_path = root_folder_path + local_target_path;
-  std::vector<std::string> src_paths;
-  for (auto const& local_src_path: local_src_paths) {
-    src_paths.push_back(root_folder_path + local_src_path);
-  }
   auto command_line = reify_command_line(param_cli, {
-    .dependency_file = depfile_path,
-    .input_files = src_paths,
-    .output_files = { obj_path }
+    .dependency_file = local_depfile_path,
+    .input_files = local_src_paths,
+    .output_files = { local_target_path }
   });
   if (is_file_up_to_date(log_cache, hash_cache, root_path, local_target_path, local_src_paths, command_line)) {
     return;
   }
   std::cout << "updating: " << local_target_path << std::endl;
+  auto depfile_path = root_path + '/' + local_depfile_path;
   auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
   std::ofstream depfile_writer(depfile_path);
-  run_command_line(command_line);
+  run_command_line(root_path, command_line);
   hash_cache.invalidate(root_path + '/' + local_target_path);
   depfile_writer.close();
   std::unique_ptr<depfile::depfile_data> depfile_data = read_depfile_future.get();
   std::vector<std::string> dep_local_paths;
   if (depfile_data) {
-    for (auto const& dep_path: depfile_data->dependency_paths) {
-      if (dep_path.compare(0, root_folder_path.size(), root_folder_path) != 0) {
-        throw std::runtime_error("depfile has a file out of root");
+    for (auto dep_path: depfile_data->dependency_paths) {
+      if (dep_path.at(0) == '/') {
+        if (dep_path.compare(0, root_folder_path.size(), root_folder_path) != 0) {
+          throw std::runtime_error("depfile has a file out of root");
+        }
+        dep_path = dep_path.substr(root_folder_path.size());
       }
-      dep_local_paths.push_back(dep_path.substr(root_folder_path.size()));
+      dep_local_paths.push_back(dep_path);
     }
   }
   auto new_imprint = get_target_imprint(
@@ -389,7 +393,8 @@ void compile_itself(const std::string& root_path) {
   std::string temp_log_file_path = root_path + "/" + CACHE_FOLDER + "/log_rewritten";
   update_log::cache log_cache = update_log::cache::from_log_file(log_file_path);
   file_hash_cache hash_cache;
-  auto depfile_path = root_path + "/.upd/depfile";
+  auto local_depfile_path = CACHE_FOLDER + "/depfile";
+  auto depfile_path = root_path + '/' + local_depfile_path;
   if (mkfifo(depfile_path.c_str(), 0644) != 0 && errno != EEXIST) {
     throw std::runtime_error("cannot make depfile FIFO");
   }
@@ -401,12 +406,12 @@ void compile_itself(const std::string& root_path) {
     if (target_file.type == src_file_type::cpp_test) {
       auto local_cpp_path = "dist/" + target_file.basename + ".cpp";
       auto pcli = get_cppt_command_line(root_path);
-      update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_cpp_path, depfile_path);
+      update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_cpp_path, local_depfile_path);
       local_test_cpp_file_basenames.push_back(target_file.basename);
     } else {
       auto local_obj_path = "dist/" + target_file.basename + ".o";
       auto pcli = get_compile_command_line(target_file.type);
-      update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_obj_path, depfile_path);
+      update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_obj_path, local_depfile_path);
       local_obj_file_paths.push_back(local_obj_path);
     }
   }
@@ -415,14 +420,14 @@ void compile_itself(const std::string& root_path) {
     auto local_path = "dist/" + basename + ".cpp";;
     auto local_obj_path = "dist/" + basename + ".o";
     auto pcli = get_compile_command_line(src_file_type::cpp);
-    update_file(log_cache, hash_cache, root_path, pcli, { local_path }, local_obj_path, depfile_path);
+    update_file(log_cache, hash_cache, root_path, pcli, { local_path }, local_obj_path, local_depfile_path);
     auto local_bin_path = "dist/" + basename;
     pcli = get_link_command_line();
-    update_file(log_cache, hash_cache, root_path, pcli, { local_obj_path }, local_bin_path, depfile_path);
+    update_file(log_cache, hash_cache, root_path, pcli, { local_obj_path }, local_bin_path, local_depfile_path);
   }
 
   auto pcli = get_link_command_line();
-  update_file(log_cache, hash_cache, root_path, pcli, local_obj_file_paths, "dist/upd", depfile_path);
+  update_file(log_cache, hash_cache, root_path, pcli, local_obj_file_paths, "dist/upd", local_depfile_path);
 
   std::cout << "done" << std::endl;
   log_cache.close();

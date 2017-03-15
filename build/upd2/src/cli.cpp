@@ -24,11 +24,11 @@ options parse_options(int argc, const char* const argv[]) {
 
 void print_help() {
   std::cout
-    << "usage: upd [targets] [options]" << std::endl
-    << "options:" << std::endl
-    << "  --version     print semantic version and exit" << std::endl
-    << "  --help        print usage help and exit" << std::endl
-    << "  --root        print the root directory path and exit" << std::endl
+    << "usage: upd [options] [targets]" << std::endl << std::endl
+    << "Options:" << std::endl
+    << "  --version     Print semantic version and exit" << std::endl
+    << "  --help        Print usage help and exit" << std::endl
+    << "  --root        Print the root directory path and exit" << std::endl
     ;
 }
 

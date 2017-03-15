@@ -53,6 +53,7 @@ struct tokenizer {
     if (c_ == ':') { read_(); return handler.colon(); }
     if (c_ == '\n') { read_(); return handler.new_line(); }
     std::ostringstream oss;
+    // TODO: refactor as a `do...while`, condition is always true for first pass
     while (good_ && !(c_ == ' ' || c_ == ':' || c_ == '\n')) {
       if (c_ == '\\') { read_(); }
       oss.put(c_);
@@ -66,6 +67,17 @@ struct tokenizer {
   }
 
 private:
+  /**
+   * In depfiles, the backslashes escapes anything, including syntax characters.
+   * To escape, for example, spaces in a file path, 2 backslashes are required.
+   * Consider a file "path with spaces/foo.cpp":
+   *
+   *     foo.o: path\\ with\\ spaces/foo.cpp
+   *
+   * This escaping behavior technically allows having newlines in file names,
+   * with "\\<LF>". Whereas "\<LF>" just converts the significant newline into
+   * whitespace.
+   */
   void read_() {
     read_unescaped_();
     if (!good_ || c_ != '\\') return;
@@ -83,11 +95,21 @@ private:
   istream_char_reader<istream_t> char_reader_;
 };
 
+/**
+ * Right now, only a single pair is accepted in depfiles, and the `target_path`
+ * is expected to be the file being built. Additionally, only one `target_path`
+ * is accepted. Eventually we may accept several `target_path` builts at the
+ * same time.
+ */
 struct depfile_data {
   std::string target_path;
   std::vector<std::string> dependency_paths;
 };
 
+/**
+ * Means at some point reading the depfile there was some unexpected character,
+ * or it uses some unsupported features (see `struct depfile_data`).
+ */
 struct parse_error {
   parse_error(const std::string& message): message_(message) {}
   std::string message() const { return message_; };
@@ -122,8 +144,10 @@ private:
  *       some_header.h \
  *       another_header.h
  *
- * If the stream only has whitespace, this is considered valid but will
- * make it return an empty pointer.
+ * If the stream only has whitespace, this is considered valid but will return
+ * an empty pointer. Technically, several lines of "target: dependencies" would
+ * be valid syntax, so this function may be improved to return a vector of
+ * these instead.
  */
 template <typename istream_t>
 std::unique_ptr<depfile_data> parse(istream_t& stream) {
@@ -134,6 +158,9 @@ std::unique_ptr<depfile_data> parse(istream_t& stream) {
   return data;
 }
 
+/**
+ * A helper to read depfiles from a specific path.
+ */
 std::unique_ptr<depfile_data> read(const std::string& depfile_path);
 
 }

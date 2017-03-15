@@ -22,6 +22,12 @@ private:
   std::unique_ptr<XXH64_state_t, XXH_errorcode(*)(XXH64_state_t*)> state_;
 };
 
+/**
+ * Helper for aggregating several hashes into a single digest. This is useful
+ * if you want, for example, aggregate the digest of a few different source
+ * files. This is not the same as doing the digest of the concatenated source
+ * files, that would be sensitive to collisions.
+ */
 struct xxhash64_stream {
   xxhash64_stream(unsigned long long seed): hash_(seed) {}
   xxhash64_stream& operator<<(unsigned long long value) {
@@ -35,7 +41,7 @@ private:
 };
 
 /**
- * Short hand for hashing std::string instances.
+ * Shorthand for hashing std::string instances.
  */
 XXH64_hash_t hash(const std::string& str);
 
@@ -43,7 +49,8 @@ XXH64_hash_t hash(const std::string& str);
  * A sensible way to hash a vector is to hash each element separately
  * and hash the hashes together. We don't want to hash everything using a
  * single stream, for example strings, because collisions could happen.
- * Ex. `{ "foo", "bar" }` versus `{ "f", "oobar" }`.
+ * Ex. `{ "foo", "bar" }` and `{ "f", "oobar" }` should not
+ * have the same digest.
  */
 template <typename T>
 XXH64_hash_t hash(const std::vector<T>& target) {

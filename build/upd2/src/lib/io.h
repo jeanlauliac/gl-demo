@@ -10,7 +10,8 @@ namespace io {
 extern const char* UPDFILE_SUFFIX;
 
 /**
- * Get current working directory but as a `std::string`, easier to deal with.
+ * Get the current working directory but
+ * as a `std::string`, easier to deal with.
  */
 std::string getcwd_string();
 
@@ -22,11 +23,15 @@ std::string dirname_string(const std::string& path);
 struct cannot_find_updfile_error {};
 
 /**
- * Figure out the root directory containing the Updfile, from which the relative
- * paths in the manifest are based on.
+ * Figure out the root directory containing the `Updfile`. This path is used as
+ * the base for what we call "local paths". All these local paths are
+ * canonicalized in terms of the root path.
  */
 std::string find_root_path();
 
+/**
+ * Keep track and automatically delete a directory handle.
+ */
 struct dir {
   dir(const std::string& path);
   dir(dir&) = delete;
@@ -37,8 +42,16 @@ private:
   DIR* ptr_;
 };
 
+/**
+ * Provide us with all the files+subfolders of a folder.
+ */
 struct dir_files_reader {
   dir_files_reader(const std::string& path);
+  /**
+   * The returned dirent pointer should never be released manually. It is
+   * automatically released by the system on the next call, or object
+   * destruction.
+   */
   struct dirent* next();
   void open(const std::string& path);
 private:

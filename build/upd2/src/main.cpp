@@ -372,6 +372,19 @@ parametric_command_line get_cppt_command_line(const std::string& root_path) {
   };
 }
 
+parametric_command_line get_index_tests_command_line() {
+  return {
+    .binary_path = "tools/index_tests.js",
+    .parts = {
+      parametric_command_line_part({}, {
+        parametric_command_line_variable::output_files,
+        parametric_command_line_variable::dependency_file,
+        parametric_command_line_variable::input_files
+      })
+    }
+  };
+}
+
 parametric_command_line get_link_command_line() {
   return {
     .binary_path = "clang++",
@@ -401,6 +414,7 @@ void compile_itself(const std::string& root_path) {
   src_files_finder src_files(root_path);
   std::vector<std::string> local_obj_file_paths;
   std::vector<std::string> local_test_cpp_file_basenames;
+  std::vector<std::string> local_test_cppt_file_paths;
   src_file target_file;
   while (src_files.next(target_file)) {
     if (target_file.type == src_file_type::cpp_test) {
@@ -408,6 +422,7 @@ void compile_itself(const std::string& root_path) {
       auto pcli = get_cppt_command_line(root_path);
       update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_cpp_path, local_depfile_path);
       local_test_cpp_file_basenames.push_back(target_file.basename);
+      local_test_cppt_file_paths.push_back(target_file.local_path);
     } else {
       auto local_obj_path = "dist/" + target_file.basename + ".o";
       auto pcli = get_compile_command_line(target_file.type);
@@ -415,6 +430,10 @@ void compile_itself(const std::string& root_path) {
       local_obj_file_paths.push_back(local_obj_path);
     }
   }
+
+  auto pcli = get_index_tests_command_line();
+  update_file(log_cache, hash_cache, root_path, pcli, local_test_cppt_file_paths, "dist/tests.cpp", local_depfile_path);
+  local_test_cpp_file_basenames.push_back("tests");
 
   auto cpp_pcli = get_compile_command_line(src_file_type::cpp);
   update_file(log_cache, hash_cache, root_path, cpp_pcli, { "src/main.cpp" }, "dist/main.o", local_depfile_path);
@@ -428,12 +447,9 @@ void compile_itself(const std::string& root_path) {
     auto pcli = get_compile_command_line(src_file_type::cpp);
     update_file(log_cache, hash_cache, root_path, pcli, { local_path }, local_obj_path, local_depfile_path);
     local_test_object_file_paths.push_back(local_obj_path);
-    // auto local_bin_path = "dist/" + basename;
-    // pcli = get_link_command_line();
-    // update_file(log_cache, hash_cache, root_path, pcli, { local_obj_path }, local_bin_path, local_depfile_path);
   }
 
-  auto pcli = get_link_command_line();
+  pcli = get_link_command_line();
   update_file(log_cache, hash_cache, root_path, pcli, local_upd_object_file_paths, "dist/upd", local_depfile_path);
   update_file(log_cache, hash_cache, root_path, pcli, local_test_object_file_paths, "dist/tests", local_depfile_path);
 

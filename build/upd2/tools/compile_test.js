@@ -100,18 +100,18 @@ function writeHeader(stream, reporterName, targetDirPath) {
   const headerPath = path.relative(targetDirPath, path.resolve(__dirname, 'lib/testing.h'));
   stream.write('#include <iostream>\n');
   stream.write(`#include "${headerPath}"\n`);
-  //stream.write(`testing::Reporter ${reporterName};\n\n`);
   stream.write(`\n`);
 }
 
-function writeMain(stream, testFunctions) {
-  stream.write('int main() {\n');
+function writeMain(stream, testFunctions, filePath) {
+  // TODO: look at Flow's stategy for escaping slashes and dots
+  const entryPointName = 'test_' + filePath.replace(/\//g, 'zS').replace(/\./g, 'zD');
+  stream.write(`void ${entryPointName}() {\n`);
   stream.write(`  testing::write_header(${testFunctions.length});\n`);
   for (let i = 0; i < testFunctions.length; i++) {
     const fun = testFunctions[i];
     stream.write(`  testing::run_case(${fun.functionName}, ${i + 1}, "${fun.name}");\n`)
   }
-  stream.write('  return 0;\n');
   stream.write('}\n');
 }
 
@@ -155,7 +155,7 @@ function transform(content, stream, filePath, targetDirPath) {
     });
   }
   stream.write('\n');
-  writeMain(stream, testFunctions);
+  writeMain(stream, testFunctions, filePath);
 }
 
 function updateIncludes(sourceCode, sourceDirPath, targetDirPath) {

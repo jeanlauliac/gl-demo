@@ -5,3 +5,13 @@
   auto opts = upd::cli::parse_options(2, argv);
   @expect(opts.help == true);
 }
+
+@case "throw on invalid options" {
+  const char* argv[] = { "upd", "--foobar" };
+  try {
+    upd::cli::parse_options(2, argv);
+    @expect(false);
+  } catch (upd::cli::option_parse_error error) {
+    @expect(error.arg == "--foobar");
+  }
+}

@@ -25,8 +25,8 @@ void run_case(TCase test_case, int index, const std::string& desc) {
     write_case_baseline(test_case_result::not_ok, index, desc);
     std::cout << "  ---" << std::endl;
     std::cout
-      << "  message: \"the expression `" << ex.expr_string
-      << "` was not true\"" << std::endl;
+      << "  message: \"expectation failed: `" << ex.expr_string
+      << "`\"" << std::endl;
     std::cout << "  severity: fail" << std::endl;
     std::cout << "  ..." << std::endl;
     return;

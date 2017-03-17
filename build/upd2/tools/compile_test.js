@@ -90,7 +90,7 @@ function writeTestFunction(stream, caseCount, caseName, blockContent, reporterNa
     }
     let exprStr;
     [exprStr, i] = cppExpr;
-    stream.write(`testing::expect(${exprStr}, "${exprStr}")`);
+    stream.write(`testing::expect(${exprStr}, "${exprStr.replace(/"/g, '\\"')}")`);
   }
   stream.write('}');
   return functionName;

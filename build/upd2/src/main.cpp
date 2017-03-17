@@ -440,6 +440,9 @@ void compile_itself(const std::string& root_path) {
   local_upd_object_file_paths.push_back("dist/src/main.o");
 
   auto local_test_object_file_paths = local_obj_file_paths;
+  update_file(log_cache, hash_cache, root_path, cpp_pcli, { "tools/lib/testing.cpp" }, "dist/tools/lib/testing.o", local_depfile_path);
+  local_test_object_file_paths.push_back("dist/tools/lib/testing.o");
+
   for (auto const& basename: local_test_cpp_file_basenames) {
     auto local_path = "dist/" + basename + ".cpp";
     auto local_obj_path = "dist/" + basename + ".o";

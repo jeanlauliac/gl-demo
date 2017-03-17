@@ -1,11 +1,11 @@
-#include "cli.h"
-#include "depfile.h"
-#include "inspect.h"
-#include "io.h"
-#include "json/Lexer.h"
-#include "manifest.h"
-#include "update_log.h"
-#include "xxhash64.h"
+#include "lib/cli.h"
+#include "lib/depfile.h"
+#include "lib/inspect.h"
+#include "lib/io.h"
+#include "lib/json/Lexer.h"
+#include "lib/manifest.h"
+#include "lib/update_log.h"
+#include "lib/xxhash64.h"
 #include <array>
 #include <cstdlib>
 #include <dirent.h>
@@ -415,6 +415,11 @@ void compile_itself(const std::string& root_path) {
       local_obj_file_paths.push_back(local_obj_path);
     }
   }
+
+  auto cpp_pcli = get_compile_command_line(src_file_type::cpp);
+  update_file(log_cache, hash_cache, root_path, cpp_pcli, { "src/main.cpp" }, "dist/main.o", local_depfile_path);
+  local_obj_file_paths.push_back("dist/main.o");
+
 
   for (auto const& basename: local_test_cpp_file_basenames) {
     auto local_path = "dist/" + basename + ".cpp";;

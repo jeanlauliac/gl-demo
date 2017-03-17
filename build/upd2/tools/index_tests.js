@@ -10,7 +10,7 @@ const reporting = require('./lib/reporting');
 function writeContent(stream, sourcePaths, targetDirPath) {
   const headerPath = path.relative(targetDirPath, path.resolve(__dirname, 'lib/testing.h'));
   const entryPointNames = sourcePaths.map(sourcePath => {
-    return 'test_' + sourcePath.replace(/\//g, 'zS').replace(/\./g, 'zD');
+    return 'test_' + sourcePath.replace(/\//g, 'zS').replace(/\./g, 'zD').replace(/\-/g, 'zN');
   });
   stream.write(`#include "${headerPath}"\n`);
   stream.write(`\n`);

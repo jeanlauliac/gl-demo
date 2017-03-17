@@ -335,9 +335,8 @@ struct src_files_finder {
             pending_src_path_folders_.push(src_path_suffix_ + name);
           }
         } else {
-          auto src_local_path = src_path_suffix_ + name;
-          file.local_path = "src/" + src_local_path;
-          if (get_file_type(src_local_path, file.type, file.basename)) {
+          file.local_path = "src/" + src_path_suffix_ + name;
+          if (get_file_type(file.local_path, file.type, file.basename)) {
             return true;
           }
         }
@@ -436,13 +435,13 @@ void compile_itself(const std::string& root_path) {
   local_test_cpp_file_basenames.push_back("tests");
 
   auto cpp_pcli = get_compile_command_line(src_file_type::cpp);
-  update_file(log_cache, hash_cache, root_path, cpp_pcli, { "src/main.cpp" }, "dist/main.o", local_depfile_path);
+  update_file(log_cache, hash_cache, root_path, cpp_pcli, { "src/main.cpp" }, "dist/src/main.o", local_depfile_path);
   auto local_upd_object_file_paths = local_obj_file_paths;
-  local_upd_object_file_paths.push_back("dist/main.o");
+  local_upd_object_file_paths.push_back("dist/src/main.o");
 
   auto local_test_object_file_paths = local_obj_file_paths;
   for (auto const& basename: local_test_cpp_file_basenames) {
-    auto local_path = "dist/" + basename + ".cpp";;
+    auto local_path = "dist/" + basename + ".cpp";
     auto local_obj_path = "dist/" + basename + ".o";
     auto pcli = get_compile_command_line(src_file_type::cpp);
     update_file(log_cache, hash_cache, root_path, pcli, { local_path }, local_obj_path, local_depfile_path);

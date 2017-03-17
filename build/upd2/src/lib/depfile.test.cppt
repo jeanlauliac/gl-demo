@@ -1,5 +1,49 @@
 #include "depfile.h"
 
-@case "read empty input" {
-  @expect(true);
+struct string_char_reader {
+  string_char_reader(std::string str):
+    str_(str), next_index_(0) {}
+
+  bool next(char& c) {
+    if (next_index_ >= str_.size()) return false;
+    c = str_.at(next_index_++);
+    return true;
+  }
+
+private:
+  std::string str_;
+  int next_index_;
+};
+
+@case "parse() reads empty input" {
+  string_char_reader reader("");
+  auto result = upd::depfile::parse(reader);
+  @expect(!result);
+}
+
+@case "parse() reads simple depfile" {
+  string_char_reader reader("target.o: target.cpp target.h other.h\n");
+  auto result = upd::depfile::parse(reader);
+  @expect(!!result);
+  @expect(result->target_path == "target.o");
+  std::vector<std::string> expected = { "target.cpp", "target.h", "other.h" };
+  @expect(result->dependency_paths == expected);
+}
+
+@case "parse() skips escaped newlines" {
+  string_char_reader reader("target.o: \\\n  target.cpp \\\n  target.h\n");
+  auto result = upd::depfile::parse(reader);
+  @expect(!!result);
+  @expect(result->target_path == "target.o");
+  std::vector<std::string> expected = { "target.cpp", "target.h" };
+  @expect(result->dependency_paths == expected);
+}
+
+@case "parse() reads paths with spaces" {
+  string_char_reader reader("spaces\\\\ target.o: spaces\\\\ target.cpp\n");
+  auto result = upd::depfile::parse(reader);
+  @expect(!!result);
+  @expect(result->target_path == "spaces target.o");
+  std::vector<std::string> expected = { "spaces target.cpp" };
+  @expect(result->dependency_paths == expected);
 }

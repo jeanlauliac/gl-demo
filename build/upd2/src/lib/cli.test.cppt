@@ -1,12 +1,12 @@
 #include "cli.h"
 
-@case "parse help" {
+@case "parse_options() parses help" {
   const char* argv[] = { "upd", "--help" };
   auto opts = upd::cli::parse_options(2, argv);
   @expect(opts.help == true);
 }
 
-@case "throw on invalid options" {
+@case "parse_options() throws on invalid options" {
   const char* argv[] = { "upd", "--foobar" };
   try {
     upd::cli::parse_options(2, argv);

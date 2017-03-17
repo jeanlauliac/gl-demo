@@ -7,44 +7,13 @@ namespace upd {
 namespace depfile {
 
 /**
- * We want to read the stream on a character basis, but do some caching to avoid
- * too many I/O calls. We use templating to avoid using virtual functions as
- * much as possible.
- */
-template <typename istream_t>
-struct istream_char_reader {
-  istream_char_reader(istream_t& stream):
-    stream_(stream), next_(buffer_), end_(buffer_) {}
-
-  bool next(char& c) {
-    if (next_ >= end_) {
-      stream_.read(buffer_, sizeof(buffer_));
-      end_ = buffer_ + stream_.gcount();
-      next_ = buffer_;
-    }
-    if (next_ >= end_) {
-      return false;
-    }
-    c = *next_;
-    ++next_;
-    return true;
-  }
-
-private:
-  istream_t& stream_;
-  char* next_;
-  char* end_;
-  char buffer_[1 << 12];
-};
-
-/**
  * Transform a stream of characters into tokens. We have to look one character
  * ahead to know when a token ends. For example a string is ended when we know
  * the next character is space.
  */
-template <typename istream_t>
+template <typename CharReader>
 struct tokenizer {
-  tokenizer(istream_t& stream): char_reader_(stream) { read_(); }
+  tokenizer(CharReader& char_reader): char_reader_(char_reader) { read_(); }
 
   template <typename handler_t, typename retval_t>
   retval_t next(handler_t& handler) {
@@ -92,7 +61,7 @@ private:
   void read_unescaped_() { good_ = char_reader_.next(c_); }
   char c_;
   bool good_;
-  istream_char_reader<istream_t> char_reader_;
+  CharReader char_reader_;
 };
 
 /**
@@ -149,10 +118,10 @@ private:
  * be valid syntax, so this function may be improved to return a vector of
  * these instead.
  */
-template <typename istream_t>
-std::unique_ptr<depfile_data> parse(istream_t& stream) {
+template <typename CharReader>
+std::unique_ptr<depfile_data> parse(CharReader& char_reader) {
   std::unique_ptr<depfile_data> data;
-  tokenizer<istream_t> tokens(stream);
+  tokenizer<CharReader> tokens(char_reader);
   parse_token_handler handler(data);
   while (tokens.template next<parse_token_handler, bool>(handler));
   return data;

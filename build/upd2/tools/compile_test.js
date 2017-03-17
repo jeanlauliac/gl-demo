@@ -73,7 +73,7 @@ function readCppParenExpr(content, i, filePath) {
 
 function writeTestFunction(stream, caseCount, caseName, blockContent, reporterName, filePath) {
   const functionName = `test_case_${caseCount}`;
-  stream.write(`void ${functionName}() {`);
+  stream.write(`static void ${functionName}() {`);
   let i = 0;
   while (i < blockContent.length) {
     let j = blockContent.indexOf('@expect', i);

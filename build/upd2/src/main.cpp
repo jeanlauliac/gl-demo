@@ -418,21 +418,24 @@ void compile_itself(const std::string& root_path) {
 
   auto cpp_pcli = get_compile_command_line(src_file_type::cpp);
   update_file(log_cache, hash_cache, root_path, cpp_pcli, { "src/main.cpp" }, "dist/main.o", local_depfile_path);
-  local_obj_file_paths.push_back("dist/main.o");
+  auto local_upd_object_file_paths = local_obj_file_paths;
+  local_upd_object_file_paths.push_back("dist/main.o");
 
-
+  auto local_test_object_file_paths = local_obj_file_paths;
   for (auto const& basename: local_test_cpp_file_basenames) {
     auto local_path = "dist/" + basename + ".cpp";;
     auto local_obj_path = "dist/" + basename + ".o";
     auto pcli = get_compile_command_line(src_file_type::cpp);
     update_file(log_cache, hash_cache, root_path, pcli, { local_path }, local_obj_path, local_depfile_path);
-    auto local_bin_path = "dist/" + basename;
-    pcli = get_link_command_line();
-    update_file(log_cache, hash_cache, root_path, pcli, { local_obj_path }, local_bin_path, local_depfile_path);
+    local_test_object_file_paths.push_back(local_obj_path);
+    // auto local_bin_path = "dist/" + basename;
+    // pcli = get_link_command_line();
+    // update_file(log_cache, hash_cache, root_path, pcli, { local_obj_path }, local_bin_path, local_depfile_path);
   }
 
   auto pcli = get_link_command_line();
-  update_file(log_cache, hash_cache, root_path, pcli, local_obj_file_paths, "dist/upd", local_depfile_path);
+  update_file(log_cache, hash_cache, root_path, pcli, local_upd_object_file_paths, "dist/upd", local_depfile_path);
+  update_file(log_cache, hash_cache, root_path, pcli, local_test_object_file_paths, "dist/tests", local_depfile_path);
 
   std::cout << "done" << std::endl;
   log_cache.close();

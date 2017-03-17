@@ -106,11 +106,10 @@ function writeHeader(stream, reporterName, targetDirPath) {
 function writeMain(stream, testFunctions, filePath) {
   // TODO: look at Flow's stategy for escaping slashes and dots
   const entryPointName = 'test_' + filePath.replace(/\//g, 'zS').replace(/\./g, 'zD');
-  stream.write(`void ${entryPointName}() {\n`);
-  stream.write(`  testing::write_header(${testFunctions.length});\n`);
+  stream.write(`void ${entryPointName}(int& index) {\n`);
   for (let i = 0; i < testFunctions.length; i++) {
     const fun = testFunctions[i];
-    stream.write(`  testing::run_case(${fun.functionName}, ${i + 1}, "${fun.name}");\n`)
+    stream.write(`  testing::run_case(${fun.functionName}, index, "${filePath}: ${fun.name}");\n`)
   }
   stream.write('}\n');
 }

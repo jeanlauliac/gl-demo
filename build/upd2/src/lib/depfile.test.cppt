@@ -1,0 +1,5 @@
+#include "depfile.h"
+
+@case "read empty input" {
+  @expect(true);
+}

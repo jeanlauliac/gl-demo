@@ -12,16 +12,19 @@ function writeContent(stream, sourcePaths, targetDirPath) {
   const entryPointNames = sourcePaths.map(sourcePath => {
     return 'test_' + sourcePath.replace(/\//g, 'zS').replace(/\./g, 'zD');
   });
-  //stream.write(`#include "${headerPath}"\n`);
+  stream.write(`#include "${headerPath}"\n`);
   stream.write(`\n`);
   entryPointNames.forEach(name => {
-    stream.write(`void ${name}();\n`);
+    stream.write(`void ${name}(int&);\n`);
   });
   stream.write(`\n`);
   stream.write(`int main() {\n`);
+  stream.write(`  int index = 0;\n`);
+  stream.write(`  testing::write_header();\n`);
   entryPointNames.forEach(name => {
-    stream.write(`  ${name}();\n`);
+    stream.write(`  ${name}(index);\n`);
   });
+  stream.write(`  testing::write_plan(index);\n`);
   stream.write('}\n');
 }
 

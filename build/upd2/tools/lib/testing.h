@@ -18,7 +18,8 @@ enum class test_case_result { ok, not_ok };
 void write_case_baseline(test_case_result result, int index, const std::string& desc);
 
 template <typename TCase>
-void run_case(TCase test_case, int index, const std::string& desc) {
+void run_case(TCase test_case, int& index, const std::string& desc) {
+  ++index;
   try {
     test_case();
   } catch (expectation_failed_error ex) {
@@ -34,6 +35,7 @@ void run_case(TCase test_case, int index, const std::string& desc) {
   write_case_baseline(test_case_result::ok, index, desc);
 }
 
-void write_header(size_t test_case_count);
+void write_header();
+void write_plan(int last_index);
 
 }

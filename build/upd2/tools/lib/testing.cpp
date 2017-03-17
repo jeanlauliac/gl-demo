@@ -13,9 +13,12 @@ void write_case_baseline(test_case_result result, int index, const std::string& 
   std::cout << result_str << ' ' << index << " - " << desc << std::endl;
 }
 
-void write_header(size_t test_case_count) {
+void write_header() {
   std::cout << "TAP version 13" << std::endl;
-  std::cout << "1.." << test_case_count << std::endl;
+}
+
+void write_plan(int last_index) {
+  std::cout << "1.." << last_index << std::endl;
 }
 
 }

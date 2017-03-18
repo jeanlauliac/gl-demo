@@ -231,9 +231,8 @@ void compile_itself(const std::string& root_path) {
   update_log::rewrite_file(log_file_path, temp_log_file_path, log_cache.records());
 }
 
-int run(int argc, char *argv[]) {
+int run_with_options(const cli::options& cli_opts) {
   try {
-    auto cli_opts = cli::parse_options(argc, argv);
     if (cli_opts.version) {
       std::cout << "upd v0.1" << std::endl;
       return 0;
@@ -254,18 +253,26 @@ int run(int argc, char *argv[]) {
     }
     compile_itself(root_path);
     return 0;
+  } catch (io::cannot_find_updfile_error) {
+    cli::fatal_error(std::cerr, cli_opts.color) << "cannot find Updfile in the current directory or in any of the parent directories" << std::endl;
+    return 2;
+  } catch (io::ifstream_failed_error error) {
+    cli::fatal_error(std::cerr, cli_opts.color) << "failed to read file `" << error.file_path << "`" << std::endl;
+    return 2;
+  } catch (update_log::corruption_error) {
+    cli::fatal_error(std::cerr, cli_opts.color) << "update log is corrupted; delete or revert the `.upd/log` file" << std::endl;
+    return 2;
+  }
+}
+
+int run(int argc, char *argv[]) {
+  try {
+    auto cli_opts = cli::parse_options(argc, argv);
+    run_with_options(cli_opts);
+    return 0;
   } catch (cli::option_parse_error error) {
     std::cerr << "upd: fatal: invalid argument: `" << error.arg << "`" << std::endl;
     return 1;
-  } catch (io::cannot_find_updfile_error) {
-    std::cerr << "upd: fatal: cannot find Updfile in the current directory or in any of the parent directories" << std::endl;
-    return 2;
-  } catch (io::ifstream_failed_error error) {
-    std::cerr << "upd: fatal: failed to read file `" << error.file_path << "`" << std::endl;
-    return 2;
-  } catch (update_log::corruption_error) {
-    std::cerr << "upd: fatal: update log is corrupted; delete or revert the `.upd/log` file" << std::endl;
-    return 2;
   }
 }
 

@@ -15,6 +15,8 @@ options parse_options(int argc, const char* const argv[]) {
       result.help = true;
     } else if (arg == "--dev") {
       result.dev = true;
+    } else if (arg == "--color") {
+      result.color = true;
     } else {
       throw option_parse_error(arg);
     }
@@ -29,6 +31,7 @@ void print_help() {
     << "  --version     Print semantic version and exit" << std::endl
     << "  --help        Print usage help and exit" << std::endl
     << "  --root        Print the root directory path and exit" << std::endl
+    << "  --color       Use ANSI color escape codes to color output" << std::endl
     ;
 }
 

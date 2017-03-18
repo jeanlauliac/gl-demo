@@ -47,3 +47,12 @@ private:
   std::vector<std::string> expected = { "spaces target.cpp" };
   @expect(result->dependency_paths == expected);
 }
+
+@case "parse() supports UTF-8" {
+  string_char_reader reader("汉语.o: 汉语.cpp\n");
+  auto result = upd::depfile::parse(reader);
+  @expect(!!result);
+  @expect(result->target_path == "汉语.o");
+  std::vector<std::string> expected = { "汉语.cpp" };
+  @expect(result->dependency_paths == expected);
+}

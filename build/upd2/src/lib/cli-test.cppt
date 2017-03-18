@@ -3,7 +3,7 @@
 @case "parse_options() parses help" {
   const char* argv[] = { "upd", "--help" };
   auto opts = upd::cli::parse_options(2, argv);
-  @expect(opts.help == true);
+  @expect(opts.action == upd::cli::action::help);
 }
 
 @case "parse_options() throws on invalid options" {
@@ -11,7 +11,7 @@
   try {
     upd::cli::parse_options(2, argv);
     @expect(false);
-  } catch (upd::cli::option_parse_error error) {
+  } catch (upd::cli::unexpected_argument_error error) {
     @expect(error.arg == "--foobar");
   }
 }

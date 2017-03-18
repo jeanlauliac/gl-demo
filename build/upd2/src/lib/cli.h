@@ -5,18 +5,31 @@
 namespace upd {
 namespace cli {
 
-struct options {
-  options(): color(false), dev(false), help(false),
-    root(false), version(false) {};
-  bool color;
-  bool dev;
-  bool help;
-  bool root;
-  bool version;
+/**
+ * The basic action that the program should do.
+ */
+enum class action {
+  help,
+  root,
+  update,
+  version,
 };
 
-struct option_parse_error {
-  option_parse_error(const std::string& arg): arg(arg) {}
+struct options {
+  options(): color(false), action(action::update) {};
+  bool color;
+  action action;
+};
+
+struct incompatible_options_error {
+  incompatible_options_error(const std::string& first_option, const std::string& last_option):
+    first_option(first_option), last_option(last_option) {}
+  std::string first_option;
+  std::string last_option;
+};
+
+struct unexpected_argument_error {
+  unexpected_argument_error(const std::string& arg): arg(arg) {}
   std::string arg;
 };
 

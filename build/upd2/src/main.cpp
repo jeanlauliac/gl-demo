@@ -233,22 +233,17 @@ void compile_itself(const std::string& root_path) {
 
 int run_with_options(const cli::options& cli_opts) {
   try {
-    if (cli_opts.version) {
+    if (cli_opts.action == cli::action::version) {
       std::cout << "upd v0.1" << std::endl;
       return 0;
     }
-    if (cli_opts.help) {
+    if (cli_opts.action == cli::action::help) {
       cli::print_help();
       return 0;
     }
     auto root_path = io::find_root_path();
-    if (cli_opts.root) {
+    if (cli_opts.action == cli::action::root) {
       std::cout << root_path << std::endl;
-      return 0;
-    }
-    if (cli_opts.dev) {
-      // auto manifest = read_manifest<128>(root_path);
-      // std::cout << inspect(manifest) << std::endl;
       return 0;
     }
     compile_itself(root_path);
@@ -268,10 +263,13 @@ int run_with_options(const cli::options& cli_opts) {
 int run(int argc, char *argv[]) {
   try {
     auto cli_opts = cli::parse_options(argc, argv);
-    run_with_options(cli_opts);
-    return 0;
-  } catch (cli::option_parse_error error) {
+    return run_with_options(cli_opts);
+  } catch (cli::unexpected_argument_error error) {
     std::cerr << "upd: fatal: invalid argument: `" << error.arg << "`" << std::endl;
+    return 1;
+  } catch (cli::incompatible_options_error error) {
+    std::cerr << "upd: fatal: options `" << error.first_option
+      << "` and `" << error.last_option << "` are in conflict" << std::endl;
     return 1;
   }
 }

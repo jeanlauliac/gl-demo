@@ -1,4 +1,5 @@
 #include "lib/cli.h"
+#include "lib/command_line_template.h"
 #include "lib/depfile.h"
 #include "lib/inspect.h"
 #include "lib/io.h"
@@ -43,81 +44,6 @@ ostream_t& stream_join(
 
 enum class src_file_type { cpp, c, cpp_test };
 
-enum class command_line_template_variable {
-  input_files,
-  output_files,
-  dependency_file
-};
-
-struct command_line_template_part {
-  command_line_template_part(
-    std::vector<std::string> literal_args_,
-    std::vector<command_line_template_variable> variable_args_
-  ): literal_args(literal_args_), variable_args(variable_args_) {}
-
-  std::vector<std::string> literal_args;
-  std::vector<command_line_template_variable> variable_args;
-};
-
-struct command_line_template {
-  std::string binary_path;
-  std::vector<command_line_template_part> parts;
-};
-
-struct reified_command_line {
-  std::string binary_path;
-  std::vector<std::string> args;
-};
-
-struct command_line_parameters {
-  std::string dependency_file;
-  std::vector<std::string> input_files;
-  std::vector<std::string> output_files;
-};
-
-void reify_command_line_arg(
-  std::vector<std::string>& args,
-  const command_line_template_variable& variable_arg,
-  const command_line_parameters& parameters
-) {
-  switch (variable_arg) {
-    case command_line_template_variable::input_files:
-      args.insert(
-        args.cend(),
-        parameters.input_files.cbegin(),
-        parameters.input_files.cend()
-      );
-      break;
-    case command_line_template_variable::output_files:
-      args.insert(
-        args.cend(),
-        parameters.output_files.cbegin(),
-        parameters.output_files.cend()
-      );
-      break;
-    case command_line_template_variable::dependency_file:
-      args.push_back(parameters.dependency_file);
-      break;
-  }
-}
-
-reified_command_line reify_command_line(
-  const command_line_template& base,
-  const command_line_parameters& parameters
-) {
-  reified_command_line result;
-  result.binary_path = base.binary_path;
-  for (auto const& part: base.parts) {
-    for (auto const& literal_arg: part.literal_args) {
-      result.args.push_back(literal_arg);
-    }
-    for (auto const& variable_arg: part.variable_args) {
-      reify_command_line_arg(result.args, variable_arg, parameters);
-    }
-  }
-  return result;
-}
-
 command_line_template get_compile_command_line(src_file_type type) {
   return {
     .binary_path = "clang++",
@@ -144,7 +70,7 @@ command_line_template get_compile_command_line(src_file_type type) {
   };
 }
 
-XXH64_hash_t hash_command_line(const reified_command_line& command_line) {
+XXH64_hash_t hash_command_line(const command_line& command_line) {
   xxhash64_stream cli_hash(0);
   cli_hash << upd::hash(command_line.binary_path);
   cli_hash << upd::hash(command_line.args);
@@ -168,7 +94,7 @@ XXH64_hash_t get_target_imprint(
   const std::string& root_path,
   const std::vector<std::string>& local_src_paths,
   std::vector<std::string> dependency_local_paths,
-  const reified_command_line& command_line
+  const command_line& command_line
 ) {
   xxhash64_stream imprint_s(0);
   imprint_s << hash_command_line(command_line);
@@ -183,7 +109,7 @@ bool is_file_up_to_date(
   const std::string& root_path,
   const std::string& local_target_path,
   const std::vector<std::string>& local_src_paths,
-  const reified_command_line& command_line
+  const command_line& command_line
 ) {
   auto entry = log_cache.find(local_target_path);
   if (entry == log_cache.end()) {
@@ -204,7 +130,7 @@ bool is_file_up_to_date(
   return new_hash == record.hash;
 }
 
-void run_command_line(const std::string& root_path, reified_command_line target) {
+void run_command_line(const std::string& root_path, command_line target) {
   pid_t child_pid = fork();
   if (child_pid == 0) {
     std::vector<char*> argv;

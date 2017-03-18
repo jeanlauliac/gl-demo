@@ -43,25 +43,25 @@ ostream_t& stream_join(
 
 enum class src_file_type { cpp, c, cpp_test };
 
-enum class parametric_command_line_variable {
+enum class command_line_template_variable {
   input_files,
   output_files,
   dependency_file
 };
 
-struct parametric_command_line_part {
-  parametric_command_line_part(
+struct command_line_template_part {
+  command_line_template_part(
     std::vector<std::string> literal_args_,
-    std::vector<parametric_command_line_variable> variable_args_
+    std::vector<command_line_template_variable> variable_args_
   ): literal_args(literal_args_), variable_args(variable_args_) {}
 
   std::vector<std::string> literal_args;
-  std::vector<parametric_command_line_variable> variable_args;
+  std::vector<command_line_template_variable> variable_args;
 };
 
-struct parametric_command_line {
+struct command_line_template {
   std::string binary_path;
-  std::vector<parametric_command_line_part> parts;
+  std::vector<command_line_template_part> parts;
 };
 
 struct reified_command_line {
@@ -77,32 +77,32 @@ struct command_line_parameters {
 
 void reify_command_line_arg(
   std::vector<std::string>& args,
-  const parametric_command_line_variable& variable_arg,
+  const command_line_template_variable& variable_arg,
   const command_line_parameters& parameters
 ) {
   switch (variable_arg) {
-    case parametric_command_line_variable::input_files:
+    case command_line_template_variable::input_files:
       args.insert(
         args.cend(),
         parameters.input_files.cbegin(),
         parameters.input_files.cend()
       );
       break;
-    case parametric_command_line_variable::output_files:
+    case command_line_template_variable::output_files:
       args.insert(
         args.cend(),
         parameters.output_files.cbegin(),
         parameters.output_files.cend()
       );
       break;
-    case parametric_command_line_variable::dependency_file:
+    case command_line_template_variable::dependency_file:
       args.push_back(parameters.dependency_file);
       break;
   }
 }
 
 reified_command_line reify_command_line(
-  const parametric_command_line& base,
+  const command_line_template& base,
   const command_line_parameters& parameters
 ) {
   reified_command_line result;
@@ -118,27 +118,27 @@ reified_command_line reify_command_line(
   return result;
 }
 
-parametric_command_line get_compile_command_line(src_file_type type) {
+command_line_template get_compile_command_line(src_file_type type) {
   return {
     .binary_path = "clang++",
     .parts = {
-      parametric_command_line_part(
+      command_line_template_part(
         { "-c", "-o" },
-        { parametric_command_line_variable::output_files }
+        { command_line_template_variable::output_files }
       ),
-      parametric_command_line_part(
+      command_line_template_part(
         type == src_file_type::cpp
           ? std::vector<std::string>({ "-std=c++14" })
           : std::vector<std::string>({ "-x", "c" }),
         {}
       ),
-      parametric_command_line_part(
+      command_line_template_part(
         { "-Wall", "-fcolor-diagnostics", "-MMD", "-MF" },
-        { parametric_command_line_variable::dependency_file }
+        { command_line_template_variable::dependency_file }
       ),
-      parametric_command_line_part(
+      command_line_template_part(
         { "-I", "/usr/local/include" },
-        { parametric_command_line_variable::input_files }
+        { command_line_template_variable::input_files }
       )
     }
   };
@@ -240,7 +240,7 @@ void update_file(
   update_log::cache& log_cache,
   file_hash_cache& hash_cache,
   const std::string& root_path,
-  const parametric_command_line& param_cli,
+  const command_line_template& param_cli,
   const std::vector<std::string>& local_src_paths,
   const std::string& local_target_path,
   const std::string& local_depfile_path
@@ -358,43 +358,43 @@ private:
   std::queue<std::string> pending_src_path_folders_;
 };
 
-parametric_command_line get_cppt_command_line(const std::string& root_path) {
+command_line_template get_cppt_command_line(const std::string& root_path) {
   return {
     .binary_path = root_path + "/tools/compile_test.js",
     .parts = {
-      parametric_command_line_part({}, {
-        parametric_command_line_variable::input_files,
-        parametric_command_line_variable::output_files,
-        parametric_command_line_variable::dependency_file
+      command_line_template_part({}, {
+        command_line_template_variable::input_files,
+        command_line_template_variable::output_files,
+        command_line_template_variable::dependency_file
       })
     }
   };
 }
 
-parametric_command_line get_index_tests_command_line() {
+command_line_template get_index_tests_command_line() {
   return {
     .binary_path = "tools/index_tests.js",
     .parts = {
-      parametric_command_line_part({}, {
-        parametric_command_line_variable::output_files,
-        parametric_command_line_variable::dependency_file,
-        parametric_command_line_variable::input_files
+      command_line_template_part({}, {
+        command_line_template_variable::output_files,
+        command_line_template_variable::dependency_file,
+        command_line_template_variable::input_files
       })
     }
   };
 }
 
-parametric_command_line get_link_command_line() {
+command_line_template get_link_command_line() {
   return {
     .binary_path = "clang++",
     .parts = {
-      parametric_command_line_part(
+      command_line_template_part(
         { "-o" },
-        { parametric_command_line_variable::output_files }
+        { command_line_template_variable::output_files }
       ),
-      parametric_command_line_part(
+      command_line_template_part(
         { "-Wall", "-fcolor-diagnostics", "-std=c++14", "-L", "/usr/local/lib" },
-        { parametric_command_line_variable::input_files }
+        { command_line_template_variable::input_files }
       )
     }
   };

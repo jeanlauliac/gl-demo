@@ -9,6 +9,7 @@ namespace cli {
  * The basic action that the program should do.
  */
 enum class action {
+  dot_graph,
   help,
   root,
   update,

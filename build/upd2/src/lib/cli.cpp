@@ -27,6 +27,8 @@ options parse_options(int argc, const char* const argv[]) {
       setup_action(result, action_arg, arg, action::version);
     } else if (arg == "--help") {
       setup_action(result, action_arg, arg, action::help);
+    } else if (arg == "--dot-graph") {
+      setup_action(result, action_arg, arg, action::dot_graph);
     } else if (arg == "--color-diagnostics") {
       result.color_diagnostics = true;
     } else {
@@ -40,9 +42,10 @@ void print_help() {
   std::cout << R"HELP(usage: upd [options] [targets]
 
 Operations
-  --help                  Output usage help and exit
-  --root                  Output the root directory path and exit
-  --version               Output the semantic version numbers and exit
+  --help                  Output usage help
+  --root                  Output the root directory path
+  --version               Output the semantic version numbers
+  --dot-graph             Output a DOT-formatted graph of the output files
 
 General options
   --color-diagnostics     Use ANSI color escape codes to stderr

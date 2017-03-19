@@ -131,7 +131,7 @@ private:
 
 command_line_template get_cppt_command_line(const std::string& root_path) {
   return {
-    .binary_path = root_path + "/tools/compile_test.js",
+    .binary_path = "tools/compile_test.js",
     .parts = {
       command_line_template_part({}, {
         command_line_template_variable::input_files,
@@ -171,7 +171,64 @@ command_line_template get_link_command_line() {
   };
 }
 
-void compile_itself(const std::string& root_path) {
+struct output_file {
+  command_line_template command_line;
+  std::vector<std::string> local_input_file_paths;
+};
+
+void update_file_recursively(
+  update_log::cache& log_cache,
+  file_hash_cache& hash_cache,
+  const std::string& root_path,
+  const std::unordered_map<std::string, output_file>& output_files_by_path,
+  const std::string& local_target_path,
+  const std::string& local_depfile_path
+) {
+  auto search = output_files_by_path.find(local_target_path);
+  if (search == output_files_by_path.end()) {
+    return;
+  }
+  for (auto const& local_input_path: search->second.local_input_file_paths) {
+    update_file_recursively(
+      log_cache,
+      hash_cache,
+      root_path,
+      output_files_by_path,
+      local_input_path,
+      local_depfile_path
+    );
+  }
+  update_file(
+    log_cache,
+    hash_cache,
+    root_path,
+    search->second.command_line,
+    search->second.local_input_file_paths,
+    local_target_path,
+    local_depfile_path
+  );
+}
+
+template <typename OStream>
+void output_dot_graph(
+  OStream& os,
+  const std::unordered_map<std::string, output_file>& output_files_by_path
+) {
+  os << "# generated with `upd --dot-graph`" << std::endl
+    << "digraph upd {" << std::endl
+    << "  rankdir=\"LR\";" << std::endl;
+  for (auto const& entry: output_files_by_path) {
+    //os << entry.first << ": (" << entry.second.command_line.binary_path << ") ";
+    for (auto const& input_path: entry.second.local_input_file_paths) {
+      os << "  \"" << input_path << "\" -> \""
+        << entry.first << "\" [label=\""
+        << entry.second.command_line.binary_path << "\"];" << std::endl;
+    }
+  }
+  os << "}" << std::endl;
+}
+
+void compile_itself(const std::string& root_path, bool print_graph) {
   std::string log_file_path = root_path + "/" + CACHE_FOLDER + "/log";
   std::string temp_log_file_path = root_path + "/" + CACHE_FOLDER + "/log_rewritten";
   update_log::cache log_cache = update_log::cache::from_log_file(log_file_path);
@@ -181,54 +238,88 @@ void compile_itself(const std::string& root_path) {
   if (mkfifo(depfile_path.c_str(), 0644) != 0 && errno != EEXIST) {
     throw std::runtime_error("cannot make depfile FIFO");
   }
+  std::unordered_map<std::string, output_file> output_files_by_path;
   src_files_finder src_files(root_path);
   std::vector<std::string> local_obj_file_paths;
   std::vector<std::string> local_test_cpp_file_basenames;
   std::vector<std::string> local_test_cppt_file_paths;
   src_file target_file;
+  auto cppt_cli = get_cppt_command_line(root_path);
   while (src_files.next(target_file)) {
     if (target_file.type == src_file_type::cpp_test) {
       auto local_cpp_path = "dist/" + target_file.basename + ".cpp";
-      auto pcli = get_cppt_command_line(root_path);
-      update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_cpp_path, local_depfile_path);
+      output_files_by_path[local_cpp_path] = {
+        .command_line = cppt_cli,
+        .local_input_file_paths = { target_file.local_path }
+      };
       local_test_cpp_file_basenames.push_back(target_file.basename);
       local_test_cppt_file_paths.push_back(target_file.local_path);
     } else {
       auto local_obj_path = "dist/" + target_file.basename + ".o";
       auto pcli = get_compile_command_line(target_file.type);
-      update_file(log_cache, hash_cache, root_path, pcli, { target_file.local_path }, local_obj_path, local_depfile_path);
+      output_files_by_path[local_obj_path] = {
+        .command_line = pcli,
+        .local_input_file_paths = { target_file.local_path }
+      };
       local_obj_file_paths.push_back(local_obj_path);
     }
   }
 
   auto pcli = get_index_tests_command_line();
-  update_file(log_cache, hash_cache, root_path, pcli, local_test_cppt_file_paths, "dist/tests.cpp", local_depfile_path);
+  output_files_by_path["dist/tests.cpp"] = {
+    .command_line = pcli,
+    .local_input_file_paths = { local_test_cppt_file_paths }
+  };
   local_test_cpp_file_basenames.push_back("tests");
 
   auto cpp_pcli = get_compile_command_line(src_file_type::cpp);
-  update_file(log_cache, hash_cache, root_path, cpp_pcli, { "src/main.cpp" }, "dist/src/main.o", local_depfile_path);
   auto local_upd_object_file_paths = local_obj_file_paths;
+  output_files_by_path["dist/src/main.o"] = {
+    .command_line = cpp_pcli,
+    .local_input_file_paths = { "src/main.cpp" }
+  };
   local_upd_object_file_paths.push_back("dist/src/main.o");
 
   auto local_test_object_file_paths = local_obj_file_paths;
-  update_file(log_cache, hash_cache, root_path, cpp_pcli, { "tools/lib/testing.cpp" }, "dist/tools/lib/testing.o", local_depfile_path);
+  output_files_by_path["dist/tools/lib/testing.o"] = {
+    .command_line = cpp_pcli,
+    .local_input_file_paths = { "tools/lib/testing.cpp" }
+  };
   local_test_object_file_paths.push_back("dist/tools/lib/testing.o");
 
   for (auto const& basename: local_test_cpp_file_basenames) {
     auto local_path = "dist/" + basename + ".cpp";
     auto local_obj_path = "dist/" + basename + ".o";
     auto pcli = get_compile_command_line(src_file_type::cpp);
-    update_file(log_cache, hash_cache, root_path, pcli, { local_path }, local_obj_path, local_depfile_path);
+    output_files_by_path[local_obj_path] = {
+      .command_line = cpp_pcli,
+      .local_input_file_paths = { local_path }
+    };
     local_test_object_file_paths.push_back(local_obj_path);
   }
 
   pcli = get_link_command_line();
-  update_file(log_cache, hash_cache, root_path, pcli, local_upd_object_file_paths, "dist/upd", local_depfile_path);
-  update_file(log_cache, hash_cache, root_path, pcli, local_test_object_file_paths, "dist/tests", local_depfile_path);
+  output_files_by_path["dist/upd"] = {
+    .command_line = pcli,
+    .local_input_file_paths = { local_upd_object_file_paths }
+  };
+  output_files_by_path["dist/tests"] = {
+    .command_line = pcli,
+    .local_input_file_paths = { local_test_object_file_paths }
+  };
+
+  if (print_graph) {
+    output_dot_graph(std::cout, output_files_by_path);
+    return;
+  }
+
+  update_file_recursively(log_cache, hash_cache, root_path, output_files_by_path, "dist/upd", local_depfile_path);
+  update_file_recursively(log_cache, hash_cache, root_path, output_files_by_path, "dist/tests", local_depfile_path);
 
   std::cout << "done" << std::endl;
   log_cache.close();
   update_log::rewrite_file(log_file_path, temp_log_file_path, log_cache.records());
+
 }
 
 int run_with_options(const cli::options& cli_opts) {
@@ -246,7 +337,7 @@ int run_with_options(const cli::options& cli_opts) {
       std::cout << root_path << std::endl;
       return 0;
     }
-    compile_itself(root_path);
+    compile_itself(root_path, cli_opts.action == cli::action::dot_graph);
     return 0;
   } catch (io::cannot_find_updfile_error) {
     cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "cannot find Updfile in the current directory or in any of the parent directories" << std::endl;

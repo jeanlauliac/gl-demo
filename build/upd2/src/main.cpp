@@ -249,13 +249,13 @@ int run_with_options(const cli::options& cli_opts) {
     compile_itself(root_path);
     return 0;
   } catch (io::cannot_find_updfile_error) {
-    cli::fatal_error(std::cerr, cli_opts.color) << "cannot find Updfile in the current directory or in any of the parent directories" << std::endl;
+    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "cannot find Updfile in the current directory or in any of the parent directories" << std::endl;
     return 2;
   } catch (io::ifstream_failed_error error) {
-    cli::fatal_error(std::cerr, cli_opts.color) << "failed to read file `" << error.file_path << "`" << std::endl;
+    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "failed to read file `" << error.file_path << "`" << std::endl;
     return 2;
   } catch (update_log::corruption_error) {
-    cli::fatal_error(std::cerr, cli_opts.color) << "update log is corrupted; delete or revert the `.upd/log` file" << std::endl;
+    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "update log is corrupted; delete or revert the `.upd/log` file" << std::endl;
     return 2;
   }
 }

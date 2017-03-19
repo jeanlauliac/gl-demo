@@ -27,8 +27,8 @@ options parse_options(int argc, const char* const argv[]) {
       setup_action(result, action_arg, arg, action::version);
     } else if (arg == "--help") {
       setup_action(result, action_arg, arg, action::help);
-    } else if (arg == "--color") {
-      result.color = true;
+    } else if (arg == "--color-diagnostics") {
+      result.color_diagnostics = true;
     } else {
       throw unexpected_argument_error(arg);
     }
@@ -39,11 +39,13 @@ options parse_options(int argc, const char* const argv[]) {
 void print_help() {
   std::cout << R"HELP(usage: upd [options] [targets]
 
+Operations
+  --help                  Output usage help and exit
+  --root                  Output the root directory path and exit
+  --version               Output the semantic version numbers and exit
+
 General options
-  --color       Use ANSI color escape codes to color output
-  --help        Print usage help and exit
-  --root        Print the root directory path and exit
-  --version     Print semantic version and exit
+  --color-diagnostics     Use ANSI color escape codes to stderr
 )HELP";
 }
 

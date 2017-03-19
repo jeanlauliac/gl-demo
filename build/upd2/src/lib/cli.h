@@ -16,8 +16,8 @@ enum class action {
 };
 
 struct options {
-  options(): color(false), action(action::update) {};
-  bool color;
+  options(): color_diagnostics(false), action(action::update) {};
+  bool color_diagnostics;
   action action;
 };
 

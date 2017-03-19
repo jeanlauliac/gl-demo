@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <vector>
 
 namespace upd {
 namespace cli {
@@ -20,6 +21,7 @@ struct options {
   options(): color_diagnostics(false), action(action::update) {};
   bool color_diagnostics;
   action action;
+  std::vector<std::string> relative_target_paths;
 };
 
 struct incompatible_options_error {

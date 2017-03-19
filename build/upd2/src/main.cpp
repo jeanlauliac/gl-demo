@@ -228,7 +228,11 @@ void output_dot_graph(
   os << "}" << std::endl;
 }
 
-void compile_itself(const std::string& root_path, bool print_graph) {
+void compile_itself(
+  const std::string& root_path,
+  bool print_graph,
+  const std::vector<std::string>& relative_target_paths
+) {
   std::string log_file_path = root_path + "/" + CACHE_FOLDER + "/log";
   std::string temp_log_file_path = root_path + "/" + CACHE_FOLDER + "/log_rewritten";
   update_log::cache log_cache = update_log::cache::from_log_file(log_file_path);
@@ -337,7 +341,7 @@ int run_with_options(const cli::options& cli_opts) {
       std::cout << root_path << std::endl;
       return 0;
     }
-    compile_itself(root_path, cli_opts.action == cli::action::dot_graph);
+    compile_itself(root_path, cli_opts.action == cli::action::dot_graph, cli_opts.relative_target_paths);
     return 0;
   } catch (io::cannot_find_updfile_error) {
     cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "cannot find Updfile in the current directory or in any of the parent directories" << std::endl;

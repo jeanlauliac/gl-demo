@@ -51,7 +51,7 @@ std::string get_local_path(
   if (absolute_path.compare(0, root_path.size(), root_path) != 0) {
     throw relative_path_out_of_root_error(relative_path);
   }
-  return absolute_path.substr(root_path.size());
+  return absolute_path.substr(root_path.size() + 1);
 }
 
 std::vector<std::string> get_local_paths(

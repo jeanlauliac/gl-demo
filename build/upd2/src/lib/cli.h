@@ -41,6 +41,9 @@ void print_help();
 
 template <typename OStream>
 OStream& ansi_sgr(OStream& os, int sgr_code, bool use_color) {
+  if (!use_color) {
+    return os;
+  }
   return os << "\033[" << sgr_code << "m";
 }
 

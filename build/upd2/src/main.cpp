@@ -5,6 +5,7 @@
 #include "lib/io.h"
 #include "lib/json/Lexer.h"
 #include "lib/manifest.h"
+#include "lib/path.h"
 #include "lib/update.h"
 #include "lib/update_log.h"
 #include "lib/xxhash64.h"
@@ -176,25 +177,31 @@ struct output_file {
   std::vector<std::string> local_input_file_paths;
 };
 
+struct unknown_target_error {
+  unknown_target_error(const std::string& relative_path):
+    relative_path(relative_path) {}
+  std::string relative_path;
+};
+
 void update_file_recursively(
   update_log::cache& log_cache,
   file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::unordered_map<std::string, output_file>& output_files_by_path,
-  const std::string& local_target_path,
+  const std::pair<std::string, output_file>& target_descriptor,
   const std::string& local_depfile_path
 ) {
-  auto search = output_files_by_path.find(local_target_path);
-  if (search == output_files_by_path.end()) {
-    return;
-  }
-  for (auto const& local_input_path: search->second.local_input_file_paths) {
+  for (auto const& local_input_path: target_descriptor.second.local_input_file_paths) {
+    auto search = output_files_by_path.find(local_input_path);
+    if (search == output_files_by_path.end()) {
+      continue;
+    }
     update_file_recursively(
       log_cache,
       hash_cache,
       root_path,
       output_files_by_path,
-      local_input_path,
+      *search,
       local_depfile_path
     );
   }
@@ -202,9 +209,9 @@ void update_file_recursively(
     log_cache,
     hash_cache,
     root_path,
-    search->second.command_line,
-    search->second.local_input_file_paths,
-    local_target_path,
+    target_descriptor.second.command_line,
+    target_descriptor.second.local_input_file_paths,
+    target_descriptor.first,
     local_depfile_path
   );
 }
@@ -230,6 +237,7 @@ void output_dot_graph(
 
 void compile_itself(
   const std::string& root_path,
+  const std::string& working_path,
   bool print_graph,
   const std::vector<std::string>& relative_target_paths
 ) {
@@ -317,8 +325,17 @@ void compile_itself(
     return;
   }
 
-  update_file_recursively(log_cache, hash_cache, root_path, output_files_by_path, "dist/upd", local_depfile_path);
-  update_file_recursively(log_cache, hash_cache, root_path, output_files_by_path, "dist/tests", local_depfile_path);
+  std::vector<std::string> local_target_paths;
+  for (auto const& relative_path: relative_target_paths) {
+    auto local_target_path = upd::get_local_path(root_path, relative_path, working_path);
+    auto target_desc = output_files_by_path.find(local_target_path);
+    if (target_desc == output_files_by_path.end()) {
+      throw unknown_target_error(relative_path);
+    }
+    update_file_recursively(log_cache, hash_cache, root_path, output_files_by_path, *target_desc, local_depfile_path);
+  }
+
+//  update_file_recursively(log_cache, hash_cache, root_path, output_files_by_path, "dist/tests", local_depfile_path);
 
   std::cout << "done" << std::endl;
   log_cache.close();
@@ -328,6 +345,10 @@ void compile_itself(
 
 int run_with_options(const cli::options& cli_opts) {
   try {
+    if (cli_opts.action != cli::action::update && !cli_opts.relative_target_paths.empty()) {
+      cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "this operation doesn't accept target arguments" << std::endl;
+      return 2;
+    }
     if (cli_opts.action == cli::action::version) {
       std::cout << "upd v0.1" << std::endl;
       return 0;
@@ -336,12 +357,13 @@ int run_with_options(const cli::options& cli_opts) {
       cli::print_help();
       return 0;
     }
-    auto root_path = io::find_root_path();
+    auto working_path = io::getcwd_string();
+    auto root_path = io::find_root_path(working_path);
     if (cli_opts.action == cli::action::root) {
       std::cout << root_path << std::endl;
       return 0;
     }
-    compile_itself(root_path, cli_opts.action == cli::action::dot_graph, cli_opts.relative_target_paths);
+    compile_itself(root_path, working_path, cli_opts.action == cli::action::dot_graph, cli_opts.relative_target_paths);
     return 0;
   } catch (io::cannot_find_updfile_error) {
     cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "cannot find Updfile in the current directory or in any of the parent directories" << std::endl;
@@ -351,6 +373,12 @@ int run_with_options(const cli::options& cli_opts) {
     return 2;
   } catch (update_log::corruption_error) {
     cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "update log is corrupted; delete or revert the `.upd/log` file" << std::endl;
+    return 2;
+  } catch (unknown_target_error error) {
+    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "unknown output file: " << error.relative_path << std::endl;
+    return 2;
+  } catch (relative_path_out_of_root_error error) {
+    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "encountered a path out of the project root: " << error.relative_path << std::endl;
     return 2;
   }
 }

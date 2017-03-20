@@ -54,16 +54,4 @@ std::string get_local_path(
   return absolute_path.substr(root_path.size() + 1);
 }
 
-std::vector<std::string> get_local_paths(
-  const std::string& root_path,
-  const std::vector<std::string>& relative_paths,
-  const std::string& working_path
-) {
-  std::vector<std::string> result;
-  for (auto const& path: relative_paths) {
-    result.push_back(get_local_path(root_path, path, working_path));
-  }
-  return result;
-}
-
 }

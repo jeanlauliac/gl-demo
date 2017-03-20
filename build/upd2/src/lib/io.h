@@ -27,7 +27,7 @@ struct cannot_find_updfile_error {};
  * the base for what we call "local paths". All these local paths are
  * canonicalized in terms of the root path.
  */
-std::string find_root_path();
+std::string find_root_path(std::string origin_path);
 
 /**
  * Keep track and automatically delete a directory handle.

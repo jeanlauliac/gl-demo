@@ -39,8 +39,7 @@ static bool is_regular_file(const std::string& path) {
   return S_ISREG(data.st_mode) != 0;
 }
 
-std::string find_root_path() {
-  std::string path = getcwd_string();
+std::string find_root_path(std::string path) {
   bool found = is_regular_file(path + UPDFILE_SUFFIX);
   while (!found && path != "/") {
     path = dirname_string(path);

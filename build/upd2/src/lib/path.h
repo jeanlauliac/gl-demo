@@ -24,10 +24,4 @@ std::string get_local_path(
   const std::string& working_path
 );
 
-std::vector<std::string> get_local_paths(
-  const std::string& root_path,
-  const std::vector<std::string>& relative_paths,
-  const std::string& working_path
-);
-
 }

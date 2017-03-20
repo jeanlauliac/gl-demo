@@ -19,20 +19,31 @@ void setup_action(
 options parse_options(int argc, const char* const argv[]) {
   options result;
   std::string action_arg;
+  bool reading_options = true;
   for (++argv, --argc; argc > 0; ++argv, --argc) {
     const auto arg = std::string(*argv);
-    if (arg == "--root") {
-      setup_action(result, action_arg, arg, action::root);
-    } else if (arg == "--version") {
-      setup_action(result, action_arg, arg, action::version);
-    } else if (arg == "--help") {
-      setup_action(result, action_arg, arg, action::help);
-    } else if (arg == "--dot-graph") {
-      setup_action(result, action_arg, arg, action::dot_graph);
-    } else if (arg == "--color-diagnostics") {
-      result.color_diagnostics = true;
+    if (reading_options && arg.size() >= 1 && arg[0] == '-') {
+      if (arg.size() >= 2 && arg[1] == '-') {
+        if (arg == "--root") {
+          setup_action(result, action_arg, arg, action::root);
+        } else if (arg == "--version") {
+          setup_action(result, action_arg, arg, action::version);
+        } else if (arg == "--help") {
+          setup_action(result, action_arg, arg, action::help);
+        } else if (arg == "--dot-graph") {
+          setup_action(result, action_arg, arg, action::dot_graph);
+        } else if (arg == "--color-diagnostics") {
+          result.color_diagnostics = true;
+        } else if (arg == "--") {
+          reading_options = false;
+        } else {
+          throw unexpected_argument_error(arg);
+        }
+      } else {
+        throw unexpected_argument_error(arg);
+      }
     } else {
-      throw unexpected_argument_error(arg);
+      result.relative_target_paths.push_back(arg);
     }
   }
   return result;
@@ -49,6 +60,7 @@ Operations
 
 General options
   --color-diagnostics     Use ANSI color escape codes to stderr
+  --                      Make the remaining of arguments targets (no options)
 )HELP";
 }
 

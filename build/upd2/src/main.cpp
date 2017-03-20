@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <unordered_set>
 #include <vector>
 
 namespace upd {
@@ -183,37 +184,98 @@ struct unknown_target_error {
   std::string relative_path;
 };
 
-void update_file_recursively(
+/**
+ * At any point during the update, the plan describes the work left to do.
+ */
+struct update_plan {
+  /**
+   * The paths of all the output files that are ready to be updated immediately.
+   * These files' dependencies either have already been updated, or they are
+   * source files written manually.
+   */
+  std::queue<std::string> queued_output_file_paths;
+  /**
+   * All the files that remain to update.
+   */
+  std::unordered_set<std::string> pending_output_file_paths;
+  /**
+   * For each output file path, indicates how many input files still need to be
+   * updated before the output file can be updated.
+   */
+  std::unordered_map<std::string, int> pending_input_counts_by_path;
+  /**
+   * For each input file path, indicates what files could potentially be
+   * updated after the input file is updated.
+   */
+  std::unordered_map<std::string, std::vector<std::string>> descendants_by_path;
+};
+
+void build_update_plan(
+  update_plan& plan,
+  const std::unordered_map<std::string, output_file>& output_files_by_path,
+  const std::pair<std::string, output_file>& target_descriptor
+) {
+  auto local_target_path = target_descriptor.first;
+  auto pending = plan.pending_output_file_paths.find(local_target_path);
+  if (pending != plan.pending_output_file_paths.end()) {
+    return;
+  }
+  plan.pending_output_file_paths.insert(local_target_path);
+  int input_count = 0;
+  for (auto const& local_input_path: target_descriptor.second.local_input_file_paths) {
+    auto input_descriptor = output_files_by_path.find(local_input_path);
+    if (input_descriptor == output_files_by_path.end()) {
+      continue;
+    }
+    input_count++;
+    plan.descendants_by_path[local_input_path].push_back(local_target_path);
+    build_update_plan(plan, output_files_by_path, *input_descriptor);
+  }
+  if (input_count == 0) {
+    plan.queued_output_file_paths.push(local_target_path);
+  } else {
+    plan.pending_input_counts_by_path[local_target_path] = input_count;
+  }
+}
+
+void execute_update_plan(
   update_log::cache& log_cache,
   file_hash_cache& hash_cache,
   const std::string& root_path,
   const std::unordered_map<std::string, output_file>& output_files_by_path,
-  const std::pair<std::string, output_file>& target_descriptor,
+  update_plan& plan,
   const std::string& local_depfile_path
 ) {
-  for (auto const& local_input_path: target_descriptor.second.local_input_file_paths) {
-    auto search = output_files_by_path.find(local_input_path);
-    if (search == output_files_by_path.end()) {
-      continue;
-    }
-    update_file_recursively(
+  while (!plan.queued_output_file_paths.empty()) {
+    auto local_target_path = plan.queued_output_file_paths.front();
+    plan.queued_output_file_paths.pop();
+    auto target_descriptor = *output_files_by_path.find(local_target_path);
+    update_file(
       log_cache,
       hash_cache,
       root_path,
-      output_files_by_path,
-      *search,
+      target_descriptor.second.command_line,
+      target_descriptor.second.local_input_file_paths,
+      local_target_path,
       local_depfile_path
     );
+    plan.pending_output_file_paths.erase(local_target_path);
+    auto descendants_iter = plan.descendants_by_path.find(local_target_path);
+    if (descendants_iter == plan.descendants_by_path.end()) {
+      continue;
+    }
+    for (auto const& descendant_path: descendants_iter->second) {
+      auto count_iter = plan.pending_input_counts_by_path.find(descendant_path);
+      if (count_iter == plan.pending_input_counts_by_path.end()) {
+        throw std::runtime_error("update plan is corrupted");
+      }
+      int& input_count = count_iter->second;
+      --input_count;
+      if (input_count == 0) {
+        plan.queued_output_file_paths.push(descendant_path);
+      }
+    }
   }
-  update_file(
-    log_cache,
-    hash_cache,
-    root_path,
-    target_descriptor.second.command_line,
-    target_descriptor.second.local_input_file_paths,
-    target_descriptor.first,
-    local_depfile_path
-  );
 }
 
 template <typename OStream>
@@ -225,7 +287,6 @@ void output_dot_graph(
     << "digraph upd {" << std::endl
     << "  rankdir=\"LR\";" << std::endl;
   for (auto const& entry: output_files_by_path) {
-    //os << entry.first << ": (" << entry.second.command_line.binary_path << ") ";
     for (auto const& input_path: entry.second.local_input_file_paths) {
       os << "  \"" << input_path << "\" -> \""
         << entry.first << "\" [label=\""
@@ -325,6 +386,8 @@ void compile_itself(
     return;
   }
 
+  update_plan plan;
+
   std::vector<std::string> local_target_paths;
   for (auto const& relative_path: relative_target_paths) {
     auto local_target_path = upd::get_local_path(root_path, relative_path, working_path);
@@ -332,10 +395,10 @@ void compile_itself(
     if (target_desc == output_files_by_path.end()) {
       throw unknown_target_error(relative_path);
     }
-    update_file_recursively(log_cache, hash_cache, root_path, output_files_by_path, *target_desc, local_depfile_path);
+    build_update_plan(plan, output_files_by_path, *target_desc);
   }
 
-//  update_file_recursively(log_cache, hash_cache, root_path, output_files_by_path, "dist/tests", local_depfile_path);
+  execute_update_plan(log_cache, hash_cache, root_path, output_files_by_path, plan, local_depfile_path);
 
   std::cout << "done" << std::endl;
   log_cache.close();

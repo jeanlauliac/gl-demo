@@ -117,9 +117,9 @@ void update_file(
   std::cout << "updating: " << local_target_path << std::endl;
   auto depfile_path = root_path + '/' + local_depfile_path;
   auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
+  hash_cache.invalidate(root_path + '/' + local_target_path);
   std::ofstream depfile_writer(depfile_path);
   run_command_line(root_path, command_line);
-  hash_cache.invalidate(root_path + '/' + local_target_path);
   depfile_writer.close();
   std::unique_ptr<depfile::depfile_data> depfile_data = read_depfile_future.get();
   std::vector<std::string> dep_local_paths;

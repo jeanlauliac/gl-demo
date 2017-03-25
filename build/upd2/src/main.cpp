@@ -326,6 +326,7 @@ void compile_itself(
   const std::string& root_path,
   const std::string& working_path,
   bool print_graph,
+  bool update_all_files,
   const std::vector<std::string>& relative_target_paths
 ) {
   std::string log_file_path = root_path + "/" + CACHE_FOLDER + "/log";
@@ -419,6 +420,12 @@ void compile_itself(
     build_update_plan(plan, output_files_by_path, *target_desc);
   }
 
+  if (update_all_files) {
+    for (auto const& target_desc: output_files_by_path) {
+      build_update_plan(plan, output_files_by_path, target_desc);
+    }
+  }
+
   if (print_graph) {
     output_dot_graph(std::cout, output_files_by_path, plan);
     return;
@@ -434,11 +441,21 @@ void compile_itself(
 
 int run_with_options(const cli::options& cli_opts) {
   try {
-    if (!cli_opts.relative_target_paths.empty() && !(
+    if (!(
       cli_opts.action == cli::action::update ||
       cli_opts.action == cli::action::dot_graph
     )) {
-      cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "this operation doesn't accept target arguments" << std::endl;
+      if (!cli_opts.relative_target_paths.empty()) {
+        cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "this operation doesn't accept target arguments" << std::endl;
+        return 2;
+      }
+      if (cli_opts.update_all_files) {
+        cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "this operation doesn't accept `--all`" << std::endl;
+        return 2;
+      }
+    }
+    if (cli_opts.update_all_files && !cli_opts.relative_target_paths.empty()) {
+      cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "cannot have both explicit targets and `--all`" << std::endl;
       return 2;
     }
     if (cli_opts.action == cli::action::version) {
@@ -455,7 +472,7 @@ int run_with_options(const cli::options& cli_opts) {
       std::cout << root_path << std::endl;
       return 0;
     }
-    compile_itself(root_path, working_path, cli_opts.action == cli::action::dot_graph, cli_opts.relative_target_paths);
+    compile_itself(root_path, working_path, cli_opts.action == cli::action::dot_graph, cli_opts.update_all_files, cli_opts.relative_target_paths);
     return 0;
   } catch (io::cannot_find_updfile_error) {
     cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "cannot find Updfile in the current directory or in any of the parent directories" << std::endl;

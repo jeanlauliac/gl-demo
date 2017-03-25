@@ -34,6 +34,8 @@ options parse_options(int argc, const char* const argv[]) {
           setup_action(result, action_arg, arg, action::dot_graph);
         } else if (arg == "--color-diagnostics") {
           result.color_diagnostics = true;
+        } else if (arg == "--all") {
+          result.update_all_files = true;
         } else if (arg == "--") {
           reading_options = false;
         } else {
@@ -57,6 +59,9 @@ Operations
   --root                  Output the root directory path
   --version               Output the semantic version numbers
   --dot-graph             Output a DOT-formatted graph of the output files
+
+Updates
+  --all                   Include all the known files in the update, or graph
 
 General options
   --color-diagnostics     Use ANSI color escape codes to stderr

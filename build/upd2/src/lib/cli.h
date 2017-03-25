@@ -18,10 +18,14 @@ enum class action {
 };
 
 struct options {
-  options(): color_diagnostics(false), action(action::update) {};
+  options():
+    color_diagnostics(false),
+    action(action::update),
+    update_all_files(false) {};
   bool color_diagnostics;
   action action;
   std::vector<std::string> relative_target_paths;
+  bool update_all_files;
 };
 
 struct incompatible_options_error {

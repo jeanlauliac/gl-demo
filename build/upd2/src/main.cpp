@@ -278,19 +278,45 @@ void execute_update_plan(
   }
 }
 
+/**
+ * Should be refactored as it shares plenty with `execute_update_plan`.
+ */
 template <typename OStream>
 void output_dot_graph(
   OStream& os,
-  const std::unordered_map<std::string, output_file>& output_files_by_path
+  const std::unordered_map<std::string, output_file>& output_files_by_path,
+  update_plan& plan
 ) {
   os << "# generated with `upd --dot-graph`" << std::endl
     << "digraph upd {" << std::endl
     << "  rankdir=\"LR\";" << std::endl;
-  for (auto const& entry: output_files_by_path) {
-    for (auto const& input_path: entry.second.local_input_file_paths) {
+  while (!plan.queued_output_file_paths.empty()) {
+    auto local_target_path = plan.queued_output_file_paths.front();
+    plan.queued_output_file_paths.pop();
+    auto target_descriptor = *output_files_by_path.find(local_target_path);
+
+    auto const& target_file = target_descriptor.second;
+    for (auto const& input_path: target_file.local_input_file_paths) {
       os << "  \"" << input_path << "\" -> \""
-        << entry.first << "\" [label=\""
-        << entry.second.command_line.binary_path << "\"];" << std::endl;
+        << local_target_path << "\" [label=\""
+        << target_file.command_line.binary_path << "\"];" << std::endl;
+    }
+
+    plan.pending_output_file_paths.erase(local_target_path);
+    auto descendants_iter = plan.descendants_by_path.find(local_target_path);
+    if (descendants_iter == plan.descendants_by_path.end()) {
+      continue;
+    }
+    for (auto const& descendant_path: descendants_iter->second) {
+      auto count_iter = plan.pending_input_counts_by_path.find(descendant_path);
+      if (count_iter == plan.pending_input_counts_by_path.end()) {
+        throw std::runtime_error("update plan is corrupted");
+      }
+      int& input_count = count_iter->second;
+      --input_count;
+      if (input_count == 0) {
+        plan.queued_output_file_paths.push(descendant_path);
+      }
     }
   }
   os << "}" << std::endl;
@@ -381,11 +407,6 @@ void compile_itself(
     .local_input_file_paths = { local_test_object_file_paths }
   };
 
-  if (print_graph) {
-    output_dot_graph(std::cout, output_files_by_path);
-    return;
-  }
-
   update_plan plan;
 
   std::vector<std::string> local_target_paths;
@@ -398,6 +419,11 @@ void compile_itself(
     build_update_plan(plan, output_files_by_path, *target_desc);
   }
 
+  if (print_graph) {
+    output_dot_graph(std::cout, output_files_by_path, plan);
+    return;
+  }
+
   execute_update_plan(log_cache, hash_cache, root_path, output_files_by_path, plan, local_depfile_path);
 
   std::cout << "done" << std::endl;
@@ -408,7 +434,10 @@ void compile_itself(
 
 int run_with_options(const cli::options& cli_opts) {
   try {
-    if (cli_opts.action != cli::action::update && !cli_opts.relative_target_paths.empty()) {
+    if (!cli_opts.relative_target_paths.empty() && !(
+      cli_opts.action == cli::action::update ||
+      cli_opts.action == cli::action::dot_graph
+    )) {
       cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "this operation doesn't accept target arguments" << std::endl;
       return 2;
     }

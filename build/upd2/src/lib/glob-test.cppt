@@ -1,0 +1,69 @@
+#include "glob.h"
+
+@case "upd::glob::match() matches simple literal" {
+  @expect(upd::glob::match({ "foo" }, "foo"));
+}
+
+@case "upd::glob::match() mismatches longer candidate" {
+  @expect(!upd::glob::match({ "foo" }, "foobar"));
+}
+
+@case "upd::glob::match() mismatches longer literal" {
+  @expect(!upd::glob::match({ "foobar" }, "foo"));
+}
+
+@case "upd::glob::match() mismatches non-matching characters" {
+  @expect(!upd::glob::match({ "foo" }, "fob"));
+}
+
+@case "upd::glob::match() matches final wildcard, no characters" {
+  @expect(upd::glob::match({ "foo", "" }, "foo"));
+}
+
+@case "upd::glob::match() matches final wildcard, with characters" {
+  @expect(upd::glob::match({ "foo", "" }, "foobar"));
+}
+
+@case "upd::glob::match() matches wildcard, no characters" {
+  @expect(upd::glob::match({ "foo", "bar" }, "foobar"));
+}
+
+@case "upd::glob::match() matches wildcard, with characters" {
+  @expect(upd::glob::match({ "foo", "bar" }, "foo_beep_bar"));
+}
+
+@case "upd::glob::match() mismatches wildcard" {
+  @expect(!upd::glob::match({ "foo", "bar" }, "foo_beep_boop"));
+}
+
+@case "upd::glob::match() mismatches wildcard, no characters" {
+  @expect(!upd::glob::match({ "foo", "bar" }, "foo"));
+}
+
+@case "upd::glob::match() matches starting wildcard, no characters" {
+  @expect(upd::glob::match({ "", "bar" }, "bar"));
+}
+
+@case "upd::glob::match() matches starting wildcard, with characters" {
+  @expect(upd::glob::match({ "", "bar" }, "foobar"));
+}
+
+@case "upd::glob::match() mismatches starting wildcard" {
+  @expect(!upd::glob::match({ "", "bar" }, "foobarglo"));
+}
+
+@case "upd::glob::match() matches several wildcards, no characters" {
+  @expect(upd::glob::match({ "", "foo", "bar", "glo", "" }, "foobarglo"));
+}
+
+@case "upd::glob::match() matches several wildcards, with characters" {
+  @expect(upd::glob::match({ "", "foo", "bar", "glo", "" }, "__foo_SMTHbar_BEEPglo_BOOP"));
+}
+
+@case "upd::glob::match() matches utf8 in wildcard" {
+  @expect(upd::glob::match({ "" , ".js" }, "汉语.js"));
+}
+
+@case "upd::glob::match() matches utf8 pattern" {
+  @expect(upd::glob::match({ "汉语" , ".汉语" }, "汉语foo.汉语"));
+}

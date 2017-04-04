@@ -26,12 +26,9 @@ bool match(const pattern& target, const std::string& candidate) {
   }
   size_t target_ix = 0, candidate_ix = 0, bookmark_ix = 0;
   bool has_bookmark = false;
-  while (target_ix < target.size()) {
+  while (target_ix < target.size() - 1) {
     const auto& literal = target[target_ix];
-    bool literal_matched = match_literal(literal, candidate, candidate_ix);
-    bool candidate_matched = candidate_ix == candidate.size();
-    bool has_more_wildcards = target_ix < target.size() - 1;
-    if (literal_matched && (candidate_matched || has_more_wildcards)) {
+    if (match_literal(literal, candidate, candidate_ix)) {
       ++target_ix;
       bookmark_ix = candidate_ix;
       has_bookmark = true;
@@ -40,9 +37,12 @@ bool match(const pattern& target, const std::string& candidate) {
     if (!has_bookmark || bookmark_ix == candidate.size()) return false;
     ++bookmark_ix;
     candidate_ix = bookmark_ix;
-    if (candidate.size() - candidate_ix < literal.size()) return false;
+    if (literal.size() > candidate.size() - candidate_ix) return false;
   }
-  return true;
+  const auto& literal = target[target_ix];
+  if (literal.size() > candidate.size() - candidate_ix) return false;
+  candidate_ix = candidate.size() - literal.size();
+  return match_literal(literal, candidate, candidate_ix);
 }
 
 }

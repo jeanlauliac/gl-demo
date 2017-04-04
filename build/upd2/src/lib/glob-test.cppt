@@ -12,6 +12,10 @@
   @expect(!upd::glob::match({ "foobar" }, "foo"));
 }
 
+@case "upd::glob::match() mismatches empty literal" {
+  @expect(!upd::glob::match({ "foo" }, ""));
+}
+
 @case "upd::glob::match() mismatches non-matching characters" {
   @expect(!upd::glob::match({ "foo" }, "fob"));
 }
@@ -60,10 +64,22 @@
   @expect(upd::glob::match({ "", "foo", "bar", "glo", "" }, "__foo_SMTHbar_BEEPglo_BOOP"));
 }
 
+@case "upd::glob::match() mismatches several wildcards, with characters" {
+  @expect(!upd::glob::match({ "", "foo", "bar", "glo", "" }, "__foo_SMTHbar_BEEPgl_BOOP"));
+}
+
 @case "upd::glob::match() matches utf8 in wildcard" {
   @expect(upd::glob::match({ "" , ".js" }, "汉语.js"));
 }
 
 @case "upd::glob::match() matches utf8 pattern" {
   @expect(upd::glob::match({ "汉语" , ".汉语" }, "汉语foo.汉语"));
+}
+
+@case "upd::glob::match() matches lone wildcard" {
+  @expect(upd::glob::match({ "", "" }, ""));
+}
+
+@case "upd::glob::match() matches lone wildcard" {
+  @expect(upd::glob::match({ "", "" }, "foobar"));
 }

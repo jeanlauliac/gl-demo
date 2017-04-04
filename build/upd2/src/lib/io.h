@@ -34,9 +34,11 @@ std::string find_root_path(std::string origin_path);
  */
 struct dir {
   dir(const std::string& path);
+  dir();
   dir(dir&) = delete;
   ~dir();
   void open(const std::string& path);
+  bool is_open() { return ptr_ != nullptr; }
   DIR* ptr() const { return ptr_; }
 private:
   DIR* ptr_;
@@ -47,6 +49,7 @@ private:
  */
 struct dir_files_reader {
   dir_files_reader(const std::string& path);
+  dir_files_reader();
   /**
    * The returned dirent pointer should never be released manually. It is
    * automatically released by the system on the next call, or object
@@ -54,6 +57,7 @@ struct dir_files_reader {
    */
   struct dirent* next();
   void open(const std::string& path);
+  bool is_open() { return target_.is_open(); }
 private:
   dir target_;
 };

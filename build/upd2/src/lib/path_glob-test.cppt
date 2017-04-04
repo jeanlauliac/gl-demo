@@ -1,0 +1,80 @@
+#include "path_glob.h"
+#include <unordered_map>
+
+struct mock_ent {
+  std::string name;
+  int type;
+};
+
+static std::unordered_map<std::string, std::vector<mock_ent>>
+MOCK_ENTS_BY_DIR_PATH = {
+  { "/root", { { .name = "src", .type = DT_DIR } } },
+  { "/root/src", {
+    { .name = "beep1", .type = DT_DIR },
+    { .name = "boop", .type = DT_DIR },
+    { .name = "beep2", .type = DT_DIR }
+  } },
+  { "/root/src/beep1", {
+    { .name = "foo.cpp", .type = DT_REG },
+    { .name = "subdir.cpp", .type = DT_DIR },
+    { .name = "bar.cpp", .type = DT_REG }
+  } },
+  { "/root/src/beep1/subdir.cpp", { { .name = "smth.cpp", .type = DT_REG } } },
+  { "/root/src/boop", {
+    { .name = "foo.cpp", .type = DT_REG },
+  } },
+  { "/root/src/beep2", {
+    { .name = "smth.cpp", .type = DT_REG },
+  } },
+};
+
+struct mock_dir_reader {
+  mock_dir_reader(): is_open_(false) {}
+
+  bool is_open() { return is_open_; }
+
+  dirent* next() {
+    if (!is_open_) {
+      throw std::runtime_error("dir reader is not open");
+    }
+    const auto& mock_ents = MOCK_ENTS_BY_DIR_PATH.at(dir_path_);
+    if (ent_ix_ >= mock_ents.size()) {
+      return nullptr;
+    }
+    const auto& ent = mock_ents[ent_ix_++];
+    current_dirent_.d_ino = 42;
+    current_dirent_.d_reclen = sizeof(dirent);
+    current_dirent_.d_type = ent.type;
+    strcpy(current_dirent_.d_name, ent.name.c_str());
+    return &current_dirent_;
+  }
+
+  void open(const std::string dir_path) {
+    dir_path_ = dir_path;
+    ent_ix_ = 0;
+    is_open_ = true;
+  }
+
+  void close() { is_open_ = false; }
+
+private:
+  bool is_open_;
+  std::string dir_path_;
+  size_t ent_ix_;
+  dirent current_dirent_;
+};
+
+@case "find files" {
+  upd::path_glob::matcher<mock_dir_reader> mtcr("/root", {
+    .ent_name_patterns = {
+      { "src" },
+      { "beep", "" },
+      { "", ".cpp" },
+    }
+  });
+  upd::path_glob::match mt;
+  @expect(mtcr.next(mt) && mt.local_path == "src/beep1/foo.cpp");
+  @expect(mtcr.next(mt) && mt.local_path == "src/beep1/bar.cpp");
+  @expect(mtcr.next(mt) && mt.local_path == "src/beep2/smth.cpp");
+  @expect(!mtcr.next(mt));
+}

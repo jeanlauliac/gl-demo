@@ -32,21 +32,29 @@ struct matcher {
   matcher(const std::string& root_path, const pattern& pattern):
     root_path_(root_path),
     pattern_(pattern),
-    pending_dirs_({ { "", 0 } }) {};
+    pending_dirs_({ { "", { 0 } } }) {};
 
   bool next(match& next_match) {
     auto ent = next_ent_();
     while (ent != nullptr) {
       std::string name = ent->d_name;
       const auto& segments = pattern_.segments;
-      const auto& name_pattern = segments[segment_ix_].ent_name;
-      if (glob::match(name_pattern, name)) {
-        if (ent->d_type == DT_DIR && segment_ix_ + 1 < segments.size()) {
-          pending_dirs_[path_prefix_ + '/' + name] = segment_ix_ + 1;
+      // replace loop by a function "next_segment_"
+      for (auto segment_ix: segment_ixs_) {
+        const auto& name_pattern = segments[segment_ix].ent_name;
+        if (segments[segment_ix].has_wildcard) {
+          if (ent->d_type == DT_DIR) {
+            pending_dirs_[path_prefix_ + '/' + name].push_back(segment_ix);
+          }
         }
-        if (ent->d_type == DT_REG && segment_ix_ == segments.size() - 1) {
-          next_match.local_path = path_prefix_.substr(1) + '/' + name;
-          return true;
+        if (glob::match(name_pattern, name)) {
+          if (ent->d_type == DT_DIR && segment_ix + 1 < segments.size()) {
+            pending_dirs_[path_prefix_ + '/' + name].push_back(segment_ix + 1);
+          }
+          if (ent->d_type == DT_REG && segment_ix == segments.size() - 1) {
+            next_match.local_path = path_prefix_.substr(1) + '/' + name;
+            return true;
+          }
         }
       }
       ent = next_ent_();
@@ -76,7 +84,7 @@ private:
       return false;
     }
     path_prefix_ = next_dir_iter->first;
-    segment_ix_ = next_dir_iter->second;
+    segment_ixs_ = next_dir_iter->second;
     pending_dirs_.erase(next_dir_iter);
     dir_reader_.open(root_path_ + path_prefix_);
     return true;
@@ -90,9 +98,9 @@ private:
   std::string root_path_;
   pattern pattern_;
   DirFilesReader dir_reader_;
-  std::unordered_map<std::string, size_t> pending_dirs_;
+  std::unordered_map<std::string, std::vector<size_t>> pending_dirs_;
   std::string path_prefix_;
-  size_t segment_ix_;
+  std::vector<size_t> segment_ixs_;
 };
 
 }

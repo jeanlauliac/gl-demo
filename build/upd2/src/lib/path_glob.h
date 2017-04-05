@@ -4,18 +4,23 @@
 #include "io.h"
 #include <iostream>
 #include <memory>
-#include <queue>
+#include <unordered_map>
 #include <vector>
 
 namespace upd {
 namespace path_glob {
+
+struct segment {
+  glob::pattern ent_name;
+  bool has_wildcard;
+};
 
 /**
  * The pattern to match a full file path, represented as each of its successive
  * entity names. For example
  */
 struct pattern {
-  std::vector<glob::pattern> ent_name_patterns;
+  std::vector<segment> segments;
 };
 
 struct match {
@@ -27,25 +32,20 @@ struct matcher {
   matcher(const std::string& root_path, const pattern& pattern):
     root_path_(root_path),
     pattern_(pattern),
-    pending_dirs_({ { .path_prefix = "", .ent_name_pattern_ix = 0 } }) {};
+    pending_dirs_({ { "", 0 } }) {};
 
   bool next(match& next_match) {
     auto ent = next_ent_();
     while (ent != nullptr) {
       std::string name = ent->d_name;
-      const auto& name_pts = pattern_.ent_name_patterns;
-      const auto& name_ix = current_dir_.ent_name_pattern_ix;
-      const auto& name_pattern = name_pts[name_ix];
+      const auto& segments = pattern_.segments;
+      const auto& name_pattern = segments[segment_ix_].ent_name;
       if (glob::match(name_pattern, name)) {
-        if (ent->d_type == DT_DIR && name_ix + 1 < name_pts.size()) {
-          pending_dirs_.push({
-            .path_prefix = current_dir_.path_prefix + '/' + name,
-            .ent_name_pattern_ix = name_ix + 1,
-          });
+        if (ent->d_type == DT_DIR && segment_ix_ + 1 < segments.size()) {
+          pending_dirs_[path_prefix_ + '/' + name] = segment_ix_ + 1;
         }
-        if (ent->d_type == DT_REG && name_ix == name_pts.size() - 1) {
-          next_match.local_path =
-            current_dir_.path_prefix.substr(1) + '/' + name;
+        if (ent->d_type == DT_REG && segment_ix_ == segments.size() - 1) {
+          next_match.local_path = path_prefix_.substr(1) + '/' + name;
           return true;
         }
       }
@@ -71,13 +71,14 @@ private:
   }
 
   bool open_next_dir_() {
-    if (pending_dirs_.empty()) {
+    const auto& next_dir_iter = pending_dirs_.cbegin();
+    if (next_dir_iter == pending_dirs_.cend()) {
       return false;
     }
-    const auto& next_dir = pending_dirs_.front();
-    pending_dirs_.pop();
-    dir_reader_.open(root_path_ + next_dir.path_prefix);
-    current_dir_ = next_dir;
+    path_prefix_ = next_dir_iter->first;
+    segment_ix_ = next_dir_iter->second;
+    pending_dirs_.erase(next_dir_iter);
+    dir_reader_.open(root_path_ + path_prefix_);
     return true;
   }
 
@@ -89,8 +90,9 @@ private:
   std::string root_path_;
   pattern pattern_;
   DirFilesReader dir_reader_;
-  std::queue<pending_dir> pending_dirs_;
-  pending_dir current_dir_;
+  std::unordered_map<std::string, size_t> pending_dirs_;
+  std::string path_prefix_;
+  size_t segment_ix_;
 };
 
 }

@@ -1,5 +1,6 @@
 #include "path_glob.h"
 #include <unordered_map>
+#include <unordered_set>
 
 struct mock_ent {
   std::string name;
@@ -66,15 +67,31 @@ private:
 
 @case "find files" {
   upd::path_glob::matcher<mock_dir_reader> mtcr("/root", {
-    .ent_name_patterns = {
-      { "src" },
-      { "beep", "" },
-      { "", ".cpp" },
+    .segments = {
+      upd::path_glob::segment { .ent_name = { "src" }, .has_wildcard = false },
+      upd::path_glob::segment { .ent_name = { "beep", "" }, .has_wildcard = false },
+      upd::path_glob::segment { .ent_name = { "", ".cpp" }, .has_wildcard = false }
     }
   });
   upd::path_glob::match mt;
-  @expect(mtcr.next(mt) && mt.local_path == "src/beep1/foo.cpp");
-  @expect(mtcr.next(mt) && mt.local_path == "src/beep1/bar.cpp");
-  @expect(mtcr.next(mt) && mt.local_path == "src/beep2/smth.cpp");
-  @expect(!mtcr.next(mt));
+  std::unordered_set<std::string> mts;
+  while (mtcr.next(mt)) mts.insert(mt.local_path);
+  std::unordered_set<std::string> expected =
+    { "src/beep1/foo.cpp", "src/beep1/bar.cpp", "src/beep2/smth.cpp" };
+  @expect(mts == expected);
+}
+
+@case "find files with folder wildcard" {
+  upd::path_glob::matcher<mock_dir_reader> mtcr("/root", {
+    .segments = {
+      upd::path_glob::segment { .ent_name = { "src" }, .has_wildcard = false },
+      upd::path_glob::segment { .ent_name = { "", ".cpp" }, .has_wildcard = true }
+    }
+  });
+  upd::path_glob::match mt;
+  std::unordered_set<std::string> mts;
+  while (mtcr.next(mt)) mts.insert(mt.local_path);
+  std::unordered_set<std::string> expected =
+    { "src/beep1/foo.cpp", "src/beep1/bar.cpp", "src/beep2/smth.cpp" };
+  @expect(mts != expected);
 }

@@ -91,7 +91,12 @@ private:
   upd::path_glob::match mt;
   std::unordered_set<std::string> mts;
   while (mtcr.next(mt)) mts.insert(mt.local_path);
-  std::unordered_set<std::string> expected =
-    { "src/beep1/foo.cpp", "src/beep1/bar.cpp", "src/beep2/smth.cpp" };
-  @expect(mts != expected);
+  std::unordered_set<std::string> expected = {
+    "src/beep1/foo.cpp",
+    "src/beep1/bar.cpp",
+    "src/beep1/subdir.cpp/smth.cpp",
+    "src/beep2/smth.cpp",
+    "src/boop/foo.cpp"
+  };
+  @expect(mts == expected);
 }

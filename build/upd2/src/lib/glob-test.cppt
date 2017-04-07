@@ -1,85 +1,111 @@
 #include "glob.h"
 
+upd::glob::pattern parse(const std::string& str_pattern) {
+  upd::glob::pattern result;
+  std::string current_literal;
+  for (size_t i = 0; i < str_pattern.size(); ++i) {
+    if (str_pattern[i] == '*') {
+      result.push_back(std::move(current_literal));
+      current_literal.clear();
+      continue;
+    }
+    if (str_pattern[i] == '\\') ++i;
+    current_literal += str_pattern[i];
+  }
+  result.push_back(current_literal);
+  return result;
+}
+
+@case "parse() convert strings properly" {
+  @expect(parse("") == std::vector<std::string>({ "" }));
+  @expect(parse("*") == std::vector<std::string>({ "", "" }));
+  @expect(parse("foo") == std::vector<std::string>({ "foo" }));
+  @expect(parse("foo*bar") == std::vector<std::string>({ "foo", "bar" }));
+  @expect(parse("foo*") == std::vector<std::string>({ "foo", "" }));
+  @expect(parse("*foo") == std::vector<std::string>({ "", "foo" }));
+  @expect(parse("foo\\*bar") == std::vector<std::string>({ "foo*bar" }));
+}
+
 @case "upd::glob::match() matches simple literal" {
-  @expect(upd::glob::match({ "foo" }, "foo"));
+  @expect(upd::glob::match(parse("foo"), "foo"));
 }
 
 @case "upd::glob::match() mismatches longer candidate" {
-  @expect(!upd::glob::match({ "foo" }, "foobar"));
+  @expect(!upd::glob::match(parse("foo"), "foobar"));
 }
 
 @case "upd::glob::match() mismatches longer literal" {
-  @expect(!upd::glob::match({ "foobar" }, "foo"));
+  @expect(!upd::glob::match(parse("foobar"), "foo"));
 }
 
 @case "upd::glob::match() mismatches empty literal" {
-  @expect(!upd::glob::match({ "foo" }, ""));
+  @expect(!upd::glob::match(parse("foo"), ""));
 }
 
 @case "upd::glob::match() mismatches non-matching characters" {
-  @expect(!upd::glob::match({ "foo" }, "fob"));
+  @expect(!upd::glob::match(parse("foo"), "fob"));
 }
 
 @case "upd::glob::match() matches final wildcard, no characters" {
-  @expect(upd::glob::match({ "foo", "" }, "foo"));
+  @expect(upd::glob::match(parse("foo*"), "foo"));
 }
 
 @case "upd::glob::match() matches final wildcard, with characters" {
-  @expect(upd::glob::match({ "foo", "" }, "foobar"));
+  @expect(upd::glob::match(parse("foo*"), "foobar"));
 }
 
 @case "upd::glob::match() matches wildcard, no characters" {
-  @expect(upd::glob::match({ "foo", "bar" }, "foobar"));
+  @expect(upd::glob::match(parse("foo*bar"), "foobar"));
 }
 
 @case "upd::glob::match() matches wildcard, with characters" {
-  @expect(upd::glob::match({ "foo", "bar" }, "foo_beep_bar"));
+  @expect(upd::glob::match(parse("foo*bar"), "foo_beep_bar"));
 }
 
 @case "upd::glob::match() mismatches wildcard" {
-  @expect(!upd::glob::match({ "foo", "bar" }, "foo_beep_boop"));
+  @expect(!upd::glob::match(parse("foo*bar"), "foo_beep_boop"));
 }
 
 @case "upd::glob::match() mismatches wildcard, no characters" {
-  @expect(!upd::glob::match({ "foo", "bar" }, "foo"));
+  @expect(!upd::glob::match(parse("foo*bar"), "foo"));
 }
 
 @case "upd::glob::match() matches starting wildcard, no characters" {
-  @expect(upd::glob::match({ "", "bar" }, "bar"));
+  @expect(upd::glob::match(parse("*bar"), "bar"));
 }
 
 @case "upd::glob::match() matches starting wildcard, with characters" {
-  @expect(upd::glob::match({ "", "bar" }, "foobar"));
+  @expect(upd::glob::match(parse("*bar"), "foobar"));
 }
 
 @case "upd::glob::match() mismatches starting wildcard" {
-  @expect(!upd::glob::match({ "", "bar" }, "foobarglo"));
+  @expect(!upd::glob::match(parse("*bar"), "foobarglo"));
 }
 
 @case "upd::glob::match() matches several wildcards, no characters" {
-  @expect(upd::glob::match({ "", "foo", "bar", "glo", "" }, "foobarglo"));
+  @expect(upd::glob::match(parse("*foo*bar*glo*"), "foobarglo"));
 }
 
 @case "upd::glob::match() matches several wildcards, with characters" {
-  @expect(upd::glob::match({ "", "foo", "bar", "glo", "" }, "__foo_SMTHbar_BEEPglo_BOOP"));
+  @expect(upd::glob::match(parse("*foo*bar*glo*"), "__foo_SMTHbar_BEEPglo_BOOP"));
 }
 
 @case "upd::glob::match() mismatches several wildcards, with characters" {
-  @expect(!upd::glob::match({ "", "foo", "bar", "glo", "" }, "__foo_SMTHbar_BEEPgl_BOOP"));
+  @expect(!upd::glob::match(parse("*foo*bar*glo*"), "__foo_SMTHbar_BEEPgl_BOOP"));
 }
 
 @case "upd::glob::match() matches utf8 in wildcard" {
-  @expect(upd::glob::match({ "" , ".js" }, "汉语.js"));
+  @expect(upd::glob::match(parse("*.js"), "汉语.js"));
 }
 
 @case "upd::glob::match() matches utf8 pattern" {
-  @expect(upd::glob::match({ "汉语" , ".汉语" }, "汉语foo.汉语"));
+  @expect(upd::glob::match(parse("汉语*.汉语"), "汉语foo.汉语"));
 }
 
-@case "upd::glob::match() matches lone wildcard" {
-  @expect(upd::glob::match({ "", "" }, ""));
+@case "upd::glob::match() matches lone wildcard, no characters" {
+  @expect(upd::glob::match(parse("*"), ""));
 }
 
-@case "upd::glob::match() matches lone wildcard" {
-  @expect(upd::glob::match({ "", "" }, "foobar"));
+@case "upd::glob::match() matches lone wildcard, with characters" {
+  @expect(upd::glob::match(parse("*"), "foobar"));
 }

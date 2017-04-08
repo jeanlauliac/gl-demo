@@ -1,3 +1,4 @@
+#include "glob_test.h"
 #include "path_glob.h"
 #include <unordered_map>
 #include <unordered_set>
@@ -68,9 +69,9 @@ private:
 @case "find files" {
   upd::path_glob::matcher<mock_dir_reader> mtcr("/root", {
     .segments = {
-      upd::path_glob::segment { .ent_name = { "src" }, .has_wildcard = false },
-      upd::path_glob::segment { .ent_name = { "beep", "" }, .has_wildcard = false },
-      upd::path_glob::segment { .ent_name = { "", ".cpp" }, .has_wildcard = false }
+      upd::path_glob::segment { .ent_name = parse("src"), .has_wildcard = false },
+      upd::path_glob::segment { .ent_name = parse("beep*"), .has_wildcard = false },
+      upd::path_glob::segment { .ent_name = parse("*.cpp"), .has_wildcard = false }
     }
   });
   upd::path_glob::match mt;
@@ -84,8 +85,8 @@ private:
 @case "find files with folder wildcard" {
   upd::path_glob::matcher<mock_dir_reader> mtcr("/root", {
     .segments = {
-      upd::path_glob::segment { .ent_name = { "src" }, .has_wildcard = false },
-      upd::path_glob::segment { .ent_name = { "", ".cpp" }, .has_wildcard = true }
+      upd::path_glob::segment { .ent_name = parse("src"), .has_wildcard = false },
+      upd::path_glob::segment { .ent_name = parse("*.cpp"), .has_wildcard = true }
     }
   });
   upd::path_glob::match mt;

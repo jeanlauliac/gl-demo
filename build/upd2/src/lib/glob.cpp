@@ -24,25 +24,37 @@ bool match(const pattern& target, const std::string& candidate) {
  if (target.size() == 0) {
     return false;
   }
-  size_t target_ix = 0, candidate_ix = 0, bookmark_ix = 0;
+  size_t segment_ix = 0, candidate_ix = 0, bookmark_ix = 0;
+  size_t last_wildcard_segment_ix = 0;
   bool has_bookmark = false;
-  while (target_ix < target.size() - 1) {
-    const auto& literal = target[target_ix];
-    if (match_literal(literal, candidate, candidate_ix)) {
-      ++target_ix;
-      bookmark_ix = candidate_ix;
-      has_bookmark = true;
-      continue;
-    }
-    if (!has_bookmark || bookmark_ix == candidate.size()) return false;
-    ++bookmark_ix;
-    candidate_ix = bookmark_ix;
-    if (literal.size() > candidate.size() - candidate_ix) return false;
+  if (target[segment_ix].prefix != placeholder::wildcard) goto process_literal;
+
+process_wildcard:
+  bookmark_ix = candidate_ix;
+  last_wildcard_segment_ix = segment_ix;
+  has_bookmark = true;
+
+process_literal:
+  if (!match_literal(target[segment_ix].literal, candidate, candidate_ix)) {
+    goto restore_wildcard;
   }
-  const auto& literal = target[target_ix];
-  if (literal.size() > candidate.size() - candidate_ix) return false;
-  candidate_ix = candidate.size() - literal.size();
-  return match_literal(literal, candidate, candidate_ix);
+  ++segment_ix;
+  if (segment_ix == target.size()) {
+    if (candidate_ix == candidate.size()) return true;
+    goto restore_wildcard;
+  }
+  if (target[segment_ix].prefix == placeholder::wildcard)
+    goto process_wildcard;
+  goto process_literal;
+
+restore_wildcard:
+  if (!has_bookmark) return false;
+  ++bookmark_ix;
+  candidate_ix = bookmark_ix;
+  segment_ix = last_wildcard_segment_ix;
+  if (candidate_ix + target[segment_ix].literal.size() > candidate.size())
+    return false;
+  goto process_literal;
 }
 
 }

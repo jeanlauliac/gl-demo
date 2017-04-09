@@ -32,12 +32,29 @@ struct segment {
 };
 
 /**
- * A pattern is composed of literals separated by wildcards. For example the
- * pattern "foo_*.cpp" is represented as the vector { "foo_", ".cpp" }.
+ * A pattern is composed of literals prefixed by special placeholders. For
+ * example the pattern "foo_*.cpp" is represented as the following vector:
+ *
+ *     {
+ *       { .prefix = placeholder::none, literal. = "foo_" },
+ *       { .prefix = placeholder::wildcard, ".cpp" },
+ *     }
+ *
  */
 typedef std::vector<segment> pattern;
 
 bool match(const pattern& target, const std::string& candidate);
+
+/**
+ * If it matches, the `indices` vector has the same size as the number of
+ * segments, and it indicates the starting index for each segment that was
+ * correctly matched.
+ */
+bool match(
+  const pattern& target,
+  const std::string& candidate,
+  std::vector<size_t>& indices
+);
 
 }
 }

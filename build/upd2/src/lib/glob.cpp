@@ -6,7 +6,19 @@ namespace glob {
 struct matcher {
   matcher(const pattern& target, const std::string& candidate):
     target(target),
-    candidate(candidate) {}
+    candidate(candidate),
+    indices(nullptr) {}
+
+  matcher(
+    const pattern& target,
+    const std::string& candidate,
+    std::vector<size_t>& indices_
+  ):
+    target(target),
+    candidate(candidate),
+    indices(&indices_) {
+      indices->resize(target.size());
+    }
 
   /**
    * A glob pattern is matched only if we can find a sequence of segments
@@ -21,6 +33,7 @@ struct matcher {
    */
   bool operator()() {
     clear();
+    if (!start_new_segment()) return false;
     bool does_match, fully_matched;
     do {
       does_match = match_all_segments();
@@ -43,30 +56,31 @@ struct matcher {
    * go back and include more characters in a wildcard.
    */
   bool match_all_segments() {
-    bool does_match = true;
-    while (does_match && segment_ix < target.size()) {
+    bool does_match;
+    do {
       do {
-        does_match = start_new_segment();
-      } while (!does_match && restore_wildcard());
-      if (!does_match) continue;
-      do {
-        does_match = match_literal(target[segment_ix].literal);
+        does_match = match_prefix() && match_literal(target[segment_ix].literal);
       } while (!does_match && restore_wildcard());
       ++segment_ix;
-    }
+    } while (does_match && start_new_segment());
     return does_match;
   }
 
-  bool start_new_segment() {
+  bool match_prefix() {
     switch (target[segment_ix].prefix) {
       case placeholder::none:
-        return true;
       case placeholder::wildcard:
-        start_wildcard();
         return true;
       case placeholder::single_wildcard:
         return match_single_wildcard();
     }
+  }
+
+  bool start_new_segment() {
+    if (segment_ix == target.size()) return false;
+    if (indices) (*indices)[segment_ix] = candidate_ix;
+    if (target[segment_ix].prefix == placeholder::wildcard) start_wildcard();
+    return true;
   }
 
   void start_wildcard() {
@@ -111,6 +125,7 @@ struct matcher {
 
   const pattern& target;
   const std::string& candidate;
+  std::vector<size_t>* indices;
   size_t segment_ix;
   size_t candidate_ix;
   size_t bookmark_ix;
@@ -120,6 +135,14 @@ struct matcher {
 
 bool match(const pattern& target, const std::string& candidate) {
   return matcher(target, candidate)();
+}
+
+bool match(
+  const pattern& target,
+  const std::string& candidate,
+  std::vector<size_t>& indices
+) {
+  return matcher(target, candidate, indices)();
 }
 
 }

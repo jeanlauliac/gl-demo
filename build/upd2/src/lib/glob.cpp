@@ -12,10 +12,12 @@ struct matcher {
     clear();
     start_new_segment();
     while (true) {
-      if (!match_literal(target[segment_ix].literal)) {
-        if (!restore_wildcard()) return false;
-        continue;
-      }
+      bool does_match;
+      do {
+        does_match = match_literal(target[segment_ix].literal);
+      } while (!does_match && restore_wildcard());
+      if (!does_match) return false;
+
       ++segment_ix;
       if (segment_ix == target.size()) {
         if (candidate_ix == candidate.size()) return true;

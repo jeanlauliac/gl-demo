@@ -31,6 +31,10 @@ struct segment {
   std::string literal;
 };
 
+inline bool operator==(const segment& left, const segment& right) {
+  return left.prefix == right.prefix && left.literal == right.literal;
+}
+
 /**
  * A pattern is composed of literals prefixed by special placeholders. For
  * example the pattern "foo_*.cpp" is represented as the following vector:

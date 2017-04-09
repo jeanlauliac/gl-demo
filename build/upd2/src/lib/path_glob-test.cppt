@@ -66,14 +66,105 @@ private:
   dirent current_dirent_;
 };
 
-@case "find files" {
-  upd::path_glob::matcher<mock_dir_reader> mtcr("/root", {
-    .segments = {
-      upd::path_glob::segment { .ent_name = parse("src"), .has_wildcard = false },
-      upd::path_glob::segment { .ent_name = parse("beep*"), .has_wildcard = false },
-      upd::path_glob::segment { .ent_name = parse("*.cpp"), .has_wildcard = false }
+using namespace upd::path_glob;
+
+enum class invalid_pattern_string_reason {
+  double_wildcard,
+};
+
+struct invalid_pattern_string_error {
+  invalid_pattern_string_error(invalid_pattern_string_reason reason):
+    reason(reason) {};
+
+  invalid_pattern_string_reason reason;
+};
+
+static bool is_segment_empty(upd::glob::segment& target) {
+  return
+    target.literal.empty() &&
+    target.prefix == upd::glob::placeholder::none;
+}
+
+struct pattern_string_parser {
+  pattern_string_parser(const std::string& input):
+    input(input) {}
+
+  pattern operator()() {
+    input_ix = 0;
+    pattern result;
+    segment current;
+    bool has_read = read_path_segment(current);
+    while (has_read) {
+      result.segments.push_back(current);
+      has_read = read_path_segment(current);
     }
-  });
+    return result;
+  }
+
+  bool read_path_segment(segment& result) {
+    result.has_wildcard = read_wildcard();
+    if (read_wildcard()) throw invalid_pattern_string_error(
+      invalid_pattern_string_reason::double_wildcard
+    );
+    result.ent_name.clear();
+    upd::glob::segment current;
+    for (; input_ix < input.size() && input[input_ix] != '/'; ++input_ix) {
+      if (input[input_ix] == '*') {
+        finish_glob_segment(result.ent_name, current);
+        current.prefix = upd::glob::placeholder::wildcard;
+        continue;
+      }
+      if (input[input_ix] == '?') {
+        finish_glob_segment(result.ent_name, current);
+        current.prefix = upd::glob::placeholder::single_wildcard;
+        continue;
+      }
+      if (input[input_ix] == '\\') ++input_ix;
+      current.literal += input[input_ix];
+    }
+    finish_glob_segment(result.ent_name, current);
+    if (input_ix < input.size()) ++input_ix;
+    return !result.ent_name.empty();
+  }
+
+  void finish_glob_segment(
+    upd::glob::pattern& result,
+    upd::glob::segment& current
+  ) {
+    if (is_segment_empty(current)) return;
+    result.push_back(std::move(current));
+    current.literal.clear();
+  }
+
+  bool read_wildcard() {
+    if (input.size() - input_ix < 3) return false;
+    if (input[input_ix] != '*' && input[input_ix + 1] != '*') return false;
+    if (input[input_ix + 2] != '/') return false;
+    input_ix += 3;
+    return true;
+  }
+
+  const std::string& input;
+  size_t input_ix;
+};
+
+pattern parse_pattern_string(const std::string& pattern_string) {
+  return pattern_string_parser(pattern_string)();
+}
+
+@case "pattern_string_parser works" {
+  @expect(parse_pattern_string("foo/**/beep/*.js") == pattern({
+    .segments = {
+      upd::path_glob::segment { .ent_name = parse("foo"), .has_wildcard = false },
+      upd::path_glob::segment { .ent_name = parse("beep"), .has_wildcard = true },
+      upd::path_glob::segment { .ent_name = parse("*.js"), .has_wildcard = false },
+    }
+  }));
+}
+
+@case "find files" {
+  auto pattern = parse_pattern_string("src/beep*/*.cpp");
+  upd::path_glob::matcher<mock_dir_reader> mtcr("/root", pattern);
   upd::path_glob::match mt;
   std::unordered_set<std::string> mts;
   while (mtcr.next(mt)) mts.insert(mt.local_path);
@@ -83,12 +174,8 @@ private:
 }
 
 @case "find files with folder wildcard" {
-  upd::path_glob::matcher<mock_dir_reader> mtcr("/root", {
-    .segments = {
-      upd::path_glob::segment { .ent_name = parse("src"), .has_wildcard = false },
-      upd::path_glob::segment { .ent_name = parse("*.cpp"), .has_wildcard = true }
-    }
-  });
+  auto pattern = parse_pattern_string("src/**/*.cpp");
+  upd::path_glob::matcher<mock_dir_reader> mtcr("/root", pattern);
   upd::path_glob::match mt;
   std::unordered_set<std::string> mts;
   while (mtcr.next(mt)) mts.insert(mt.local_path);

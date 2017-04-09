@@ -1,13 +1,5 @@
 #include "glob_test.h"
 
-namespace upd {
-namespace glob {
-bool operator==(const segment& left, const segment& right) {
-  return left.prefix == right.prefix && left.literal == right.literal;
-}
-}
-}
-
 using namespace upd::glob;
 
 @case "parse() convert strings properly" {

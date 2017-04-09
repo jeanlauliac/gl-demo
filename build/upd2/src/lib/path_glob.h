@@ -23,6 +23,14 @@ struct pattern {
   std::vector<segment> segments;
 };
 
+inline bool operator==(const pattern& left, const pattern& right) {
+  return left.segments == right.segments;
+}
+
+inline bool operator==(const segment& left, const segment& right) {
+  return left.has_wildcard == right.has_wildcard;
+}
+
 struct match {
   std::string local_path;
 };

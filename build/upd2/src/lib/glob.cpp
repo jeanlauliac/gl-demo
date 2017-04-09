@@ -6,14 +6,10 @@ namespace glob {
 struct matcher {
   matcher(const pattern& target, const std::string& candidate):
     target(target),
-    candidate(candidate),
-    segment_ix(0),
-    candidate_ix(0),
-    bookmark_ix(0),
-    last_wildcard_segment_ix(0),
-    has_bookmark(false) {}
+    candidate(candidate) {}
 
   bool operator()() {
+    clear();
     start_new_segment();
     while (true) {
       if (!match_literal(target[segment_ix].literal)) {
@@ -28,6 +24,11 @@ struct matcher {
       }
       start_new_segment();
     }
+  }
+
+  void clear() {
+    segment_ix = candidate_ix = bookmark_ix = last_wildcard_segment_ix = 0;
+    has_bookmark = false;
   }
 
   bool match_literal(const std::string& literal) {

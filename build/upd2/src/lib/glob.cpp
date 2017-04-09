@@ -45,7 +45,10 @@ struct matcher {
   bool match_all_segments() {
     bool does_match = true;
     while (does_match && segment_ix < target.size()) {
-      start_new_segment();
+      do {
+        does_match = start_new_segment();
+      } while (!does_match && restore_wildcard());
+      if (!does_match) continue;
       do {
         does_match = match_literal(target[segment_ix].literal);
       } while (!does_match && restore_wildcard());
@@ -54,14 +57,30 @@ struct matcher {
     return does_match;
   }
 
-  void start_new_segment() {
-    if (target[segment_ix].prefix == placeholder::wildcard) start_wildcard();
+  bool start_new_segment() {
+    switch (target[segment_ix].prefix) {
+      case placeholder::none:
+        return true;
+      case placeholder::wildcard:
+        start_wildcard();
+        return true;
+      case placeholder::single_wildcard:
+        return match_single_wildcard();
+    }
   }
 
   void start_wildcard() {
     bookmark_ix = candidate_ix;
     last_wildcard_segment_ix = segment_ix;
     has_bookmark = true;
+  }
+
+  bool match_single_wildcard() {
+    if (candidate_ix == candidate.size() || candidate[candidate_ix] == '.') {
+      return false;
+    }
+    ++candidate_ix;
+    return true;
   }
 
   /**

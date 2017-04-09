@@ -103,3 +103,15 @@ using namespace upd::glob;
 @case "upd::glob::match() matches lone wildcard, with characters" {
   @expect(match(parse("*"), "foobar"));
 }
+
+@case "upd::glob::match() matches single wildcard" {
+  @expect(match(parse("???.js"), "foo.js"));
+}
+
+@case "upd::glob::match() matches single wildcard, with wildcard" {
+  @expect(match(parse("foo*bar?glo"), "foobarbarrglo"));
+}
+
+@case "upd::glob::match() mismatches single wildcard, with wildcard" {
+  @expect(!match(parse("foo*bar?glo"), "foobarbar.glo"));
+}

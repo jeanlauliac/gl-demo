@@ -11,7 +11,8 @@ namespace glob {
 
 enum class placeholder {
   none,
-  wildcard
+  wildcard,
+  single_wildcard,
 };
 
 struct segment {

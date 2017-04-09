@@ -108,10 +108,10 @@ using namespace upd::glob;
   @expect(match(parse("???.js"), "foo.js"));
 }
 
-@case "upd::glob::match() matches single wildcard, with wildcard" {
-  @expect(match(parse("foo*bar?glo"), "foobarbarrglo"));
+@case "upd::glob::match() matches single wildcards, with wildcard" {
+  @expect(match(parse("foo*bar?glo?baz"), "foobarbarrglo$baz"));
 }
 
 @case "upd::glob::match() mismatches single wildcard, with wildcard" {
-  @expect(!match(parse("foo*bar?glo"), "foobarbar.glo"));
+  @expect(!match(parse("foo*bar?glo?baz"), "foobarbarrglo.baz"));
 }

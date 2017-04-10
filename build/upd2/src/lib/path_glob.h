@@ -11,6 +11,11 @@ namespace upd {
 namespace path_glob {
 
 struct segment {
+  void clear() {
+    ent_name.clear();
+    has_wildcard = false;
+  }
+
   glob::pattern ent_name;
   bool has_wildcard;
 };

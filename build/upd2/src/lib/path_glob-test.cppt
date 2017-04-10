@@ -70,6 +70,7 @@ using namespace upd::path_glob;
 
 enum class invalid_pattern_string_reason {
   double_wildcard,
+  escape_char_at_end,
 };
 
 struct invalid_pattern_string_error {
@@ -120,7 +121,14 @@ struct pattern_string_parser {
       current_glob_segment.prefix = upd::glob::placeholder::single_wildcard;
       return;
     }
+    if (input[input_ix] == ')' || input[input_ix] == '(') {
+      finish_glob_segment();
+      return;
+    }
     if (input[input_ix] == '\\') ++input_ix;
+    if (input_ix == input.size()) {
+      throw invalid_pattern_string_error(invalid_pattern_string_reason::escape_char_at_end);
+    }
     current_glob_segment.literal += input[input_ix];
   }
 
@@ -155,6 +163,19 @@ pattern parse_pattern_string(const std::string& pattern_string) {
       upd::path_glob::segment { .ent_name = parse("foo"), .has_wildcard = false },
       upd::path_glob::segment { .ent_name = parse("beep"), .has_wildcard = true },
       upd::path_glob::segment { .ent_name = parse("*.js"), .has_wildcard = false },
+    }
+  }));
+}
+
+@case "pattern_string_parser works with capture" {
+  @expect(parse_pattern_string("foo/**/beep/*).js") == pattern({
+    .segments = {
+      upd::path_glob::segment { .ent_name = parse("foo"), .has_wildcard = false },
+      upd::path_glob::segment { .ent_name = parse("beep"), .has_wildcard = true },
+      upd::path_glob::segment { .ent_name = upd::glob::pattern({
+        upd::glob::segment(upd::glob::placeholder::single_wildcard),
+        upd::glob::segment(".js")
+      }), .has_wildcard = false },
     }
   }));
 }

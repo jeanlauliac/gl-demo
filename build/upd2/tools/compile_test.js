@@ -61,6 +61,12 @@ function readCppParenExpr(content, i, filePath) {
       ++parenCount;
     } else if (content[i] === ')') {
       --parenCount;
+    } else if (content[i] === '"') {
+      ++i;
+      while (i < content.length && content[i] !== '"') {
+        if (content[i] === '\\') ++i;
+        ++i;
+      }
     }
     ++i;
   }

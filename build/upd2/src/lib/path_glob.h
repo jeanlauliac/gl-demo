@@ -10,6 +10,34 @@
 namespace upd {
 namespace path_glob {
 
+enum class capture_point_type { wildcard, ent_name };
+
+struct capture_point {
+  capture_point_type type;
+  size_t ent_name_segment_ix;
+  size_t segment_ix;
+};
+
+inline bool operator==(const capture_point& left, const capture_point& right) {
+  return
+    left.type == right.type &&
+    left.segment_ix == right.segment_ix && (
+      left.type == capture_point_type::wildcard ||
+      left.ent_name_segment_ix == right.ent_name_segment_ix
+    );
+}
+
+struct capture_group {
+  capture_point from;
+  capture_point to;
+};
+
+inline bool operator==(const capture_group& left, const capture_group& right) {
+  return
+    left.from == right.from &&
+    left.to == right.to;
+}
+
 struct segment {
   void clear() {
     ent_name.clear();
@@ -20,20 +48,25 @@ struct segment {
   bool has_wildcard;
 };
 
+inline bool operator==(const segment& left, const segment& right) {
+  return
+    left.has_wildcard == right.has_wildcard &&
+    left.ent_name == right.ent_name;
+}
+
 /**
  * The pattern to match a full file path, represented as each of its successive
  * entity names. For example
  */
 struct pattern {
+  std::vector<capture_group> capture_groups;
   std::vector<segment> segments;
 };
 
 inline bool operator==(const pattern& left, const pattern& right) {
-  return left.segments == right.segments;
-}
-
-inline bool operator==(const segment& left, const segment& right) {
-  return left.has_wildcard == right.has_wildcard;
+  return
+    left.segments == right.segments &&
+    left.capture_groups == right.capture_groups;
 }
 
 struct match {

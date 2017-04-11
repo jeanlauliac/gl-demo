@@ -69,7 +69,8 @@ private:
 using namespace upd::path_glob;
 
 enum class invalid_pattern_string_reason {
-  double_wildcard,
+  duplicate_directory_wildcard,
+  duplicate_wildcard,
   escape_char_at_end,
 };
 
@@ -98,9 +99,9 @@ struct pattern_string_parser {
 
   void read_path_segment() {
     current_segment.ent_name.clear();
-    current_segment.has_wildcard = read_wildcard();
-    if (read_wildcard()) {
-      throw invalid_pattern_string_error(invalid_pattern_string_reason::double_wildcard);
+    current_segment.has_wildcard = read_directory_wildcard();
+    if (read_directory_wildcard()) {
+      throw invalid_pattern_string_error(invalid_pattern_string_reason::duplicate_directory_wildcard);
     }
     while (input_ix < input.size() && input[input_ix] != '/') {
       process_input_char();
@@ -112,6 +113,12 @@ struct pattern_string_parser {
 
   void process_input_char() {
     if (input[input_ix] == '*') {
+      if (
+        current_glob_segment.prefix == upd::glob::placeholder::wildcard &&
+        current_glob_segment.literal.empty()
+      ) {
+        throw invalid_pattern_string_error(invalid_pattern_string_reason::duplicate_wildcard);
+      }
       finish_glob_segment();
       current_glob_segment.prefix = upd::glob::placeholder::wildcard;
       return;
@@ -138,11 +145,18 @@ struct pattern_string_parser {
     current_glob_segment.clear();
   }
 
-  bool read_wildcard() {
-    if (input.size() - input_ix < 3) return false;
-    if (input[input_ix] != '*' && input[input_ix + 1] != '*') return false;
-    if (input[input_ix + 2] != '/') return false;
-    input_ix += 3;
+  bool read_directory_wildcard() {
+    size_t ix = input_ix;
+    if (ix >= input.size()) return false;
+    if (input[ix] == '(') ++ix;
+    if (ix + 2 >= input.size()) return false;
+    if (input[ix] != '*' || input[ix + 1] != '*') return false;
+    ix += 2;
+    if (ix + 1 >= input.size()) return false;
+    if (input[ix] == ')') ++ix;
+    if (ix >= input.size()) return false;
+    if (input[ix] != '/') return false;
+    input_ix = ix + 1;
     return true;
   }
 
@@ -168,7 +182,7 @@ pattern parse_pattern_string(const std::string& pattern_string) {
 }
 
 @case "pattern_string_parser works with capture" {
-  @expect(parse_pattern_string("foo/**/beep/*).js") == pattern({
+  @expect(parse_pattern_string("foo/(**/beep/*).js") == pattern({
     .segments = {
       upd::path_glob::segment { .ent_name = parse("foo"), .has_wildcard = false },
       upd::path_glob::segment { .ent_name = parse("beep"), .has_wildcard = true },

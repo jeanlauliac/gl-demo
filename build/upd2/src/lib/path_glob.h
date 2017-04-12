@@ -78,59 +78,61 @@ struct matcher {
   matcher(const std::string& root_path, const pattern& pattern):
     root_path_(root_path),
     pattern_(pattern),
-    pending_dirs_({ { "", { 0 } } }) {};
+    pending_dirs_({ { "", { 0 } } }),
+    bookmark_ix_(0),
+    ent_(nullptr) {};
 
   bool next(match& next_match) {
-    auto ent = next_ent_();
-    while (ent != nullptr) {
-      std::string name = ent->d_name;
-      const auto& segments = pattern_.segments;
-      // replace loop by a function "next_segment_"
-      for (auto segment_ix: segment_ixs_) {
-        const auto& name_pattern = segments[segment_ix].ent_name;
-        if (segments[segment_ix].has_wildcard) {
-          if (ent->d_type == DT_DIR) {
-            pending_dirs_[path_prefix_ + '/' + name].push_back(segment_ix);
-          }
-        }
-        if (glob::match(name_pattern, name)) {
-          if (ent->d_type == DT_DIR && segment_ix + 1 < segments.size()) {
-            pending_dirs_[path_prefix_ + '/' + name].push_back(segment_ix + 1);
-          }
-          if (ent->d_type == DT_REG && segment_ix == segments.size() - 1) {
-            next_match.local_path = path_prefix_.substr(1) + '/' + name;
-            return true;
-          }
-        }
+    const auto& segments = pattern_.segments;
+    while (next_bookmark_()) {
+      std::string name = ent_->d_name;
+      auto segment_ix = segment_ids_[bookmark_ix_];
+      const auto& name_pattern = segments[segment_ix].ent_name;
+      if (segments[segment_ix].has_wildcard && ent_->d_type == DT_DIR) {
+        pending_dirs_[path_prefix_ + '/' + name].push_back(segment_ix);
       }
-      ent = next_ent_();
+      if (!glob::match(name_pattern, name)) continue;
+      if (ent_->d_type == DT_DIR && segment_ix + 1 < segments.size()) {
+        pending_dirs_[path_prefix_ + '/' + name].push_back(segment_ix + 1);
+      }
+      if (ent_->d_type == DT_REG && segment_ix == segments.size() - 1) {
+        next_match.local_path = path_prefix_.substr(1) + '/' + name;
+        return true;
+      }
     }
     return false;
   }
 
 private:
-  dirent* next_ent_() {
-    if (!dir_reader_.is_open()) {
-      if (!open_next_dir_()) return nullptr;
-    }
-    auto ent = dir_reader_.next();
-    while (ent == nullptr) {
-      if (!open_next_dir_()) {
-        dir_reader_.close();
-        return nullptr;
-      }
-      ent = dir_reader_.next();
-    }
-    return ent;
+  bool next_bookmark_() {
+    ++bookmark_ix_;
+    if (bookmark_ix_ < segment_ids_.size()) return true;
+    bookmark_ix_ = 0;
+    return next_ent_();
   }
 
-  bool open_next_dir_() {
+  bool next_ent_() {
+    if (!dir_reader_.is_open()) {
+      if (!next_dir_()) return false;
+    }
+    ent_ = dir_reader_.next();
+    while (ent_ == nullptr) {
+      if (!next_dir_()) {
+        dir_reader_.close();
+        return false;
+      }
+      ent_ = dir_reader_.next();
+    }
+    return true;
+  }
+
+  bool next_dir_() {
     const auto& next_dir_iter = pending_dirs_.cbegin();
     if (next_dir_iter == pending_dirs_.cend()) {
       return false;
     }
     path_prefix_ = next_dir_iter->first;
-    segment_ixs_ = next_dir_iter->second;
+    segment_ids_ = next_dir_iter->second;
     pending_dirs_.erase(next_dir_iter);
     dir_reader_.open(root_path_ + path_prefix_);
     return true;
@@ -146,7 +148,9 @@ private:
   DirFilesReader dir_reader_;
   std::unordered_map<std::string, std::vector<size_t>> pending_dirs_;
   std::string path_prefix_;
-  std::vector<size_t> segment_ixs_;
+  std::vector<size_t> segment_ids_;
+  size_t bookmark_ix_;
+  dirent* ent_;
 };
 
 }

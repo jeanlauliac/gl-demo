@@ -329,15 +329,7 @@ void compile_itself(
   bool update_all_files,
   const std::vector<std::string>& relative_target_paths
 ) {
-  std::string log_file_path = root_path + "/" + CACHE_FOLDER + "/log";
-  std::string temp_log_file_path = root_path + "/" + CACHE_FOLDER + "/log_rewritten";
-  update_log::cache log_cache = update_log::cache::from_log_file(log_file_path);
-  file_hash_cache hash_cache;
-  auto local_depfile_path = CACHE_FOLDER + "/depfile";
-  auto depfile_path = root_path + '/' + local_depfile_path;
-  if (mkfifo(depfile_path.c_str(), 0644) != 0 && errno != EEXIST) {
-    throw std::runtime_error("cannot make depfile FIFO");
-  }
+
   std::unordered_map<std::string, output_file> output_files_by_path;
   src_files_finder src_files(root_path);
   std::vector<std::string> local_obj_file_paths;
@@ -429,6 +421,16 @@ void compile_itself(
   if (print_graph) {
     output_dot_graph(std::cout, output_files_by_path, plan);
     return;
+  }
+
+  std::string log_file_path = root_path + "/" + CACHE_FOLDER + "/log";
+  std::string temp_log_file_path = root_path + "/" + CACHE_FOLDER + "/log_rewritten";
+  update_log::cache log_cache = update_log::cache::from_log_file(log_file_path);
+  file_hash_cache hash_cache;
+  auto local_depfile_path = CACHE_FOLDER + "/depfile";
+  auto depfile_path = root_path + '/' + local_depfile_path;
+  if (mkfifo(depfile_path.c_str(), 0644) != 0 && errno != EEXIST) {
+    throw std::runtime_error("cannot make depfile FIFO");
   }
 
   execute_update_plan(log_cache, hash_cache, root_path, output_files_by_path, plan, local_depfile_path);

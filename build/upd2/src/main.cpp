@@ -6,6 +6,7 @@
 #include "lib/json/Lexer.h"
 #include "lib/manifest.h"
 #include "lib/path.h"
+#include "lib/path_glob.h"
 #include "lib/update.h"
 #include "lib/update_log.h"
 #include "lib/xxhash64.h"
@@ -322,15 +323,10 @@ void output_dot_graph(
   os << "}" << std::endl;
 }
 
-void compile_itself(
-  const std::string& root_path,
-  const std::string& working_path,
-  bool print_graph,
-  bool update_all_files,
-  const std::vector<std::string>& relative_target_paths
-) {
+typedef std::unordered_map<std::string, output_file> output_files_t;
 
-  std::unordered_map<std::string, output_file> output_files_by_path;
+output_files_t get_output_files(const std::string& root_path) {
+  output_files_t output_files_by_path;
   src_files_finder src_files(root_path);
   std::vector<std::string> local_obj_file_paths;
   std::vector<std::string> local_test_cpp_file_basenames;
@@ -338,15 +334,7 @@ void compile_itself(
   src_file target_file;
   auto cppt_cli = get_cppt_command_line(root_path);
   while (src_files.next(target_file)) {
-    if (target_file.type == src_file_type::cpp_test) {
-      auto local_cpp_path = "dist/" + target_file.basename + ".cpp";
-      output_files_by_path[local_cpp_path] = {
-        .command_line = cppt_cli,
-        .local_input_file_paths = { target_file.local_path }
-      };
-      local_test_cpp_file_basenames.push_back(target_file.basename);
-      local_test_cppt_file_paths.push_back(target_file.local_path);
-    } else {
+    if (target_file.type != src_file_type::cpp_test) {
       auto local_obj_path = "dist/" + target_file.basename + ".o";
       auto pcli = get_compile_command_line(target_file.type);
       output_files_by_path[local_obj_path] = {
@@ -355,6 +343,19 @@ void compile_itself(
       };
       local_obj_file_paths.push_back(local_obj_path);
     }
+  }
+
+  path_glob::pattern cppt_pt = path_glob::parse("(src/lib/**/*).cppt");
+  path_glob::matcher<io::dir_files_reader> cppt_matcher(root_path, cppt_pt);
+  path_glob::match cppt_match;
+  while (cppt_matcher.next(cppt_match)) {
+    auto local_cpp_path = "dist/" + cppt_match.get_captured_string(0) + ".cpp";
+    output_files_by_path[local_cpp_path] = {
+      .command_line = cppt_cli,
+      .local_input_file_paths = { cppt_match.local_path }
+    };
+    local_test_cpp_file_basenames.push_back(cppt_match.get_captured_string(0));
+    local_test_cppt_file_paths.push_back(cppt_match.local_path);
   }
 
   auto pcli = get_index_tests_command_line();
@@ -400,6 +401,17 @@ void compile_itself(
     .local_input_file_paths = { local_test_object_file_paths }
   };
 
+  return output_files_by_path;
+}
+
+void compile_itself(
+  const std::string& root_path,
+  const std::string& working_path,
+  bool print_graph,
+  bool update_all_files,
+  const std::vector<std::string>& relative_target_paths
+) {
+  output_files_t output_files_by_path = get_output_files(root_path);
   update_plan plan;
 
   std::vector<std::string> local_target_paths;
@@ -411,13 +423,11 @@ void compile_itself(
     }
     build_update_plan(plan, output_files_by_path, *target_desc);
   }
-
   if (update_all_files) {
     for (auto const& target_desc: output_files_by_path) {
       build_update_plan(plan, output_files_by_path, target_desc);
     }
   }
-
   if (print_graph) {
     output_dot_graph(std::cout, output_files_by_path, plan);
     return;

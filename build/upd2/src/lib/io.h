@@ -38,6 +38,7 @@ struct dir {
   dir(dir&) = delete;
   ~dir();
   void open(const std::string& path);
+  void close();
   bool is_open() { return ptr_ != nullptr; }
   DIR* ptr() const { return ptr_; }
 private:
@@ -57,6 +58,7 @@ struct dir_files_reader {
    */
   struct dirent* next();
   void open(const std::string& path);
+  void close();
   bool is_open() { return target_.is_open(); }
 private:
   dir target_;

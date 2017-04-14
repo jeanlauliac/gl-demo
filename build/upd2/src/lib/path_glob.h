@@ -86,6 +86,11 @@ struct invalid_pattern_string_error {
 pattern parse(const std::string& pattern_string);
 
 struct match {
+  std::string get_captured_string(size_t index) {
+    const auto& group = captured_groups[index];
+    return local_path.substr(group.first, group.second - group.first);
+  }
+
   std::string local_path;
   std::vector<std::pair<size_t, size_t>> captured_groups;
 };
@@ -222,7 +227,11 @@ private:
     ++bookmark_ix_;
     if (bookmark_ix_ < bookmarks_.size()) return true;
     bookmark_ix_ = 0;
-    return next_ent_();
+    if (!next_ent_()) return false;
+    while (ent_->d_name[0] == '.') {
+      if (!next_ent_()) return false;
+    }
+    return true;
   }
 
   bool next_ent_() {

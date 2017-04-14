@@ -13,6 +13,8 @@ static std::unordered_map<std::string, std::vector<mock_ent>>
 MOCK_ENTS_BY_DIR_PATH = {
   { "/root", { { .name = "src", .type = DT_DIR } } },
   { "/root/src", {
+    { .name = ".", .type = DT_DIR },
+    { .name = "..", .type = DT_DIR },
     { .name = "beep1", .type = DT_DIR },
     { .name = "boop", .type = DT_DIR },
     { .name = "beep2", .type = DT_DIR }

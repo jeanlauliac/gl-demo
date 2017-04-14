@@ -69,6 +69,22 @@ inline bool operator==(const pattern& left, const pattern& right) {
     left.capture_groups == right.capture_groups;
 }
 
+enum class invalid_pattern_string_reason {
+  duplicate_directory_wildcard,
+  duplicate_wildcard,
+  escape_char_at_end,
+  unexpected_capture_close,
+};
+
+struct invalid_pattern_string_error {
+  invalid_pattern_string_error(invalid_pattern_string_reason reason):
+    reason(reason) {};
+
+  invalid_pattern_string_reason reason;
+};
+
+pattern parse(const std::string& pattern_string);
+
 struct match {
   std::string local_path;
   std::vector<std::pair<size_t, size_t>> captured_groups;

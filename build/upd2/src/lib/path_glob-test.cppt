@@ -283,3 +283,22 @@ pattern parse_pattern_string(const std::string& pattern_string) {
   };
   @expect(mts == expected);
 }
+
+typedef std::vector<std::pair<size_t, size_t>> captures;
+typedef std::unordered_map<std::string, captures> matches;
+
+@case "find and capture files" {
+  auto pattern = parse_pattern_string("src/(**/*).cpp");
+  upd::path_glob::matcher<mock_dir_reader> mtcr("/root", pattern);
+  upd::path_glob::match mt;
+  matches mts;
+  while (mtcr.next(mt)) mts[mt.local_path] = mt.captured_groups;
+  matches expected = {
+    { "src/beep1/foo.cpp", { { 4, 13, } } },
+    { "src/beep1/bar.cpp", { { 4, 13 } } },
+    { "src/beep1/subdir.cpp/smth.cpp", { { 4, 25 } } },
+    { "src/beep2/smth.cpp", { { 4, 14 } } },
+    { "src/boop/foo.cpp", { { 4, 12 } } },
+  };
+  @expect(mts == expected);
+}

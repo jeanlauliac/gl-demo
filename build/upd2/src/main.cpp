@@ -294,6 +294,47 @@ void output_dot_graph(
   os << "}" << std::endl;
 }
 
+enum class update_rule_input_type { source, rule };
+
+struct output_segment {
+  std::string literal;
+  bool has_captured_group;
+  size_t captured_group_ix;
+};
+
+struct output_pattern {
+  std::vector<output_segment> segments;
+  std::vector<std::pair<size_t, size_t>> capture_groups;
+};
+
+struct resolved_output {
+  std::string value;
+  std::vector<std::pair<size_t, size_t>> captured_groups;
+};
+
+struct update_rule {
+  update_rule_input_type input_type;
+  union {
+    size_t source_ix;
+    size_t rule_ix;
+  } input;
+  output_pattern output;
+};
+
+resolved_output resolve_output_pattern(
+  const output_pattern& pattern,
+  const path_glob::match input_match
+) {
+  resolved_output result;
+  for (const auto& segment: pattern.segments) {
+    result.value += segment.literal;
+    if (segment.has_captured_group) {
+      result.value += input_match.get_captured_string(segment.captured_group_ix);
+    }
+  }
+  return result;
+}
+
 update_map get_update_map(const std::string& root_path) {
   update_map result;
 
@@ -322,12 +363,41 @@ update_map get_update_map(const std::string& root_path) {
     matches[cppt_match.pattern_ix].push_back(std::move(cppt_match));
   }
 
+  std::vector<update_rule> rules = {
+    {
+      .input_type = update_rule_input_type::source,
+      .input = { .source_ix = 0 },
+      .output = {
+        .segments = {
+          { .literal = "dist/", .has_captured_group = true, .captured_group_ix = 0 },
+          { .literal = ".cpp", .has_captured_group = false },
+        }
+      },
+    },
+  };
+
+  // TODO: find correct rule order
+
+  for (const auto& rule: rules) {
+    std::unordered_map<std::string, std::vector<std::string>> input_paths_by_path;
+    if (rule.input_type == update_rule_input_type::source) {
+      for (const auto& match: matches[rule.input.source_ix]) {
+        auto local_output = resolve_output_pattern(rule.output, match);
+        input_paths_by_path[local_output.value].push_back(match.local_path);
+      }
+    }
+    for (const auto& input: input_paths_by_path) {
+      if (result.output_files_by_path.count(input.first)) {
+        throw std::runtime_error("two rules with same outputs");
+      }
+      result.output_files_by_path[input.first] = {
+        .command_line_ix = 0,
+        .local_input_file_paths = input.second,
+      };
+    }
+  }
+
   for (const auto& match: matches[0]) {
-    auto local_cpp_path = "dist/" + match.get_captured_string(0) + ".cpp";
-    result.output_files_by_path[local_cpp_path] = {
-      .command_line_ix = 0,
-      .local_input_file_paths = { match.local_path }
-    };
     local_test_cpp_file_basenames.push_back(match.get_captured_string(0));
     local_test_cppt_file_paths.push_back(match.local_path);
   }

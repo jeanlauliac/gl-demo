@@ -93,45 +93,6 @@ bool get_file_type(const std::string& entname, src_file_type& type, std::string&
   return false;
 }
 
-struct src_files_finder {
-  src_files_finder(const std::string& root_path):
-    root_path_(root_path),
-    src_path_suffix_("lib/"),
-    src_files_reader_(root_path_ + "/src/lib") {}
-
-  bool next(src_file& file) {
-    while (true) {
-      auto ent = src_files_reader_.next();
-      while (ent != nullptr) {
-        std::string name(ent->d_name);
-        if (ent->d_type == DT_DIR) {
-          if (!name.empty() && name[0] != '.') {
-            pending_src_path_folders_.push(src_path_suffix_ + name);
-          }
-        } else {
-          file.local_path = "src/" + src_path_suffix_ + name;
-          if (get_file_type(file.local_path, file.type, file.basename)) {
-            return true;
-          }
-        }
-        ent = src_files_reader_.next();
-      }
-      if (pending_src_path_folders_.empty()) {
-        return false;
-      }
-      src_path_suffix_ = pending_src_path_folders_.front() + '/';
-      pending_src_path_folders_.pop();
-      src_files_reader_.open(root_path_ + "/src/" + src_path_suffix_);
-    }
-  }
-
-private:
-  const std::string root_path_;
-  std::string src_path_suffix_;
-  io::dir_files_reader src_files_reader_;
-  std::queue<std::string> pending_src_path_folders_;
-};
-
 command_line_template get_cppt_command_line(const std::string& root_path) {
   return {
     .binary_path = "tools/compile_test.js",
@@ -327,35 +288,48 @@ typedef std::unordered_map<std::string, output_file> output_files_t;
 
 output_files_t get_output_files(const std::string& root_path) {
   output_files_t output_files_by_path;
-  src_files_finder src_files(root_path);
   std::vector<std::string> local_obj_file_paths;
   std::vector<std::string> local_test_cpp_file_basenames;
   std::vector<std::string> local_test_cppt_file_paths;
-  src_file target_file;
-  auto cppt_cli = get_cppt_command_line(root_path);
-  while (src_files.next(target_file)) {
-    if (target_file.type != src_file_type::cpp_test) {
-      auto local_obj_path = "dist/" + target_file.basename + ".o";
-      auto pcli = get_compile_command_line(target_file.type);
-      output_files_by_path[local_obj_path] = {
-        .command_line = pcli,
-        .local_input_file_paths = { target_file.local_path }
-      };
-      local_obj_file_paths.push_back(local_obj_path);
-    }
-  }
 
-  path_glob::pattern cppt_pt = path_glob::parse("(src/lib/**/*).cppt");
-  path_glob::matcher<io::dir_files_reader> cppt_matcher(root_path, cppt_pt);
+  std::vector<path_glob::pattern> patterns = {
+    path_glob::parse("(src/lib/**/*).cppt"),
+    path_glob::parse("(src/lib/**/*).cpp"),
+    path_glob::parse("(src/lib/**/*).c"),
+  };
+  path_glob::matcher<io::dir_files_reader> cppt_matcher(root_path, patterns);
   path_glob::match cppt_match;
   while (cppt_matcher.next(cppt_match)) {
-    auto local_cpp_path = "dist/" + cppt_match.get_captured_string(0) + ".cpp";
-    output_files_by_path[local_cpp_path] = {
-      .command_line = cppt_cli,
-      .local_input_file_paths = { cppt_match.local_path }
-    };
-    local_test_cpp_file_basenames.push_back(cppt_match.get_captured_string(0));
-    local_test_cppt_file_paths.push_back(cppt_match.local_path);
+    switch (cppt_match.pattern_ix) {
+      case 0: {
+        auto local_cpp_path = "dist/" + cppt_match.get_captured_string(0) + ".cpp";
+        output_files_by_path[local_cpp_path] = {
+          .command_line = get_cppt_command_line(root_path),
+          .local_input_file_paths = { cppt_match.local_path }
+        };
+        local_test_cpp_file_basenames.push_back(cppt_match.get_captured_string(0));
+        local_test_cppt_file_paths.push_back(cppt_match.local_path);
+        break;
+      }
+      case 1: {
+        auto local_obj_path = "dist/" + cppt_match.get_captured_string(0) + ".o";
+        output_files_by_path[local_obj_path] = {
+          .command_line = get_compile_command_line(src_file_type::cpp),
+          .local_input_file_paths = { cppt_match.local_path }
+        };
+        local_obj_file_paths.push_back(local_obj_path);
+        break;
+      }
+      case 2: {
+        auto local_obj_path = "dist/" + cppt_match.get_captured_string(0) + ".o";
+        output_files_by_path[local_obj_path] = {
+          .command_line = get_compile_command_line(src_file_type::c),
+          .local_input_file_paths = { cppt_match.local_path }
+        };
+        local_obj_file_paths.push_back(local_obj_path);
+        break;
+      }
+    }
   }
 
   auto pcli = get_index_tests_command_line();

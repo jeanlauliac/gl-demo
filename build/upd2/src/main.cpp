@@ -136,8 +136,15 @@ command_line_template get_link_command_line() {
 }
 
 struct output_file {
-  command_line_template command_line;
+  size_t command_line_ix;
   std::vector<std::string> local_input_file_paths;
+};
+
+typedef std::unordered_map<std::string, output_file> output_files_by_path_t;
+
+struct update_map {
+  output_files_by_path_t output_files_by_path;
+  std::vector<command_line_template> command_line_templates;
 };
 
 struct unknown_target_error {
@@ -204,20 +211,22 @@ void execute_update_plan(
   update_log::cache& log_cache,
   file_hash_cache& hash_cache,
   const std::string& root_path,
-  const std::unordered_map<std::string, output_file>& output_files_by_path,
+  const update_map& updm,
   update_plan& plan,
   const std::string& local_depfile_path
 ) {
   while (!plan.queued_output_file_paths.empty()) {
     auto local_target_path = plan.queued_output_file_paths.front();
     plan.queued_output_file_paths.pop();
-    auto target_descriptor = *output_files_by_path.find(local_target_path);
+    auto target_descriptor = *updm.output_files_by_path.find(local_target_path);
+    auto target_file = target_descriptor.second;
+    auto const& command_line_tpl = updm.command_line_templates[target_file.command_line_ix];
     update_file(
       log_cache,
       hash_cache,
       root_path,
-      target_descriptor.second.command_line,
-      target_descriptor.second.local_input_file_paths,
+      command_line_tpl,
+      target_file.local_input_file_paths,
       local_target_path,
       local_depfile_path
     );
@@ -246,7 +255,7 @@ void execute_update_plan(
 template <typename OStream>
 void output_dot_graph(
   OStream& os,
-  const std::unordered_map<std::string, output_file>& output_files_by_path,
+  const update_map& updm,
   update_plan& plan
 ) {
   os << "# generated with `upd --dot-graph`" << std::endl
@@ -255,13 +264,14 @@ void output_dot_graph(
   while (!plan.queued_output_file_paths.empty()) {
     auto local_target_path = plan.queued_output_file_paths.front();
     plan.queued_output_file_paths.pop();
-    auto target_descriptor = *output_files_by_path.find(local_target_path);
+    auto target_descriptor = *updm.output_files_by_path.find(local_target_path);
 
     auto const& target_file = target_descriptor.second;
+    auto const& command_line_tpl = updm.command_line_templates[target_file.command_line_ix];
     for (auto const& input_path: target_file.local_input_file_paths) {
       os << "  \"" << input_path << "\" -> \""
         << local_target_path << "\" [label=\""
-        << target_file.command_line.binary_path << "\"];" << std::endl;
+        << command_line_tpl.binary_path << "\"];" << std::endl;
     }
 
     plan.pending_output_file_paths.erase(local_target_path);
@@ -284,13 +294,20 @@ void output_dot_graph(
   os << "}" << std::endl;
 }
 
-typedef std::unordered_map<std::string, output_file> output_files_t;
+update_map get_update_map(const std::string& root_path) {
+  update_map result;
 
-output_files_t get_output_files(const std::string& root_path) {
-  output_files_t output_files_by_path;
   std::vector<std::string> local_obj_file_paths;
   std::vector<std::string> local_test_cpp_file_basenames;
   std::vector<std::string> local_test_cppt_file_paths;
+
+  result.command_line_templates = {
+    get_cppt_command_line(root_path),
+    get_compile_command_line(src_file_type::cpp),
+    get_compile_command_line(src_file_type::c),
+    get_index_tests_command_line(),
+    get_link_command_line(),
+  };
 
   std::vector<path_glob::pattern> patterns = {
     path_glob::parse("(src/lib/**/*).cppt"),
@@ -303,8 +320,8 @@ output_files_t get_output_files(const std::string& root_path) {
     switch (cppt_match.pattern_ix) {
       case 0: {
         auto local_cpp_path = "dist/" + cppt_match.get_captured_string(0) + ".cpp";
-        output_files_by_path[local_cpp_path] = {
-          .command_line = get_cppt_command_line(root_path),
+        result.output_files_by_path[local_cpp_path] = {
+          .command_line_ix = 0,
           .local_input_file_paths = { cppt_match.local_path }
         };
         local_test_cpp_file_basenames.push_back(cppt_match.get_captured_string(0));
@@ -313,8 +330,8 @@ output_files_t get_output_files(const std::string& root_path) {
       }
       case 1: {
         auto local_obj_path = "dist/" + cppt_match.get_captured_string(0) + ".o";
-        output_files_by_path[local_obj_path] = {
-          .command_line = get_compile_command_line(src_file_type::cpp),
+        result.output_files_by_path[local_obj_path] = {
+          .command_line_ix = 1,
           .local_input_file_paths = { cppt_match.local_path }
         };
         local_obj_file_paths.push_back(local_obj_path);
@@ -322,8 +339,8 @@ output_files_t get_output_files(const std::string& root_path) {
       }
       case 2: {
         auto local_obj_path = "dist/" + cppt_match.get_captured_string(0) + ".o";
-        output_files_by_path[local_obj_path] = {
-          .command_line = get_compile_command_line(src_file_type::c),
+        result.output_files_by_path[local_obj_path] = {
+          .command_line_ix = 2,
           .local_input_file_paths = { cppt_match.local_path }
         };
         local_obj_file_paths.push_back(local_obj_path);
@@ -332,24 +349,22 @@ output_files_t get_output_files(const std::string& root_path) {
     }
   }
 
-  auto pcli = get_index_tests_command_line();
-  output_files_by_path["dist/tests.cpp"] = {
-    .command_line = pcli,
+  result.output_files_by_path["dist/tests.cpp"] = {
+    .command_line_ix = 3,
     .local_input_file_paths = { local_test_cppt_file_paths }
   };
   local_test_cpp_file_basenames.push_back("tests");
 
-  auto cpp_pcli = get_compile_command_line(src_file_type::cpp);
   auto local_upd_object_file_paths = local_obj_file_paths;
-  output_files_by_path["dist/src/main.o"] = {
-    .command_line = cpp_pcli,
+  result.output_files_by_path["dist/src/main.o"] = {
+    .command_line_ix = 1,
     .local_input_file_paths = { "src/main.cpp" }
   };
   local_upd_object_file_paths.push_back("dist/src/main.o");
 
   auto local_test_object_file_paths = local_obj_file_paths;
-  output_files_by_path["dist/tools/lib/testing.o"] = {
-    .command_line = cpp_pcli,
+  result.output_files_by_path["dist/tools/lib/testing.o"] = {
+    .command_line_ix = 1,
     .local_input_file_paths = { "tools/lib/testing.cpp" }
   };
   local_test_object_file_paths.push_back("dist/tools/lib/testing.o");
@@ -358,24 +373,23 @@ output_files_t get_output_files(const std::string& root_path) {
     auto local_path = "dist/" + basename + ".cpp";
     auto local_obj_path = "dist/" + basename + ".o";
     auto pcli = get_compile_command_line(src_file_type::cpp);
-    output_files_by_path[local_obj_path] = {
-      .command_line = cpp_pcli,
+    result.output_files_by_path[local_obj_path] = {
+      .command_line_ix = 1,
       .local_input_file_paths = { local_path }
     };
     local_test_object_file_paths.push_back(local_obj_path);
   }
 
-  pcli = get_link_command_line();
-  output_files_by_path["dist/upd"] = {
-    .command_line = pcli,
+  result.output_files_by_path["dist/upd"] = {
+    .command_line_ix = 4,
     .local_input_file_paths = { local_upd_object_file_paths }
   };
-  output_files_by_path["dist/tests"] = {
-    .command_line = pcli,
+  result.output_files_by_path["dist/tests"] = {
+    .command_line_ix = 4,
     .local_input_file_paths = { local_test_object_file_paths }
   };
 
-  return output_files_by_path;
+  return result;
 }
 
 struct no_targets_error {};
@@ -387,7 +401,8 @@ void compile_itself(
   bool update_all_files,
   const std::vector<std::string>& relative_target_paths
 ) {
-  output_files_t output_files_by_path = get_output_files(root_path);
+  const update_map updm = get_update_map(root_path);
+  const auto& output_files_by_path = updm.output_files_by_path;
   update_plan plan;
 
   std::vector<std::string> local_target_paths;
@@ -408,7 +423,7 @@ void compile_itself(
     throw no_targets_error();
   }
   if (print_graph) {
-    output_dot_graph(std::cout, output_files_by_path, plan);
+    output_dot_graph(std::cout, updm, plan);
     return;
   }
 
@@ -422,7 +437,7 @@ void compile_itself(
     throw std::runtime_error("cannot make depfile FIFO");
   }
 
-  execute_update_plan(log_cache, hash_cache, root_path, output_files_by_path, plan, local_depfile_path);
+  execute_update_plan(log_cache, hash_cache, root_path, updm, plan, local_depfile_path);
 
   std::cout << "done" << std::endl;
   log_cache.close();

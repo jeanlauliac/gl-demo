@@ -91,24 +91,39 @@ struct match {
     return local_path.substr(group.first, group.second - group.first);
   }
 
+  size_t pattern_ix;
   std::string local_path;
   std::vector<std::pair<size_t, size_t>> captured_groups;
 };
 
 template <typename DirFilesReader>
 struct matcher {
-  matcher(const std::string& root_path, const pattern& pattern):
+private:
+  struct bookmark {
+    size_t pattern_ix;
+    size_t segment_ix;
+    std::unordered_map<size_t, size_t> captured_from_ids;
+    std::unordered_map<size_t, size_t> captured_to_ids;
+  };
+  typedef std::unordered_map<std::string, std::vector<bookmark>>
+    pending_dirs_type;
+
+public:
+  matcher(const std::string& root_path, const std::vector<pattern>& patterns):
     root_path_(root_path),
-    pattern_(pattern),
-    pending_dirs_({ { "", { { .segment_ix = 0 } } } }),
+    patterns_(patterns),
+    pending_dirs_(generate_initial_pending_dirs_(patterns)),
     bookmark_ix_(0),
-    ent_(nullptr) {};
+    ent_(nullptr) {}
+
+  matcher(const std::string& root_path, const pattern& single_pattern):
+    matcher(root_path, std::vector<pattern>({ single_pattern })) {}
 
   bool next(match& next_match) {
-    const auto& segments = pattern_.segments;
     while (next_bookmark_()) {
       std::string name = ent_->d_name;
       const auto& bookmark = bookmarks_[bookmark_ix_];
+      const auto& segments = patterns_[bookmark.pattern_ix].segments;
       auto segment_ix = bookmark.segment_ix;
       const auto& name_pattern = segments[segment_ix].ent_name;
       if (segments[segment_ix].has_wildcard && ent_->d_type == DT_DIR) {
@@ -128,15 +143,23 @@ struct matcher {
   }
 
 private:
-  struct bookmark {
-    size_t segment_ix;
-    std::unordered_map<size_t, size_t> captured_from_ids;
-    std::unordered_map<size_t, size_t> captured_to_ids;
-  };
+  static pending_dirs_type generate_initial_pending_dirs_(
+    const std::vector<pattern>& patterns
+  ) {
+    std::vector<bookmark> initial_bookmarks;
+    for (size_t i = 0; i < patterns.size(); ++i) {
+      initial_bookmarks.push_back({
+        .pattern_ix = i,
+        .segment_ix = 0,
+      });
+    }
+    return pending_dirs_type({ { "", std::move(initial_bookmarks) } });
+  }
 
   void push_wildcard_match_(const std::string& name, const bookmark& target) {
     auto captured_from_ids = target.captured_from_ids;
     auto captured_to_ids = target.captured_to_ids;
+    const auto& pattern_ = patterns_[target.pattern_ix];
     for (size_t i = 0; i < pattern_.capture_groups.size(); ++i) {
       const auto& group = pattern_.capture_groups[i];
       if (
@@ -151,6 +174,7 @@ private:
       .segment_ix = target.segment_ix,
       .captured_from_ids = std::move(captured_from_ids),
       .captured_to_ids = std::move(captured_to_ids),
+      .pattern_ix = target.pattern_ix,
     });
   }
 
@@ -171,6 +195,7 @@ private:
       .segment_ix = target.segment_ix + 1,
       .captured_from_ids = std::move(captured_from_ids),
       .captured_to_ids = std::move(captured_to_ids),
+      .pattern_ix = target.pattern_ix,
     });
   }
 
@@ -189,7 +214,9 @@ private:
       captured_to_ids
     );
     next_match.local_path = path_prefix_.substr(1) + '/' + name;
+    const auto& pattern_ = patterns_[target.pattern_ix];
     next_match.captured_groups.resize(pattern_.capture_groups.size());
+    next_match.pattern_ix = target.pattern_ix;
     for (size_t i = 0; i < pattern_.capture_groups.size(); ++i) {
       next_match.captured_groups[i] = {
         captured_from_ids.at(i) - 1,
@@ -204,6 +231,7 @@ private:
     std::unordered_map<size_t, size_t>& captured_from_ids,
     std::unordered_map<size_t, size_t>& captured_to_ids
   ) {
+    const auto& pattern_ = patterns_[target.pattern_ix];
     for (size_t i = 0; i < pattern_.capture_groups.size(); ++i) {
       const auto& group = pattern_.capture_groups[i];
       if (
@@ -262,9 +290,9 @@ private:
   }
 
   std::string root_path_;
-  pattern pattern_;
+  std::vector<pattern> patterns_;
   DirFilesReader dir_reader_;
-  std::unordered_map<std::string, std::vector<bookmark>> pending_dirs_;
+  pending_dirs_type pending_dirs_;
   std::string path_prefix_;
   std::vector<bookmark> bookmarks_;
   size_t bookmark_ix_;

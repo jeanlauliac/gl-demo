@@ -404,6 +404,8 @@ output_files_t get_output_files(const std::string& root_path) {
   return output_files_by_path;
 }
 
+struct no_targets_error {};
+
 void compile_itself(
   const std::string& root_path,
   const std::string& working_path,
@@ -427,6 +429,9 @@ void compile_itself(
     for (auto const& target_desc: output_files_by_path) {
       build_update_plan(plan, output_files_by_path, target_desc);
     }
+  }
+  if (plan.pending_output_file_paths.size() == 0) {
+    throw no_targets_error();
   }
   if (print_graph) {
     output_dot_graph(std::cout, output_files_by_path, plan);
@@ -500,6 +505,9 @@ int run_with_options(const cli::options& cli_opts) {
     return 2;
   } catch (relative_path_out_of_root_error error) {
     cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "encountered a path out of the project root: " << error.relative_path << std::endl;
+    return 2;
+  } catch (no_targets_error error) {
+    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "specify at least one target to update" << std::endl;
     return 2;
   }
 }

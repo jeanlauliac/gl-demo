@@ -86,7 +86,7 @@ struct invalid_pattern_string_error {
 pattern parse(const std::string& pattern_string);
 
 struct match {
-  std::string get_captured_string(size_t index) {
+  std::string get_captured_string(size_t index) const {
     const auto& group = captured_groups[index];
     return local_path.substr(group.first, group.second - group.first);
   }

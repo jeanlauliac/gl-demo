@@ -314,39 +314,40 @@ update_map get_update_map(const std::string& root_path) {
     path_glob::parse("(src/lib/**/*).cpp"),
     path_glob::parse("(src/lib/**/*).c"),
   };
+
+  std::vector<std::vector<path_glob::match>> matches(patterns.size());
   path_glob::matcher<io::dir_files_reader> cppt_matcher(root_path, patterns);
   path_glob::match cppt_match;
   while (cppt_matcher.next(cppt_match)) {
-    switch (cppt_match.pattern_ix) {
-      case 0: {
-        auto local_cpp_path = "dist/" + cppt_match.get_captured_string(0) + ".cpp";
-        result.output_files_by_path[local_cpp_path] = {
-          .command_line_ix = 0,
-          .local_input_file_paths = { cppt_match.local_path }
-        };
-        local_test_cpp_file_basenames.push_back(cppt_match.get_captured_string(0));
-        local_test_cppt_file_paths.push_back(cppt_match.local_path);
-        break;
-      }
-      case 1: {
-        auto local_obj_path = "dist/" + cppt_match.get_captured_string(0) + ".o";
-        result.output_files_by_path[local_obj_path] = {
-          .command_line_ix = 1,
-          .local_input_file_paths = { cppt_match.local_path }
-        };
-        local_obj_file_paths.push_back(local_obj_path);
-        break;
-      }
-      case 2: {
-        auto local_obj_path = "dist/" + cppt_match.get_captured_string(0) + ".o";
-        result.output_files_by_path[local_obj_path] = {
-          .command_line_ix = 2,
-          .local_input_file_paths = { cppt_match.local_path }
-        };
-        local_obj_file_paths.push_back(local_obj_path);
-        break;
-      }
-    }
+    matches[cppt_match.pattern_ix].push_back(std::move(cppt_match));
+  }
+
+  for (const auto& match: matches[0]) {
+    auto local_cpp_path = "dist/" + match.get_captured_string(0) + ".cpp";
+    result.output_files_by_path[local_cpp_path] = {
+      .command_line_ix = 0,
+      .local_input_file_paths = { match.local_path }
+    };
+    local_test_cpp_file_basenames.push_back(match.get_captured_string(0));
+    local_test_cppt_file_paths.push_back(match.local_path);
+  }
+
+  for (const auto& match: matches[1]) {
+    auto local_obj_path = "dist/" + match.get_captured_string(0) + ".o";
+    result.output_files_by_path[local_obj_path] = {
+      .command_line_ix = 1,
+      .local_input_file_paths = { match.local_path }
+    };
+    local_obj_file_paths.push_back(local_obj_path);
+  }
+
+  for (const auto& match: matches[2]) {
+    auto local_obj_path = "dist/" + match.get_captured_string(0) + ".o";
+    result.output_files_by_path[local_obj_path] = {
+      .command_line_ix = 2,
+      .local_input_file_paths = { match.local_path }
+    };
+    local_obj_file_paths.push_back(local_obj_path);
   }
 
   result.output_files_by_path["dist/tests.cpp"] = {

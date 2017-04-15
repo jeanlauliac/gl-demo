@@ -149,3 +149,26 @@ typedef std::unordered_map<std::string, captures> matches;
   };
   @expect(mts == expected);
 }
+
+typedef std::tuple<size_t, size_t, size_t> multi_captures;
+typedef std::unordered_map<std::string, multi_captures> multi_matches;
+
+@case "handle several patterns at once" {
+  auto pattern1 = upd::path_glob::parse("src/(**/f*).cpp");
+  auto pattern2 = upd::path_glob::parse("src/(**/sm*).cpp");
+  upd::path_glob::matcher<mock_dir_reader> mtcr("/root", { pattern1, pattern2 });
+  upd::path_glob::match mt;
+  multi_matches mts;
+  while (mtcr.next(mt)) mts[mt.local_path] = {
+    mt.captured_groups[0].first,
+    mt.captured_groups[0].second,
+    mt.pattern_ix,
+  };
+  multi_matches expected = {
+    { "src/beep1/foo.cpp", { 4, 13, 0 } },
+    { "src/beep1/subdir.cpp/smth.cpp", { 4, 25, 1 } },
+    { "src/beep2/smth.cpp", { 4, 14, 1 } },
+    { "src/boop/foo.cpp", { 4, 12, 0 } },
+  };
+  @expect(mts == expected);
+}

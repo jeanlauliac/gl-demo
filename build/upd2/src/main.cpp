@@ -309,10 +309,11 @@ struct output_pattern {
 
 struct resolved_output {
   std::string value;
-  std::vector<std::pair<size_t, size_t>> captured_groups;
+  std::vector<size_t> segment_start_ids;
 };
 
 struct update_rule {
+  size_t command_line_ix;
   update_rule_input_type input_type;
   union {
     size_t source_ix;
@@ -322,11 +323,14 @@ struct update_rule {
 };
 
 resolved_output resolve_output_pattern(
-  const output_pattern& pattern,
+  const std::vector<output_segment>& segments,
   const path_glob::match input_match
 ) {
   resolved_output result;
-  for (const auto& segment: pattern.segments) {
+  result.segment_start_ids.resize(segments.size());
+  for (size_t i = 0; i < segments.size(); ++i) {
+    result.segment_start_ids[i] = result.value.size();
+    const auto& segment = segments[i];
     result.value += segment.literal;
     if (segment.has_captured_group) {
       result.value += input_match.get_captured_string(segment.captured_group_ix);
@@ -334,6 +338,16 @@ resolved_output resolve_output_pattern(
   }
   return result;
 }
+
+struct captured_path {
+  std::string get_captured_string(size_t index) const {
+    const auto& group = captured_groups[index];
+    return local_path.substr(group.first, group.second - group.first);
+  }
+
+  std::string local_path;
+  std::vector<std::pair<size_t, size_t>> captured_groups;
+};
 
 update_map get_update_map(const std::string& root_path) {
   update_map result;
@@ -365,35 +379,56 @@ update_map get_update_map(const std::string& root_path) {
 
   std::vector<update_rule> rules = {
     {
+      .command_line_ix = 0,
       .input_type = update_rule_input_type::source,
       .input = { .source_ix = 0 },
       .output = {
         .segments = {
-          { .literal = "dist/", .has_captured_group = true, .captured_group_ix = 0 },
+          { .literal = "dist/", .has_captured_group = false },
+          { .has_captured_group = true, .captured_group_ix = 0 },
           { .literal = ".cpp", .has_captured_group = false },
-        }
+        },
+        .capture_groups = {
+          { 1, 2 },
+        },
       },
     },
   };
 
+  std::vector<std::vector<captured_path>> rule_captured_paths(rules.size());
   // TODO: find correct rule order
 
-  for (const auto& rule: rules) {
-    std::unordered_map<std::string, std::vector<std::string>> input_paths_by_path;
+  for (size_t i = 0; i < rules.size(); ++i) {
+    const auto& rule = rules[i];
+    std::unordered_map<std::string, std::pair<std::vector<std::string>, std::vector<size_t>>> data_by_path;
     if (rule.input_type == update_rule_input_type::source) {
       for (const auto& match: matches[rule.input.source_ix]) {
-        auto local_output = resolve_output_pattern(rule.output, match);
-        input_paths_by_path[local_output.value].push_back(match.local_path);
+        auto local_output = resolve_output_pattern(rule.output.segments, match);
+        auto& datum = data_by_path[local_output.value];
+        datum.first.push_back(match.local_path);
+        datum.second = local_output.segment_start_ids;
       }
     }
-    for (const auto& input: input_paths_by_path) {
-      if (result.output_files_by_path.count(input.first)) {
+    auto& captured_paths = rule_captured_paths[i];
+    captured_paths.resize(data_by_path.size());
+    size_t k = 0;
+    for (const auto& input: data_by_path) {
+      auto& captured_path = captured_paths[k];
+      captured_path.local_path = input.first;
+      if (result.output_files_by_path.count(captured_path.local_path)) {
         throw std::runtime_error("two rules with same outputs");
       }
-      result.output_files_by_path[input.first] = {
-        .command_line_ix = 0,
-        .local_input_file_paths = input.second,
+      result.output_files_by_path[captured_path.local_path] = {
+        .command_line_ix = rule.command_line_ix,
+        .local_input_file_paths = input.second.first,
       };
+      captured_path.captured_groups.resize(rule.output.capture_groups.size());
+      for (size_t j = 0; j < rule.output.capture_groups.size(); ++j) {
+        const auto& capture_group = rule.output.capture_groups[j];
+        captured_path.captured_groups[j].first = input.second.second[capture_group.first];
+        captured_path.captured_groups[j].second = input.second.second[capture_group.second];
+      }
+      ++k;
     }
   }
 

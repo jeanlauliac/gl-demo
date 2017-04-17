@@ -318,7 +318,7 @@ struct update_rule_input {
 
 struct update_rule {
   size_t command_line_ix;
-  update_rule_input input;
+  std::vector<update_rule_input> inputs;
   substitution::pattern output;
 };
 
@@ -358,32 +358,32 @@ update_map get_update_map(const std::string& root_path) {
   std::vector<update_rule> rules = {
     {
       .command_line_ix = 0,
-      .input = update_rule_input::from_source(0),
+      .inputs = { update_rule_input::from_source(0) },
       .output = substitution::parse("dist/($1).cpp"),
     },
     {
       .command_line_ix = 1,
-      .input = update_rule_input::from_source(1),
+      .inputs = { update_rule_input::from_source(1) },
       .output = substitution::parse("dist/($1).o"),
     },
     {
       .command_line_ix = 2,
-      .input = update_rule_input::from_source(2),
+      .inputs = { update_rule_input::from_source(2) },
       .output = substitution::parse("dist/($1).o"),
     },
     {
       .command_line_ix = 3,
-      .input = update_rule_input::from_source(0),
+      .inputs = { update_rule_input::from_source(0) },
       .output = substitution::parse("dist/(tests).cpp"),
     },
     {
       .command_line_ix = 1,
-      .input = update_rule_input::from_source(3),
+      .inputs = { update_rule_input::from_source(3) },
       .output = substitution::parse("dist/($1).o"),
     },
     {
       .command_line_ix = 1,
-      .input = update_rule_input::from_source(4),
+      .inputs = { update_rule_input::from_source(4) },
       .output = substitution::parse("dist/($1).o"),
     },
   };
@@ -393,32 +393,34 @@ update_map get_update_map(const std::string& root_path) {
 
   for (size_t i = 0; i < rules.size(); ++i) {
     const auto& rule = rules[i];
-    const auto& input_captures =
-      rule.input.type == update_rule_input_type::source
-      ? matches[rule.input.input_ix]
-      : rule_captured_paths[rule.input.input_ix];
     std::unordered_map<std::string, std::pair<std::vector<std::string>, std::vector<size_t>>> data_by_path;
-    for (const auto& input_capture: input_captures) {
-      auto local_output = substitution::resolve(rule.output.segments, input_capture);
-      auto& datum = data_by_path[local_output.value];
-      datum.first.push_back(input_capture.value);
-      datum.second = local_output.segment_start_ids;
+    for (const auto& input: rule.inputs) {
+      const auto& input_captures =
+        input.type == update_rule_input_type::source
+        ? matches[input.input_ix]
+        : rule_captured_paths[input.input_ix];
+      for (const auto& input_capture: input_captures) {
+        auto local_output = substitution::resolve(rule.output.segments, input_capture);
+        auto& datum = data_by_path[local_output.value];
+        datum.first.push_back(input_capture.value);
+        datum.second = local_output.segment_start_ids;
+      }
     }
     auto& captured_paths = rule_captured_paths[i];
     captured_paths.resize(data_by_path.size());
     size_t k = 0;
-    for (const auto& input: data_by_path) {
-      if (result.output_files_by_path.count(input.first)) {
+    for (const auto& datum: data_by_path) {
+      if (result.output_files_by_path.count(datum.first)) {
         throw std::runtime_error("two rules with same outputs");
       }
-      result.output_files_by_path[input.first] = {
+      result.output_files_by_path[datum.first] = {
         .command_line_ix = rule.command_line_ix,
-        .local_input_file_paths = input.second.first,
+        .local_input_file_paths = datum.second.first,
       };
       captured_paths[k] = substitution::capture(
         rule.output.capture_groups,
-        input.first,
-        input.second.second
+        datum.first,
+        datum.second.second
       );
       ++k;
     }

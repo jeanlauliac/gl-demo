@@ -64,36 +64,6 @@ command_line_template get_compile_command_line(src_file_type type) {
   };
 }
 
-bool ends_with(const std::string& value, const std::string& ending) {
-  if (ending.size() > value.size()) return false;
-  return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
-}
-
-struct src_file {
-  std::string local_path;
-  std::string basename;
-  src_file_type type;
-};
-
-bool get_file_type(const std::string& entname, src_file_type& type, std::string& basename) {
-  if (ends_with(entname, ".cpp")) {
-    type = src_file_type::cpp;
-    basename = entname.substr(0, entname.size() - 4);
-    return true;
-  }
-  if (ends_with(entname, ".c")) {
-    type = src_file_type::c;
-    basename = entname.substr(0, entname.size() - 2);
-    return true;
-  }
-  if (ends_with(entname, ".cppt")) {
-    type = src_file_type::cpp_test;
-    basename = entname.substr(0, entname.size() - 5);
-    return true;
-  }
-  return false;
-}
-
 command_line_template get_cppt_command_line(const std::string& root_path) {
   return {
     .binary_path = "tools/compile_test.js",

@@ -322,6 +322,8 @@ struct update_rule {
   substitution::pattern output;
 };
 
+struct cannot_refer_to_later_rule_error {};
+
 update_map get_update_map(const std::string& root_path) {
   update_map result;
 
@@ -395,15 +397,37 @@ update_map get_update_map(const std::string& root_path) {
       },
       .output = substitution::parse("dist/upd"),
     },
+    {
+      .command_line_ix = 1,
+      .inputs = {
+        update_rule_input::from_rule(0),
+        update_rule_input::from_rule(3),
+      },
+      .output = substitution::parse("dist/($1).o"),
+    },
+    {
+      .command_line_ix = 4,
+      .inputs = {
+        update_rule_input::from_rule(1),
+        update_rule_input::from_rule(2),
+        update_rule_input::from_rule(5),
+        update_rule_input::from_rule(7),
+      },
+      .output = substitution::parse("dist/tests"),
+    },
   };
 
   std::vector<std::vector<captured_string>> rule_captured_paths(rules.size());
-  // TODO: find correct rule order
 
   for (size_t i = 0; i < rules.size(); ++i) {
     const auto& rule = rules[i];
     std::unordered_map<std::string, std::pair<std::vector<std::string>, std::vector<size_t>>> data_by_path;
     for (const auto& input: rule.inputs) {
+      if (input.type == update_rule_input_type::rule) {
+        if (input.input_ix >= i) {
+          throw cannot_refer_to_later_rule_error();
+        }
+      }
       const auto& input_captures =
         input.type == update_rule_input_type::source
         ? matches[input.input_ix]
@@ -434,43 +458,6 @@ update_map get_update_map(const std::string& root_path) {
       ++k;
     }
   }
-
-  for (const auto& match: matches[0]) {
-    local_test_cpp_file_basenames.push_back(match.get_sub_string(0));
-    local_test_cppt_file_paths.push_back(match.value);
-  }
-
-  for (const auto& captured: rule_captured_paths[1]) {
-    local_obj_file_paths.push_back(captured.value);
-  }
-
-  for (const auto& captured: rule_captured_paths[2]) {
-    local_obj_file_paths.push_back(captured.value);
-  }
-
-  local_test_cpp_file_basenames.push_back("tests");
-
-  auto local_upd_object_file_paths = local_obj_file_paths;
-  local_upd_object_file_paths.push_back("dist/src/main.o");
-
-  auto local_test_object_file_paths = local_obj_file_paths;
-  local_test_object_file_paths.push_back("dist/tools/lib/testing.o");
-
-  for (auto const& basename: local_test_cpp_file_basenames) {
-    auto local_path = "dist/" + basename + ".cpp";
-    auto local_obj_path = "dist/" + basename + ".o";
-    auto pcli = get_compile_command_line(src_file_type::cpp);
-    result.output_files_by_path[local_obj_path] = {
-      .command_line_ix = 1,
-      .local_input_file_paths = { local_path }
-    };
-    local_test_object_file_paths.push_back(local_obj_path);
-  }
-
-  result.output_files_by_path["dist/tests"] = {
-    .command_line_ix = 4,
-    .local_input_file_paths = { local_test_object_file_paths }
-  };
 
   return result;
 }

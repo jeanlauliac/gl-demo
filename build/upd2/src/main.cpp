@@ -343,16 +343,7 @@ update_map get_update_map(const std::string& root_path) {
       .command_line_ix = 0,
       .input_type = update_rule_input_type::source,
       .input = { .source_ix = 0 },
-      .output = {
-        .segments = {
-          substitution::segment("dist/"),
-          substitution::segment(0),
-          substitution::segment(".cpp"),
-        },
-        .capture_groups = {
-          { 1, 2 },
-        },
-      },
+      .output = substitution::parse("dist/($1).cpp"),
     },
   };
 

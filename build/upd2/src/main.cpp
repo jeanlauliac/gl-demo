@@ -342,6 +342,7 @@ update_map get_update_map(const std::string& root_path) {
     path_glob::parse("(src/lib/**/*).cpp"),
     path_glob::parse("(src/lib/**/*).c"),
     path_glob::parse("(src/main).cpp"),
+    path_glob::parse("(tools/lib/testing).cpp"),
   };
 
   std::vector<std::vector<captured_string>> matches(patterns.size());
@@ -379,7 +380,12 @@ update_map get_update_map(const std::string& root_path) {
       .command_line_ix = 1,
       .input = update_rule_input::from_source(3),
       .output = substitution::parse("dist/($1).o"),
-    }
+    },
+    {
+      .command_line_ix = 1,
+      .input = update_rule_input::from_source(4),
+      .output = substitution::parse("dist/($1).o"),
+    },
   };
 
   std::vector<std::vector<captured_string>> rule_captured_paths(rules.size());
@@ -437,10 +443,6 @@ update_map get_update_map(const std::string& root_path) {
   local_upd_object_file_paths.push_back("dist/src/main.o");
 
   auto local_test_object_file_paths = local_obj_file_paths;
-  result.output_files_by_path["dist/tools/lib/testing.o"] = {
-    .command_line_ix = 1,
-    .local_input_file_paths = { "tools/lib/testing.cpp" }
-  };
   local_test_object_file_paths.push_back("dist/tools/lib/testing.o");
 
   for (auto const& basename: local_test_cpp_file_basenames) {

@@ -322,23 +322,6 @@ struct update_rule {
   output_pattern output;
 };
 
-resolved_output resolve_output_pattern(
-  const std::vector<output_segment>& segments,
-  const path_glob::match input_match
-) {
-  resolved_output result;
-  result.segment_start_ids.resize(segments.size());
-  for (size_t i = 0; i < segments.size(); ++i) {
-    result.segment_start_ids[i] = result.value.size();
-    const auto& segment = segments[i];
-    result.value += segment.literal;
-    if (segment.has_captured_group) {
-      result.value += input_match.get_captured_string(segment.captured_group_ix);
-    }
-  }
-  return result;
-}
-
 struct captured_path {
   std::string get_captured_string(size_t index) const {
     const auto& group = captured_groups[index];
@@ -348,6 +331,23 @@ struct captured_path {
   std::string local_path;
   std::vector<std::pair<size_t, size_t>> captured_groups;
 };
+
+resolved_output resolve_output_pattern(
+  const std::vector<output_segment>& segments,
+  const captured_path& input
+) {
+  resolved_output result;
+  result.segment_start_ids.resize(segments.size());
+  for (size_t i = 0; i < segments.size(); ++i) {
+    result.segment_start_ids[i] = result.value.size();
+    const auto& segment = segments[i];
+    result.value += segment.literal;
+    if (segment.has_captured_group) {
+      result.value += input.get_captured_string(segment.captured_group_ix);
+    }
+  }
+  return result;
+}
 
 update_map get_update_map(const std::string& root_path) {
   update_map result;
@@ -370,11 +370,14 @@ update_map get_update_map(const std::string& root_path) {
     path_glob::parse("(src/lib/**/*).c"),
   };
 
-  std::vector<std::vector<path_glob::match>> matches(patterns.size());
+  std::vector<std::vector<captured_path>> matches(patterns.size());
   path_glob::matcher<io::dir_files_reader> cppt_matcher(root_path, patterns);
   path_glob::match cppt_match;
   while (cppt_matcher.next(cppt_match)) {
-    matches[cppt_match.pattern_ix].push_back(std::move(cppt_match));
+    matches[cppt_match.pattern_ix].push_back({
+      .local_path = std::move(cppt_match.local_path),
+      .captured_groups = std::move(cppt_match.captured_groups),
+    });
   }
 
   std::vector<update_rule> rules = {
@@ -400,14 +403,16 @@ update_map get_update_map(const std::string& root_path) {
 
   for (size_t i = 0; i < rules.size(); ++i) {
     const auto& rule = rules[i];
+    const auto& input_captures =
+      rule.input_type == update_rule_input_type::source
+      ? matches[rule.input.source_ix]
+      : rule_captured_paths[rule.input.rule_ix];
     std::unordered_map<std::string, std::pair<std::vector<std::string>, std::vector<size_t>>> data_by_path;
-    if (rule.input_type == update_rule_input_type::source) {
-      for (const auto& match: matches[rule.input.source_ix]) {
-        auto local_output = resolve_output_pattern(rule.output.segments, match);
-        auto& datum = data_by_path[local_output.value];
-        datum.first.push_back(match.local_path);
-        datum.second = local_output.segment_start_ids;
-      }
+    for (const auto& input_capture: input_captures) {
+      auto local_output = resolve_output_pattern(rule.output.segments, input_capture);
+      auto& datum = data_by_path[local_output.value];
+      datum.first.push_back(input_capture.local_path);
+      datum.second = local_output.segment_start_ids;
     }
     auto& captured_paths = rule_captured_paths[i];
     captured_paths.resize(data_by_path.size());

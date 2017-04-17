@@ -345,9 +345,9 @@ update_map get_update_map(const std::string& root_path) {
       .input = { .source_ix = 0 },
       .output = {
         .segments = {
-          { .literal = "dist/", .has_captured_group = false },
-          { .has_captured_group = true, .captured_group_ix = 0 },
-          { .literal = ".cpp", .has_captured_group = false },
+          substitution::segment("dist/"),
+          substitution::segment(0),
+          substitution::segment(".cpp"),
         },
         .capture_groups = {
           { 1, 2 },

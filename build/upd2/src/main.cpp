@@ -386,6 +386,15 @@ update_map get_update_map(const std::string& root_path) {
       .inputs = { update_rule_input::from_source(4) },
       .output = substitution::parse("dist/($1).o"),
     },
+    {
+      .command_line_ix = 4,
+      .inputs = {
+        update_rule_input::from_rule(1),
+        update_rule_input::from_rule(2),
+        update_rule_input::from_rule(4),
+      },
+      .output = substitution::parse("dist/upd"),
+    },
   };
 
   std::vector<std::vector<captured_string>> rule_captured_paths(rules.size());
@@ -458,10 +467,6 @@ update_map get_update_map(const std::string& root_path) {
     local_test_object_file_paths.push_back(local_obj_path);
   }
 
-  result.output_files_by_path["dist/upd"] = {
-    .command_line_ix = 4,
-    .local_input_file_paths = { local_upd_object_file_paths }
-  };
   result.output_files_by_path["dist/tests"] = {
     .command_line_ix = 4,
     .local_input_file_paths = { local_test_object_file_paths }

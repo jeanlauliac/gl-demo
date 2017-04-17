@@ -1,19 +1,7 @@
 #include "depfile.h"
+#include "string_char_reader.h"
 
-struct string_char_reader {
-  string_char_reader(std::string str):
-    str_(str), next_index_(0) {}
-
-  bool next(char& c) {
-    if (next_index_ >= str_.size()) return false;
-    c = str_.at(next_index_++);
-    return true;
-  }
-
-private:
-  std::string str_;
-  int next_index_;
-};
+using namespace upd;
 
 @case "parse() reads empty input" {
   string_char_reader reader("");

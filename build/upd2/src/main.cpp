@@ -3,8 +3,7 @@
 #include "lib/depfile.h"
 #include "lib/inspect.h"
 #include "lib/io.h"
-#include "lib/json/Lexer.h"
-#include "lib/manifest.h"
+#include "lib/json/lexer.h"
 #include "lib/path.h"
 #include "lib/path_glob.h"
 #include "lib/substitution.h"
@@ -382,9 +381,15 @@ update_map get_update_map(
 
 struct no_targets_error {};
 
-update_manifest get_manifest() {
+void read_manifest(const std::string& root_path) {
+  // TODO: read JSON
+  //root_path + io::UPDFILE_SUFFIX;
+}
+
+update_manifest get_manifest(const std::string& root_path) {
   update_manifest result;
 
+  read_manifest(root_path);
   result.command_line_templates = {
     get_cppt_command_line(),
     get_compile_command_line(src_file_type::cpp),
@@ -475,7 +480,7 @@ void compile_itself(
   bool update_all_files,
   const std::vector<std::string>& relative_target_paths
 ) {
-  auto manifest = get_manifest();
+  auto manifest = get_manifest(root_path);
   const update_map updm = get_update_map(root_path, manifest);
   const auto& output_files_by_path = updm.output_files_by_path;
   update_plan plan;

@@ -2,125 +2,95 @@
 
 #include <iostream>
 
-
-// std::istringstream iss("{\"foo\": 23}");
-// json::lexer lex(iss);
-// reader rd;
-// lex.read(rd);
-
-//upd::json::stream_lexer source_lexer;
-
+namespace upd {
 namespace json {
 
-enum class TokenType {
+enum class punctuation_type {
   brace_close,
   brace_open,
   bracket_close,
   bracket_open,
   colon,
   comma,
-  end,
-  number_literal,
-  string_literal,
 };
 
-struct Token {
-  TokenType type;
-  std::string string_value;
-  float number_value;
-};
+template <typename CharReader>
+struct lexer {
+  lexer(CharReader& char_reader):
+    char_reader_(char_reader),
+    has_lookahead_(false) {}
 
-template <size_t BufferSize>
-class Lexer {
+  template <typename Handler, typename RetVal>
+  RetVal next(Handler& handler) {
+    do { next_char_(); } while (good_ && is_whitespace_());
+    if (!good_) return handler.end();
+    switch (c_) {
+      case '[':
+        return handler.punctuation(punctuation_type::bracket_open);
+      case ']':
+        return handler.punctuation(punctuation_type::bracket_close);
+      case '{':
+        return handler.punctuation(punctuation_type::brace_open);
+      case '}':
+        return handler.punctuation(punctuation_type::brace_close);
+      case ':':
+        return handler.punctuation(punctuation_type::colon);
+      case ',':
+        return handler.punctuation(punctuation_type::comma);
+      case '"':
+        next_char_();
+        return read_string_<Handler, RetVal>(handler);
+    }
+    if (c_ >= '0' && c_ <= '9') {
+      return read_number_<Handler, RetVal>(handler);
+    }
+    throw std::runtime_error(std::string("unhandled JSON character: `") + c_ + '`');
+  }
+
 private:
-  char* next_char_;
-  char buffer_[BufferSize];
-  std::unique_ptr<FILE, decltype(&pclose)> file_;
+  template <typename Handler, typename RetVal>
+  RetVal read_string_(Handler& handler) {
+    std::string value;
+    while (good_ && c_ != '"') {
+      if (c_ == '\\') {
+        next_char_();
+        if (!good_) continue;
+      }
+      value += c_;
+      next_char_();
+    }
+    if (!good_) throw std::runtime_error("unexpected end in string literal");
+    return handler.string_literal(value);
+  }
 
-  void read_char_() {
-    ++next_char_;
-    if (*next_char_ != 0) {
+  template <typename Handler, typename RetVal>
+  RetVal read_number_(Handler& handler) {
+    float value = 0;
+    do {
+      value = value * 10 + (c_ - '0');
+      next_char_();
+    } while (good_ && c_ >= '0' && c_ <= '9');
+    has_lookahead_ = true;
+    return handler.number_literal(value);
+  }
+
+  void next_char_() {
+    if (has_lookahead_) {
+      has_lookahead_ = false;
       return;
     }
-    next_char_ = fgets(buffer_, BufferSize, file_.get());
+    good_ = char_reader_.next(c_);
   }
 
-  Token read_char_for_(TokenType type) {
-    read_char_();
-    return { .type = type };
+  bool is_whitespace_() {
+    return c_ == ' ' || c_ == '\n';
   }
 
-  Token read_string_() {
-    read_char_();
-    std::string value;
-    while (next_char_ != nullptr && *next_char_ != '"') {
-      value += *next_char_;
-      read_char_();
-    }
-    if (next_char_ == nullptr) {
-      throw std::runtime_error("unexpected end in string literal");
-    }
-    read_char_();
-    return { .type = TokenType::string_literal, .string_value = value };
-  }
-
-  Token read_number_() {
-    float value = 0;
-    while (next_char_ != nullptr && *next_char_ >= '0' && *next_char_ <= '9') {
-      value = value * 10 + (*next_char_ - '0');
-      read_char_();
-    }
-    if (next_char_ == nullptr) {
-      throw std::runtime_error("unexpected end in number literal");
-    }
-    return { .type = TokenType::number_literal, .number_value = value };
-  }
-
-  Token read_token_() {
-    while (next_char_ != nullptr && (
-      *next_char_ == ' ' ||
-      *next_char_ == '\n'
-    )) {
-      read_char_();
-    }
-    if (next_char_ == nullptr) {
-      return { .type = TokenType::end };
-    }
-    char cc = *next_char_;
-    switch (cc) {
-      case '[':
-        return read_char_for_(TokenType::bracket_open);
-      case ']':
-        return read_char_for_(TokenType::bracket_close);
-      case '{':
-        return read_char_for_(TokenType::brace_open);
-      case '}':
-        return read_char_for_(TokenType::brace_close);
-      case ':':
-        return read_char_for_(TokenType::colon);
-      case ',':
-        return read_char_for_(TokenType::comma);
-      case '"':
-        return read_string_();
-    }
-    if (cc >= '0' && cc <= '9') {
-      return read_number_();
-    }
-    throw std::runtime_error(std::string("unknown JSON char: `") + cc + '`');
-  }
-
-public:
-  Token token;
-
-  Lexer(std::unique_ptr<FILE, decltype(&pclose)>&& file): file_(std::move(file)) {
-    next_char_ = fgets(buffer_, BufferSize, file_.get());
-    token = read_token_();
-  }
-
-  void forward() {
-    token = read_token_();
-  }
-
+  CharReader char_reader_;
+  bool has_lookahead_;
+  bool good_;
+  char c_;
 };
 
+}
 }

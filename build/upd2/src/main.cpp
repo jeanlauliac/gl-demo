@@ -297,13 +297,28 @@ void output_dot_graph(
 
 enum class update_rule_input_type { source, rule };
 
+struct update_rule_input {
+  static update_rule_input from_source(size_t ix) {
+    return {
+      .type = update_rule_input_type::source,
+      .input_ix = ix,
+    };
+  }
+
+  static update_rule_input from_rule(size_t ix) {
+    return {
+      .type = update_rule_input_type::rule,
+      .input_ix = ix,
+    };
+  }
+
+  update_rule_input_type type;
+  size_t input_ix;
+};
+
 struct update_rule {
   size_t command_line_ix;
-  update_rule_input_type input_type;
-  union {
-    size_t source_ix;
-    size_t rule_ix;
-  } input;
+  update_rule_input input;
   substitution::pattern output;
 };
 
@@ -341,8 +356,7 @@ update_map get_update_map(const std::string& root_path) {
   std::vector<update_rule> rules = {
     {
       .command_line_ix = 0,
-      .input_type = update_rule_input_type::source,
-      .input = { .source_ix = 0 },
+      .input = update_rule_input::from_source(0),
       .output = substitution::parse("dist/($1).cpp"),
     },
   };
@@ -353,9 +367,9 @@ update_map get_update_map(const std::string& root_path) {
   for (size_t i = 0; i < rules.size(); ++i) {
     const auto& rule = rules[i];
     const auto& input_captures =
-      rule.input_type == update_rule_input_type::source
-      ? matches[rule.input.source_ix]
-      : rule_captured_paths[rule.input.rule_ix];
+      rule.input.type == update_rule_input_type::source
+      ? matches[rule.input.input_ix]
+      : rule_captured_paths[rule.input.input_ix];
     std::unordered_map<std::string, std::pair<std::vector<std::string>, std::vector<size_t>>> data_by_path;
     for (const auto& input_capture: input_captures) {
       auto local_output = substitution::resolve(rule.output.segments, input_capture);

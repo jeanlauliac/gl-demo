@@ -11,8 +11,10 @@ struct captured_string {
     return value.substr(group.first, group.second - group.first);
   }
 
+  typedef std::pair<size_t, size_t> group;
+  typedef std::vector<group> groups;
   std::string value;
-  std::vector<std::pair<size_t, size_t>> captured_groups;
+  groups captured_groups;
 };
 
 }

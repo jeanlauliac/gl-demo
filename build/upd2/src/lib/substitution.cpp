@@ -58,10 +58,10 @@ resolved resolve(
   for (size_t i = 0; i < segments.size(); ++i) {
     result.segment_start_ids[i] = result.value.size();
     const auto& segment = segments[i];
-    result.value += segment.literal;
     if (segment.has_captured_group) {
       result.value += input.get_sub_string(segment.captured_group_ix);
     }
+    result.value += segment.literal;
   }
   return result;
 }
@@ -77,9 +77,13 @@ captured_string capture(
   for (size_t j = 0; j < capture_groups.size(); ++j) {
     const auto& capture_group = capture_groups[j];
     result.captured_groups[j].first =
-      resolved_start_segment_ids[capture_group.first];
+      capture_group.first < resolved_start_segment_ids.size()
+      ? resolved_start_segment_ids[capture_group.first]
+      : resolved_string.size();
     result.captured_groups[j].second =
-      resolved_start_segment_ids[capture_group.second];
+      capture_group.second < resolved_start_segment_ids.size()
+      ? resolved_start_segment_ids[capture_group.second]
+      : resolved_string.size();
   }
   return result;
 }

@@ -7,6 +7,7 @@
 #include "lib/manifest.h"
 #include "lib/path.h"
 #include "lib/path_glob.h"
+#include "lib/substitution.h"
 #include "lib/update.h"
 #include "lib/update_log.h"
 #include "lib/xxhash64.h"
@@ -296,22 +297,6 @@ void output_dot_graph(
 
 enum class update_rule_input_type { source, rule };
 
-struct output_segment {
-  std::string literal;
-  bool has_captured_group;
-  size_t captured_group_ix;
-};
-
-struct output_pattern {
-  std::vector<output_segment> segments;
-  std::vector<std::pair<size_t, size_t>> capture_groups;
-};
-
-struct resolved_output {
-  std::string value;
-  std::vector<size_t> segment_start_ids;
-};
-
 struct update_rule {
   size_t command_line_ix;
   update_rule_input_type input_type;
@@ -319,35 +304,8 @@ struct update_rule {
     size_t source_ix;
     size_t rule_ix;
   } input;
-  output_pattern output;
+  substitution::pattern output;
 };
-
-struct captured_path {
-  std::string get_captured_string(size_t index) const {
-    const auto& group = captured_groups[index];
-    return local_path.substr(group.first, group.second - group.first);
-  }
-
-  std::string local_path;
-  std::vector<std::pair<size_t, size_t>> captured_groups;
-};
-
-resolved_output resolve_output_pattern(
-  const std::vector<output_segment>& segments,
-  const captured_path& input
-) {
-  resolved_output result;
-  result.segment_start_ids.resize(segments.size());
-  for (size_t i = 0; i < segments.size(); ++i) {
-    result.segment_start_ids[i] = result.value.size();
-    const auto& segment = segments[i];
-    result.value += segment.literal;
-    if (segment.has_captured_group) {
-      result.value += input.get_captured_string(segment.captured_group_ix);
-    }
-  }
-  return result;
-}
 
 update_map get_update_map(const std::string& root_path) {
   update_map result;
@@ -370,12 +328,12 @@ update_map get_update_map(const std::string& root_path) {
     path_glob::parse("(src/lib/**/*).c"),
   };
 
-  std::vector<std::vector<captured_path>> matches(patterns.size());
+  std::vector<std::vector<captured_string>> matches(patterns.size());
   path_glob::matcher<io::dir_files_reader> cppt_matcher(root_path, patterns);
   path_glob::match cppt_match;
   while (cppt_matcher.next(cppt_match)) {
     matches[cppt_match.pattern_ix].push_back({
-      .local_path = std::move(cppt_match.local_path),
+      .value = std::move(cppt_match.local_path),
       .captured_groups = std::move(cppt_match.captured_groups),
     });
   }
@@ -398,7 +356,7 @@ update_map get_update_map(const std::string& root_path) {
     },
   };
 
-  std::vector<std::vector<captured_path>> rule_captured_paths(rules.size());
+  std::vector<std::vector<captured_string>> rule_captured_paths(rules.size());
   // TODO: find correct rule order
 
   for (size_t i = 0; i < rules.size(); ++i) {
@@ -409,53 +367,50 @@ update_map get_update_map(const std::string& root_path) {
       : rule_captured_paths[rule.input.rule_ix];
     std::unordered_map<std::string, std::pair<std::vector<std::string>, std::vector<size_t>>> data_by_path;
     for (const auto& input_capture: input_captures) {
-      auto local_output = resolve_output_pattern(rule.output.segments, input_capture);
+      auto local_output = substitution::resolve(rule.output.segments, input_capture);
       auto& datum = data_by_path[local_output.value];
-      datum.first.push_back(input_capture.local_path);
+      datum.first.push_back(input_capture.value);
       datum.second = local_output.segment_start_ids;
     }
     auto& captured_paths = rule_captured_paths[i];
     captured_paths.resize(data_by_path.size());
     size_t k = 0;
     for (const auto& input: data_by_path) {
-      auto& captured_path = captured_paths[k];
-      captured_path.local_path = input.first;
-      if (result.output_files_by_path.count(captured_path.local_path)) {
+      if (result.output_files_by_path.count(input.first)) {
         throw std::runtime_error("two rules with same outputs");
       }
-      result.output_files_by_path[captured_path.local_path] = {
+      result.output_files_by_path[input.first] = {
         .command_line_ix = rule.command_line_ix,
         .local_input_file_paths = input.second.first,
       };
-      captured_path.captured_groups.resize(rule.output.capture_groups.size());
-      for (size_t j = 0; j < rule.output.capture_groups.size(); ++j) {
-        const auto& capture_group = rule.output.capture_groups[j];
-        captured_path.captured_groups[j].first = input.second.second[capture_group.first];
-        captured_path.captured_groups[j].second = input.second.second[capture_group.second];
-      }
+      captured_paths[k] = substitution::capture(
+        rule.output.capture_groups,
+        input.first,
+        input.second.second
+      );
       ++k;
     }
   }
 
   for (const auto& match: matches[0]) {
-    local_test_cpp_file_basenames.push_back(match.get_captured_string(0));
-    local_test_cppt_file_paths.push_back(match.local_path);
+    local_test_cpp_file_basenames.push_back(match.get_sub_string(0));
+    local_test_cppt_file_paths.push_back(match.value);
   }
 
   for (const auto& match: matches[1]) {
-    auto local_obj_path = "dist/" + match.get_captured_string(0) + ".o";
+    auto local_obj_path = "dist/" + match.get_sub_string(0) + ".o";
     result.output_files_by_path[local_obj_path] = {
       .command_line_ix = 1,
-      .local_input_file_paths = { match.local_path }
+      .local_input_file_paths = { match.value }
     };
     local_obj_file_paths.push_back(local_obj_path);
   }
 
   for (const auto& match: matches[2]) {
-    auto local_obj_path = "dist/" + match.get_captured_string(0) + ".o";
+    auto local_obj_path = "dist/" + match.get_sub_string(0) + ".o";
     result.output_files_by_path[local_obj_path] = {
       .command_line_ix = 2,
-      .local_input_file_paths = { match.local_path }
+      .local_input_file_paths = { match.value }
     };
     local_obj_file_paths.push_back(local_obj_path);
   }

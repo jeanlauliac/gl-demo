@@ -8,7 +8,7 @@
 namespace upd {
 namespace io {
 
-const char* UPDFILE_SUFFIX = "/Updfile";
+const char* UPDFILE_SUFFIX = "/updfile.json";
 
 std::string getcwd_string() {
   char temp[MAXPATHLEN];

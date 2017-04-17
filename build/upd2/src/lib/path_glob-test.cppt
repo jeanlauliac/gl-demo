@@ -11,7 +11,12 @@ struct mock_ent {
 
 static std::unordered_map<std::string, std::vector<mock_ent>>
 MOCK_ENTS_BY_DIR_PATH = {
-  { "/root", { { .name = "src", .type = DT_DIR } } },
+  { "/root", {
+    { .name = ".", .type = DT_DIR },
+    { .name = "..", .type = DT_DIR },
+    { .name = "src", .type = DT_DIR },
+    { .name = "foo.json", .type = DT_REG },
+  } },
   { "/root/src", {
     { .name = ".", .type = DT_DIR },
     { .name = "..", .type = DT_DIR },
@@ -55,7 +60,11 @@ struct mock_dir_reader {
   }
 
   void open(const std::string dir_path) {
-    dir_path_ = dir_path;
+    if (dir_path.size() > 0 && dir_path[dir_path.size() - 1] == '/') {
+      dir_path_ = dir_path.substr(0, dir_path.size() - 1);
+    } else {
+      dir_path_ = dir_path;
+    }
     ent_ix_ = 0;
     is_open_ = true;
   }
@@ -102,6 +111,25 @@ private:
       }), .has_wildcard = false },
     }
   }));
+}
+
+@case "pattern_string_parser works with single file" {
+  @expect(upd::path_glob::parse("foo.json") == upd::path_glob::pattern({
+    .capture_groups = {},
+    .segments = {
+      upd::path_glob::segment { .ent_name = parse("foo.json"), .has_wildcard = false },
+    }
+  }));
+}
+
+@case "find single root file" {
+  auto pattern = upd::path_glob::parse("foo.json");
+  upd::path_glob::matcher<mock_dir_reader> mtcr("/root", pattern);
+  upd::path_glob::match mt;
+  std::unordered_set<std::string> mts;
+  while (mtcr.next(mt)) mts.insert(mt.local_path);
+  std::unordered_set<std::string> expected = { "foo.json" };
+  @expect(mts == expected);
 }
 
 @case "find files" {

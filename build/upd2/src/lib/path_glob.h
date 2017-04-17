@@ -153,7 +153,7 @@ private:
         .segment_ix = 0,
       });
     }
-    return pending_dirs_type({ { "", std::move(initial_bookmarks) } });
+    return pending_dirs_type({ { "/", std::move(initial_bookmarks) } });
   }
 
   void push_wildcard_match_(const std::string& name, const bookmark& target) {
@@ -167,10 +167,10 @@ private:
         group.from.segment_ix == target.segment_ix &&
         captured_from_ids.count(i) == 0
       ) {
-        captured_from_ids[i] = path_prefix_.size() + 1;
+        captured_from_ids[i] = path_prefix_.size();
       }
     }
-    pending_dirs_[path_prefix_ + '/' + name].push_back({
+    pending_dirs_[path_prefix_ + name + '/'].push_back({
       .segment_ix = target.segment_ix,
       .captured_from_ids = std::move(captured_from_ids),
       .captured_to_ids = std::move(captured_to_ids),
@@ -191,7 +191,7 @@ private:
       captured_from_ids,
       captured_to_ids
     );
-    pending_dirs_[path_prefix_ + '/' + name].push_back({
+    pending_dirs_[path_prefix_ + name + '/'].push_back({
       .segment_ix = target.segment_ix + 1,
       .captured_from_ids = std::move(captured_from_ids),
       .captured_to_ids = std::move(captured_to_ids),
@@ -213,7 +213,7 @@ private:
       captured_from_ids,
       captured_to_ids
     );
-    next_match.local_path = path_prefix_.substr(1) + '/' + name;
+    next_match.local_path = path_prefix_.substr(1) + name;
     const auto& pattern_ = patterns_[target.pattern_ix];
     next_match.captured_groups.resize(pattern_.capture_groups.size());
     next_match.pattern_ix = target.pattern_ix;
@@ -239,14 +239,14 @@ private:
         group.from.segment_ix == target.segment_ix
       ) {
         auto ent_name_ix = match_indices[group.from.ent_name_segment_ix];
-        captured_from_ids[i] = path_prefix_.size() + 1 + ent_name_ix;
+        captured_from_ids[i] = path_prefix_.size() + ent_name_ix;
       }
       if (
         group.to.type == capture_point_type::ent_name &&
         group.to.segment_ix == target.segment_ix
       ) {
         auto ent_name_ix = match_indices[group.to.ent_name_segment_ix];
-        captured_to_ids[i] = path_prefix_.size() + 1 + ent_name_ix;
+        captured_to_ids[i] = path_prefix_.size() + ent_name_ix;
       }
     }
   }

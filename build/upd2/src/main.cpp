@@ -64,7 +64,7 @@ command_line_template get_compile_command_line(src_file_type type) {
   };
 }
 
-command_line_template get_cppt_command_line(const std::string& root_path) {
+command_line_template get_cppt_command_line() {
   return {
     .binary_path = "tools/compile_test.js",
     .parts = {
@@ -106,6 +106,19 @@ command_line_template get_link_command_line() {
   };
 }
 
+command_line_template get_package_command_line() {
+  return {
+    .binary_path = "tools/gen_package_info.js",
+    .parts = {
+      command_line_template_part({}, {
+        command_line_template_variable::output_files,
+        command_line_template_variable::dependency_file,
+        command_line_template_variable::input_files,
+      }),
+    }
+  };
+}
+
 struct output_file {
   size_t command_line_ix;
   std::vector<std::string> local_input_file_paths;
@@ -115,7 +128,6 @@ typedef std::unordered_map<std::string, output_file> output_files_by_path_t;
 
 struct update_map {
   output_files_by_path_t output_files_by_path;
-  std::vector<command_line_template> command_line_templates;
 };
 
 struct unknown_target_error {
@@ -184,6 +196,7 @@ void execute_update_plan(
   const std::string& root_path,
   const update_map& updm,
   update_plan& plan,
+  std::vector<command_line_template> command_line_templates,
   const std::string& local_depfile_path
 ) {
   while (!plan.queued_output_file_paths.empty()) {
@@ -191,7 +204,7 @@ void execute_update_plan(
     plan.queued_output_file_paths.pop();
     auto target_descriptor = *updm.output_files_by_path.find(local_target_path);
     auto target_file = target_descriptor.second;
-    auto const& command_line_tpl = updm.command_line_templates[target_file.command_line_ix];
+    auto const& command_line_tpl = command_line_templates[target_file.command_line_ix];
     update_file(
       log_cache,
       hash_cache,
@@ -227,7 +240,8 @@ template <typename OStream>
 void output_dot_graph(
   OStream& os,
   const update_map& updm,
-  update_plan& plan
+  update_plan& plan,
+  std::vector<command_line_template> command_line_templates
 ) {
   os << "# generated with `upd --dot-graph`" << std::endl
     << "digraph upd {" << std::endl
@@ -238,7 +252,7 @@ void output_dot_graph(
     auto target_descriptor = *updm.output_files_by_path.find(local_target_path);
 
     auto const& target_file = target_descriptor.second;
-    auto const& command_line_tpl = updm.command_line_templates[target_file.command_line_ix];
+    auto const& command_line_tpl = command_line_templates[target_file.command_line_ix];
     for (auto const& input_path: target_file.local_input_file_paths) {
       os << "  \"" << input_path << "\" -> \""
         << local_target_path << "\" [label=\""
@@ -294,40 +308,100 @@ struct update_rule {
 
 struct cannot_refer_to_later_rule_error {};
 
-update_map get_update_map(const std::string& root_path) {
-  update_map result;
+struct update_manifest {
+  std::vector<command_line_template> command_line_templates;
+  std::vector<path_glob::pattern> source_patterns;
+  std::vector<update_rule> rules;
+};
 
-  std::vector<std::string> local_obj_file_paths;
-  std::vector<std::string> local_test_cpp_file_basenames;
-  std::vector<std::string> local_test_cppt_file_paths;
+std::vector<std::vector<captured_string>>
+crawl_source_patterns(
+  const std::string& root_path,
+  const std::vector<path_glob::pattern>& patterns
+) {
+  std::vector<std::vector<captured_string>> matches(patterns.size());
+  path_glob::matcher<io::dir_files_reader> matcher(root_path, patterns);
+  path_glob::match match;
+  while (matcher.next(match)) {
+    matches[match.pattern_ix].push_back({
+      .value = std::move(match.local_path),
+      .captured_groups = std::move(match.captured_groups),
+    });
+  }
+  return matches;
+}
+
+update_map get_update_map(
+  const std::string& root_path,
+  const update_manifest& manifest
+) {
+  update_map result;
+  auto matches = crawl_source_patterns(root_path, manifest.source_patterns);
+  std::vector<std::vector<captured_string>> rule_captured_paths(manifest.rules.size());
+  for (size_t i = 0; i < manifest.rules.size(); ++i) {
+    const auto& rule = manifest.rules[i];
+    std::unordered_map<std::string, std::pair<std::vector<std::string>, std::vector<size_t>>> data_by_path;
+    for (const auto& input: rule.inputs) {
+      if (input.type == update_rule_input_type::rule) {
+        if (input.input_ix >= i) {
+          throw cannot_refer_to_later_rule_error();
+        }
+      }
+      const auto& input_captures =
+        input.type == update_rule_input_type::source
+        ? matches[input.input_ix]
+        : rule_captured_paths[input.input_ix];
+      for (const auto& input_capture: input_captures) {
+        auto local_output = substitution::resolve(rule.output.segments, input_capture);
+        auto& datum = data_by_path[local_output.value];
+        datum.first.push_back(input_capture.value);
+        datum.second = local_output.segment_start_ids;
+      }
+    }
+    auto& captured_paths = rule_captured_paths[i];
+    captured_paths.resize(data_by_path.size());
+    size_t k = 0;
+    for (const auto& datum: data_by_path) {
+      if (result.output_files_by_path.count(datum.first)) {
+        throw std::runtime_error("two rules with same outputs");
+      }
+      result.output_files_by_path[datum.first] = {
+        .command_line_ix = rule.command_line_ix,
+        .local_input_file_paths = datum.second.first,
+      };
+      captured_paths[k] = substitution::capture(
+        rule.output.capture_groups,
+        datum.first,
+        datum.second.second
+      );
+      ++k;
+    }
+  }
+  return result;
+}
+
+struct no_targets_error {};
+
+update_manifest get_manifest() {
+  update_manifest result;
 
   result.command_line_templates = {
-    get_cppt_command_line(root_path),
+    get_cppt_command_line(),
     get_compile_command_line(src_file_type::cpp),
     get_compile_command_line(src_file_type::c),
     get_index_tests_command_line(),
     get_link_command_line(),
+    get_package_command_line(),
   };
-
-  std::vector<path_glob::pattern> patterns = {
+  result.source_patterns = {
     path_glob::parse("(src/lib/**/*).cppt"),
     path_glob::parse("(src/lib/**/*).cpp"),
     path_glob::parse("(src/lib/**/*).c"),
     path_glob::parse("(src/main).cpp"),
     path_glob::parse("(tools/lib/testing).cpp"),
+    path_glob::parse("package.json"),
   };
-
-  std::vector<std::vector<captured_string>> matches(patterns.size());
-  path_glob::matcher<io::dir_files_reader> cppt_matcher(root_path, patterns);
-  path_glob::match cppt_match;
-  while (cppt_matcher.next(cppt_match)) {
-    matches[cppt_match.pattern_ix].push_back({
-      .value = std::move(cppt_match.local_path),
-      .captured_groups = std::move(cppt_match.captured_groups),
-    });
-  }
-
-  std::vector<update_rule> rules = {
+  result.rules = {
     {
       .command_line_ix = 0,
       .inputs = { update_rule_input::from_source(0) },
@@ -385,54 +459,14 @@ update_map get_update_map(const std::string& root_path) {
       },
       .output = substitution::parse("dist/tests"),
     },
+    {
+      .command_line_ix = 5,
+      .inputs = { update_rule_input::from_source(5) },
+      .output = substitution::parse("dist/package.cpp"),
+    },
   };
-
-  std::vector<std::vector<captured_string>> rule_captured_paths(rules.size());
-
-  for (size_t i = 0; i < rules.size(); ++i) {
-    const auto& rule = rules[i];
-    std::unordered_map<std::string, std::pair<std::vector<std::string>, std::vector<size_t>>> data_by_path;
-    for (const auto& input: rule.inputs) {
-      if (input.type == update_rule_input_type::rule) {
-        if (input.input_ix >= i) {
-          throw cannot_refer_to_later_rule_error();
-        }
-      }
-      const auto& input_captures =
-        input.type == update_rule_input_type::source
-        ? matches[input.input_ix]
-        : rule_captured_paths[input.input_ix];
-      for (const auto& input_capture: input_captures) {
-        auto local_output = substitution::resolve(rule.output.segments, input_capture);
-        auto& datum = data_by_path[local_output.value];
-        datum.first.push_back(input_capture.value);
-        datum.second = local_output.segment_start_ids;
-      }
-    }
-    auto& captured_paths = rule_captured_paths[i];
-    captured_paths.resize(data_by_path.size());
-    size_t k = 0;
-    for (const auto& datum: data_by_path) {
-      if (result.output_files_by_path.count(datum.first)) {
-        throw std::runtime_error("two rules with same outputs");
-      }
-      result.output_files_by_path[datum.first] = {
-        .command_line_ix = rule.command_line_ix,
-        .local_input_file_paths = datum.second.first,
-      };
-      captured_paths[k] = substitution::capture(
-        rule.output.capture_groups,
-        datum.first,
-        datum.second.second
-      );
-      ++k;
-    }
-  }
-
   return result;
 }
-
-struct no_targets_error {};
 
 void compile_itself(
   const std::string& root_path,
@@ -441,7 +475,8 @@ void compile_itself(
   bool update_all_files,
   const std::vector<std::string>& relative_target_paths
 ) {
-  const update_map updm = get_update_map(root_path);
+  auto manifest = get_manifest();
+  const update_map updm = get_update_map(root_path, manifest);
   const auto& output_files_by_path = updm.output_files_by_path;
   update_plan plan;
 
@@ -463,7 +498,7 @@ void compile_itself(
     throw no_targets_error();
   }
   if (print_graph) {
-    output_dot_graph(std::cout, updm, plan);
+    output_dot_graph(std::cout, updm, plan, manifest.command_line_templates);
     return;
   }
 
@@ -477,7 +512,7 @@ void compile_itself(
     throw std::runtime_error("cannot make depfile FIFO");
   }
 
-  execute_update_plan(log_cache, hash_cache, root_path, updm, plan, local_depfile_path);
+  execute_update_plan(log_cache, hash_cache, root_path, updm, plan, manifest.command_line_templates, local_depfile_path);
 
   std::cout << "done" << std::endl;
   log_cache.close();
@@ -521,7 +556,7 @@ int run_with_options(const cli::options& cli_opts) {
     compile_itself(root_path, working_path, cli_opts.action == cli::action::dot_graph, cli_opts.update_all_files, cli_opts.relative_target_paths);
     return 0;
   } catch (io::cannot_find_updfile_error) {
-    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "cannot find Updfile in the current directory or in any of the parent directories" << std::endl;
+    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "cannot find updfile.json in the current directory or in any of the parent directories" << std::endl;
     return 2;
   } catch (io::ifstream_failed_error error) {
     cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "failed to read file `" << error.file_path << "`" << std::endl;

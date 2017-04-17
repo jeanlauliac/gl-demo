@@ -22,14 +22,12 @@ struct segment {
     prefix(placeholder::none), literal(literal) {}
   segment(placeholder prefix, const std::string& literal):
     prefix(prefix), literal(literal) {}
-  segment(const segment& target):
-    prefix(target.prefix), literal(target.literal) {}
-  segment(segment&& target):
-    prefix(target.prefix), literal(std::move(target.literal)) {}
+
   void clear() {
     prefix = placeholder::none;
     literal.clear();
   }
+
   bool empty() const {
     return literal.empty() && prefix == upd::glob::placeholder::none;
   }

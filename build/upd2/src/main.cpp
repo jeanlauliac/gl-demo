@@ -359,6 +359,16 @@ update_map get_update_map(const std::string& root_path) {
       .input = update_rule_input::from_source(0),
       .output = substitution::parse("dist/($1).cpp"),
     },
+    {
+      .command_line_ix = 1,
+      .input = update_rule_input::from_source(1),
+      .output = substitution::parse("dist/($1).o"),
+    },
+    {
+      .command_line_ix = 2,
+      .input = update_rule_input::from_source(2),
+      .output = substitution::parse("dist/($1).o"),
+    },
   };
 
   std::vector<std::vector<captured_string>> rule_captured_paths(rules.size());
@@ -402,22 +412,12 @@ update_map get_update_map(const std::string& root_path) {
     local_test_cppt_file_paths.push_back(match.value);
   }
 
-  for (const auto& match: matches[1]) {
-    auto local_obj_path = "dist/" + match.get_sub_string(0) + ".o";
-    result.output_files_by_path[local_obj_path] = {
-      .command_line_ix = 1,
-      .local_input_file_paths = { match.value }
-    };
-    local_obj_file_paths.push_back(local_obj_path);
+  for (const auto& captured: rule_captured_paths[1]) {
+    local_obj_file_paths.push_back(captured.value);
   }
 
-  for (const auto& match: matches[2]) {
-    auto local_obj_path = "dist/" + match.get_sub_string(0) + ".o";
-    result.output_files_by_path[local_obj_path] = {
-      .command_line_ix = 2,
-      .local_input_file_paths = { match.value }
-    };
-    local_obj_file_paths.push_back(local_obj_path);
+  for (const auto& captured: rule_captured_paths[2]) {
+    local_obj_file_paths.push_back(captured.value);
   }
 
   result.output_files_by_path["dist/tests.cpp"] = {

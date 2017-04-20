@@ -92,5 +92,10 @@ private:
   char c_;
 };
 
+template <typename CharReader, typename Handler>
+bool next(lexer<CharReader>& lx, const Handler& handler) {
+  return lx.template next<const Handler, bool>(handler);
+}
+
 }
 }

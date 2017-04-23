@@ -95,23 +95,43 @@ struct read_field_colon_handler {
   }
 };
 
+struct field_value_reading_proof {
+  field_value_reading_proof(): token(this) {}
+  const void* token;
+};
+
+bool operator==(
+  const field_value_reading_proof& left,
+  const field_value_reading_proof& right
+) {
+  return left.token == right.token;
+}
+
+bool operator!=(
+  const field_value_reading_proof& left,
+  const field_value_reading_proof& right
+) {
+  return !(left == right);
+}
+
 template <typename Lexer>
 struct field_value_reader {
-  field_value_reader(Lexer& lexer): lexer_(lexer), read_(false) {}
+  field_value_reader(
+    Lexer& lexer,
+    const field_value_reading_proof& proof
+  ): lexer_(lexer), proof_(proof) {}
 
   template <typename Handler, typename RetVal>
-  RetVal operator()(Handler& handler) {
-    read_ = true;
-    return parse_expression<Lexer, Handler, RetVal>(lexer_, handler);
-  }
-
-  bool read() const {
-    return read_;
+  std::pair<RetVal, const field_value_reading_proof&> read(Handler& handler) {
+    return std::pair<RetVal, const field_value_reading_proof&>({
+      parse_expression<Lexer, Handler, RetVal>(lexer_, handler),
+      proof_,
+    });
   }
 
 private:
   Lexer& lexer_;
-  bool read_;
+  const field_value_reading_proof& proof_;
 };
 
 template <typename Lexer>
@@ -126,10 +146,12 @@ struct object_reader {
     bool has_field = lexer_.template next<read_field_name_handler, bool>(rfn_handler);
     while (has_field) {
       lexer_.template next<read_field_colon_handler, void>(rfc_handler);
-      field_value_reader<Lexer> read_field_value(lexer_);
-      read_field(field_name, read_field_value);
-      if (!read_field_value.read()) {
-        throw std::runtime_error("field value expression was not read");
+      field_value_reading_proof proof;
+      field_value_reader<Lexer> read_field_value(lexer_, proof);
+      const field_value_reading_proof& ret_proof =
+        read_field(field_name, read_field_value);
+      if (proof != ret_proof) {
+        throw std::runtime_error("invalid field-value-reading proof");
       }
       post_field_handler pf_handler;
       has_field = lexer_.template next<post_field_handler, bool>(pf_handler);
@@ -173,36 +195,12 @@ private:
   Handler& handler_;
 };
 
-
-
-
-// CHANGE THAT
-// instead of having parser take Handler that must handle everything, make an
-// `expression_parser` that have Handler accepting only expressions: object,
-// array, number, string. Then, have the object() handler take as argument
-// another instance of an `object_parser`. This different parser should take a
-// Handler accepting only fields: name + expression_parser
-// expression_parser should actually be a function, not a class with next(),
-// because it's always parsing a single expression, not a collection of items
-//
-// then we have `object_parser` and `array_parser`, 3 types of parsers total.
-// pretty simple
-// it'll make implementing high-level parsing functions much simpler, ex.
-// parse_manifest, as it'll only have to parse a single expression
-
-// Also, make Lexer a template parameter so that we can implement a
-// `json_stream` in the future, that checks for `lexer::end()` between each expression
-
-
-
-
 template <typename Lexer, typename Handler, typename RetVal>
 RetVal parse_expression(Lexer& lexer, Handler& handler) {
   typedef parse_expression_handler<Lexer, Handler, RetVal> lexer_handler;
   lexer_handler lx_handler(lexer, handler);
   return lexer.template next<lexer_handler, RetVal>(lx_handler);
 }
-
 
 }
 }

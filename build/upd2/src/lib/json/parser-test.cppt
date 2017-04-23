@@ -110,6 +110,13 @@ private:
   std::vector<float> target_;
 };
 
+@case "parses empty array" {
+  string_char_reader reader("[]");
+  string_lexer lx(reader);
+  @expect(parse_expression_as_bool(lx, expect_number_array_handler({})));
+  @expect(json::next(lx, expect_end_handler()));
+}
+
 @case "parses array of numbers" {
   string_char_reader reader("[3, 5, 7, 13]");
   string_lexer lx(reader);

@@ -1,17 +1,56 @@
 #include "../string_char_reader.h"
 #include "lexer-test.h"
 #include "parser.h"
+#include <vector>
 
 using namespace upd;
 
 typedef json::lexer<string_char_reader> string_lexer;
 typedef json::object_reader<string_lexer> object_reader;
 
+struct no_op_handler {
+  void object(object_reader& read_object) const { }
+  void string_literal(const std::string&) const { }
+  void number_literal(float) const { }
+};
+
 struct expect_empty_object_handler {
   bool object(object_reader& read_object) const {
     bool good = true;
-    read_object([&good](){ good = false; });
+    read_object([&good](
+      const std::string& field_name,
+      json::field_value_reader<string_lexer>& read_field_value
+    ){
+      no_op_handler noh;
+      read_field_value.operator()<no_op_handler, void>(noh);
+      good = false;
+    });
     return good;
+  }
+  bool string_literal(const std::string&) const { return false; }
+  bool number_literal(float) const { return false; }
+};
+
+struct expect_number_handler {
+  bool object(object_reader& read_object) const { throw std::runtime_error("unexpected object"); }
+  bool string_literal(const std::string&) const { return false; }
+  bool number_literal(float) const { return true; }
+};
+
+struct expect_object_single_field_handler {
+  bool object(object_reader& read_object) const {
+    std::vector<std::string> field_names;
+    read_object([&field_names](
+      const std::string& field_name,
+      json::field_value_reader<string_lexer>& read_field_value
+    ) {
+      field_names.push_back(field_name);
+      expect_number_handler enh;
+      if (!read_field_value.operator()<expect_number_handler, bool>(enh)) {
+        throw std::runtime_error("not a number");
+      }
+    });
+    return field_names == std::vector<std::string>({ "foo" });
   }
   bool string_literal(const std::string&) const { return false; }
   bool number_literal(float) const { return false; }
@@ -26,5 +65,12 @@ bool parse_expression_as_bool(Lexer& lexer, const Handler& handler) {
   string_char_reader reader("{}");
   string_lexer lx(reader);
   @expect(parse_expression_as_bool(lx, expect_empty_object_handler()));
+  @expect(json::next(lx, expect_end_handler()));
+}
+
+@case "parses object with a field" {
+  string_char_reader reader("{\"foo\": 42}");
+  string_lexer lx(reader);
+  @expect(parse_expression_as_bool(lx, expect_object_single_field_handler()));
   @expect(json::next(lx, expect_end_handler()));
 }

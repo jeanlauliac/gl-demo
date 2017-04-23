@@ -165,6 +165,88 @@ private:
   Lexer& lexer_;
 };
 
+template <typename Lexer>
+struct array_reader;
+
+template <typename Lexer, typename ItemHandler>
+struct read_array_first_item_handler {
+  read_array_first_item_handler(Lexer& lexer, ItemHandler& item_handler):
+    lexer_(lexer), item_handler_(item_handler) {}
+
+  bool end() const { throw unexpected_end_error(); }
+
+  bool punctuation(punctuation_type type) const {
+    if (type == punctuation_type::brace_open) {
+      object_reader<Lexer> reader(lexer_);
+      item_handler_.object(reader);
+      return true;
+    }
+    if (type == punctuation_type::bracket_open) {
+      array_reader<Lexer> reader(lexer_);
+      item_handler_.array(reader);
+      return true;
+    }
+    if (type == punctuation_type::bracket_close) {
+      return false;
+    }
+    throw unexpected_punctuation_error();
+  }
+
+  bool string_literal(const std::string& literal) const {
+    item_handler_.string_literal(literal);
+    return true;
+  }
+
+  bool number_literal(float literal) const {
+    item_handler_.number_literal(literal);
+    return true;
+  }
+
+private:
+  Lexer& lexer_;
+  ItemHandler& item_handler_;
+};
+
+struct array_post_item_handler {
+  bool end() const { throw unexpected_end_error(); }
+
+  bool punctuation(punctuation_type type) const {
+    if (type == punctuation_type::comma) return true;
+    if (type == punctuation_type::bracket_close) return false;
+    throw unexpected_punctuation_error();
+  }
+
+  bool string_literal(const std::string& literal) const {
+    throw unexpected_string_error();
+  }
+
+  bool number_literal(float literal) const {
+    throw unexpected_number_error();
+  }
+};
+
+template <typename Lexer>
+struct array_reader {
+  array_reader(Lexer& lexer): lexer_(lexer) {}
+
+  template <typename ItemHandler>
+  void operator()(ItemHandler& item_handler) {
+    typedef read_array_first_item_handler<Lexer, ItemHandler> first_item_handler;
+    first_item_handler rafi_handler(lexer_, item_handler);
+    bool has_more_items = lexer_.template next<first_item_handler, bool>(rafi_handler);
+    if (!has_more_items) return;
+    array_post_item_handler api_handler;
+    has_more_items = lexer_.template next<array_post_item_handler, bool>(api_handler);
+    while (has_more_items) {
+      parse_expression<Lexer, ItemHandler, void>(lexer_, item_handler);
+      has_more_items = lexer_.template next<array_post_item_handler, bool>(api_handler);
+    };
+  }
+
+private:
+  Lexer& lexer_;
+};
+
 template <typename Lexer, typename Handler, typename RetVal>
 struct parse_expression_handler {
   parse_expression_handler(Lexer& lexer, Handler& handler):
@@ -178,6 +260,10 @@ struct parse_expression_handler {
     if (type == punctuation_type::brace_open) {
       object_reader<Lexer> reader(lexer_);
       return handler_.object(reader);
+    }
+    if (type == punctuation_type::bracket_open) {
+      array_reader<Lexer> reader(lexer_);
+      return handler_.array(reader);
     }
     throw unexpected_punctuation_error();
   }

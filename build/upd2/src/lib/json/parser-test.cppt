@@ -7,11 +7,13 @@ using namespace upd;
 
 typedef json::lexer<string_char_reader> string_lexer;
 typedef json::object_reader<string_lexer> object_reader;
+typedef json::array_reader<string_lexer> array_reader;
 
 struct empty {};
 
 struct no_op_handler {
   empty object(object_reader& read_object) const { return empty(); }
+  empty array(array_reader& read_object) const { return empty(); }
   empty string_literal(const std::string&) const { return empty(); }
   empty number_literal(float) const { return empty(); }
 };
@@ -29,12 +31,14 @@ struct expect_empty_object_handler {
     });
     return good;
   }
+  bool array(array_reader& read_object) const { throw std::runtime_error("unexpected array"); }
   bool string_literal(const std::string&) const { return false; }
   bool number_literal(float) const { return false; }
 };
 
 struct expect_number_handler {
   bool object(object_reader& read_object) const { throw std::runtime_error("unexpected object"); }
+  bool array(array_reader& read_object) const { throw std::runtime_error("unexpected array"); }
   bool string_literal(const std::string&) const { return false; }
   bool number_literal(float) const { return true; }
 };
@@ -56,6 +60,7 @@ struct expect_object_single_field_handler {
     });
     return field_names == std::vector<std::string>({ "foo" });
   }
+  bool array(array_reader& read_object) const { throw std::runtime_error("unexpected array"); }
   bool string_literal(const std::string&) const { return false; }
   bool number_literal(float) const { return false; }
 };
@@ -76,5 +81,40 @@ bool parse_expression_as_bool(Lexer& lexer, const Handler& handler) {
   string_char_reader reader("{\"foo\": 42}");
   string_lexer lx(reader);
   @expect(parse_expression_as_bool(lx, expect_object_single_field_handler()));
+  @expect(json::next(lx, expect_end_handler()));
+}
+
+struct array_of_numbers_handler {
+  void object(object_reader& read_object) const { throw std::runtime_error("expected number"); }
+  void array(array_reader& read_array) const { throw std::runtime_error("expected number"); }
+  void string_literal(const std::string&) const { throw std::runtime_error("expected number"); }
+  void number_literal(float number) {
+    numbers.push_back(number);
+  }
+  std::vector<float> numbers;
+};
+
+struct expect_number_array_handler {
+  expect_number_array_handler(const std::vector<float>& target):
+    target_(target) {}
+  bool array(array_reader& read_array) const {
+    array_of_numbers_handler handler;
+    read_array(handler);
+    return handler.numbers == target_;
+  }
+  bool object(object_reader& read_object) const { return false; }
+  bool string_literal(const std::string&) const { return false; }
+  bool number_literal(float) const { return false; }
+
+private:
+  std::vector<float> target_;
+};
+
+@case "parses array of numbers" {
+  string_char_reader reader("[3, 5, 7, 13]");
+  string_lexer lx(reader);
+  @expect(parse_expression_as_bool(lx, expect_number_array_handler(
+    { 3, 5, 7, 13 }
+  )));
   @expect(json::next(lx, expect_end_handler()));
 }

@@ -20,6 +20,7 @@ enum class command_line_template_variable {
  * sequence of literals, followed by a sequence of variables.
  */
 struct command_line_template_part {
+  command_line_template_part() {}
   command_line_template_part(
     std::vector<std::string> literal_args_,
     std::vector<command_line_template_variable> variable_args_
@@ -28,6 +29,12 @@ struct command_line_template_part {
   std::vector<std::string> literal_args;
   std::vector<command_line_template_variable> variable_args;
 };
+
+inline bool operator==(const command_line_template_part& left, const command_line_template_part& right) {
+  return
+    left.literal_args == right.literal_args &&
+    left.variable_args == right.variable_args;
+}
 
 /**
  * A command line template is composed as an alternance of literal and variable
@@ -48,6 +55,12 @@ struct command_line_template {
   std::string binary_path;
   std::vector<command_line_template_part> parts;
 };
+
+inline bool operator==(const command_line_template& left, const command_line_template& right) {
+  return
+    left.binary_path == right.binary_path &&
+    left.parts == right.parts;
+}
 
 /**
  * A pair of binary, arguments, ready to get executed.

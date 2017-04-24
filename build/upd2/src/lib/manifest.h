@@ -1,5 +1,6 @@
 #pragma once
 
+#include "command_line_template.h"
 #include "json/parser.h"
 #include "path_glob.h"
 #include "substitution.h"
@@ -48,12 +49,14 @@ inline bool operator==(const update_rule& left, const update_rule& right) {
 }
 
 struct manifest {
+  std::vector<command_line_template> command_line_templates;
   std::vector<path_glob::pattern> source_patterns;
   std::vector<update_rule> rules;
 };
 
 inline bool operator==(const manifest& left, const manifest& right) {
   return
+    left.command_line_templates == right.command_line_templates &&
     left.source_patterns == right.source_patterns &&
     left.rules == right.rules;
 }
@@ -127,6 +130,12 @@ struct read_size_t_handler: public all_unexpected_elements_handler<size_t> {
       throw expected_integer_number_error();
     }
     return result;
+  }
+};
+
+struct read_string_handler: public all_unexpected_elements_handler<std::string> {
+  std::string string_literal(const std::string& value) const {
+    return value;
   }
 };
 
@@ -228,6 +237,132 @@ void parse_update_rules(
   read_field_value.read(handler);
 }
 
+struct read_string_array_array_handler: public all_unexpected_elements_handler<void> {
+  void string_literal(const std::string& value) {
+    result_.push_back(value);
+  }
+
+  const std::vector<std::string>& result() const { return result_; };
+
+private:
+  std::vector<std::string> result_;
+};
+
+struct read_string_array_handler: public all_unexpected_elements_handler<std::vector<std::string>> {
+  template <typename ArrayReader>
+  std::vector<std::string> array(ArrayReader& read_array) const {
+    read_string_array_array_handler handler;
+    read_array(handler);
+    return handler.result();
+  }
+};
+
+struct read_variable_arg_array_array_handler: public all_unexpected_elements_handler<void> {
+  void string_literal(const std::string& value) {
+    if (value == "input_files") {
+      result_.push_back(command_line_template_variable::input_files);
+      return;
+    }
+    if (value == "output_file") {
+      result_.push_back(command_line_template_variable::output_files);
+      return;
+    }
+    if (value == "dependency_file") {
+      result_.push_back(command_line_template_variable::dependency_file);
+      return;
+    }
+    throw std::runtime_error("unknown command line template variable arg");
+  }
+
+  const std::vector<command_line_template_variable>& result() const { return result_; };
+
+private:
+  std::vector<command_line_template_variable> result_;
+};
+
+struct read_variable_arg_array_handler: public all_unexpected_elements_handler<std::vector<command_line_template_variable>> {
+  template <typename ArrayReader>
+  std::vector<command_line_template_variable> array(ArrayReader& read_array) const {
+    read_variable_arg_array_array_handler handler;
+    read_array(handler);
+    return handler.result();
+  }
+};
+
+struct command_line_segments_array_handler: public all_unexpected_elements_handler<void> {
+
+  template <typename ObjectReader>
+  void object(ObjectReader& read_object) {
+    command_line_template_part part;
+    read_object([&part](
+      const std::string& field_name,
+      typename ObjectReader::field_value_reader& read_field_value
+    ) {
+      if (field_name == "literals") {
+        part.literal_args = read_field_value.read(read_string_array_handler());
+        return;
+      }
+      if (field_name == "variables") {
+        part.variable_args = read_field_value.read(read_variable_arg_array_handler());
+        return;
+      }
+      throw std::runtime_error("doesn't know field `" + field_name + "`");
+    });
+    result_.push_back(part);
+  }
+
+  const std::vector<command_line_template_part>& result() const { return result_; };
+
+private:
+  std::vector<command_line_template_part> result_;
+};
+
+struct command_line_segments_handler: public all_unexpected_elements_handler<std::vector<command_line_template_part>> {
+  template <typename ArrayReader>
+  std::vector<command_line_template_part> array(ArrayReader& read_array) const {
+    command_line_segments_array_handler handler;
+    read_array(handler);
+    return handler.result();
+  }
+};
+
+struct command_line_templates_array_handler: public all_unexpected_elements_handler<void> {
+
+  template <typename ObjectReader>
+  void object(ObjectReader& read_object) {
+    command_line_template tpl;
+    read_object([&tpl](
+      const std::string& field_name,
+      typename ObjectReader::field_value_reader& read_field_value
+    ) {
+      if (field_name == "binary_path") {
+        tpl.binary_path = read_field_value.read(read_string_handler());
+        return;
+      }
+      if (field_name == "arguments") {
+        tpl.parts = read_field_value.read(command_line_segments_handler());
+        return;
+      }
+      throw std::runtime_error("doesn't know field `" + field_name + "`");
+    });
+    result_.push_back(tpl);
+  }
+
+  const std::vector<command_line_template>& result() const { return result_; };
+
+private:
+  std::vector<command_line_template> result_;
+};
+
+struct command_line_templates_handler: public all_unexpected_elements_handler<std::vector<command_line_template>> {
+  template <typename ArrayReader>
+  std::vector<command_line_template> array(ArrayReader& read_array) const {
+    command_line_templates_array_handler handler;
+    read_array(handler);
+    return handler.result();
+  }
+};
+
 struct manifest_expression_handler: public all_unexpected_elements_handler<manifest> {
   typedef manifest return_type;
 
@@ -244,6 +379,11 @@ struct manifest_expression_handler: public all_unexpected_elements_handler<manif
       }
       if (field_name == "rules") {
         parse_update_rules(read_field_value, result.rules);
+        return;
+      }
+      if (field_name == "command_line_templates") {
+        result.command_line_templates =
+          read_field_value.read(command_line_templates_handler());
         return;
       }
       throw std::runtime_error("doesn't know field `" + field_name + "`");

@@ -109,6 +109,7 @@ private:
 
 template <typename Lexer>
 struct object_reader {
+  typedef Lexer lexer_type;
   object_reader(Lexer& lexer): lexer_(lexer) {}
 
   template <typename FieldReader>
@@ -195,6 +196,7 @@ struct array_post_item_handler {
 
 template <typename Lexer>
 struct array_reader {
+  typedef Lexer lexer_type;
   array_reader(Lexer& lexer): lexer_(lexer) {}
 
   template <typename ItemHandler>

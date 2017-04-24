@@ -369,16 +369,10 @@ update_manifest get_manifest(const std::string& root_path) {
   update_manifest result;
 
   auto manifest_content = read_manifest(root_path);
-  result.command_line_templates = {
-    get_cppt_command_line(),
-    get_compile_command_line(src_file_type::cpp),
-    get_compile_command_line(src_file_type::c),
-    get_index_tests_command_line(),
-    get_link_command_line(),
-    get_package_command_line(),
-  };
+
   result.source_patterns = manifest_content.source_patterns;
   result.rules = manifest_content.rules;
+  result.command_line_templates = manifest_content.command_line_templates;
 
   return result;
 }

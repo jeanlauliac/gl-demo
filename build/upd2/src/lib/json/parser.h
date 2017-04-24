@@ -12,7 +12,6 @@ struct unexpected_end_error {};
 struct unexpected_number_error {};
 struct unexpected_string_error {};
 struct unexpected_punctuation_error {};
-struct object_reader_invalid {};
 
 struct read_field_name_handler {
   read_field_name_handler(std::string& field_name): field_name_(field_name) {}
@@ -95,43 +94,17 @@ struct read_field_colon_handler {
   }
 };
 
-struct field_value_reading_proof {
-  field_value_reading_proof(): token(this) {}
-  const void* token;
-};
-
-bool operator==(
-  const field_value_reading_proof& left,
-  const field_value_reading_proof& right
-) {
-  return left.token == right.token;
-}
-
-bool operator!=(
-  const field_value_reading_proof& left,
-  const field_value_reading_proof& right
-) {
-  return !(left == right);
-}
-
 template <typename Lexer>
 struct field_value_reader {
-  field_value_reader(
-    Lexer& lexer,
-    const field_value_reading_proof& proof
-  ): lexer_(lexer), proof_(proof) {}
+  field_value_reader(Lexer& lexer): lexer_(lexer) {}
 
   template <typename Handler, typename RetVal>
-  std::pair<RetVal, const field_value_reading_proof&> read(Handler& handler) {
-    return std::pair<RetVal, const field_value_reading_proof&>({
-      parse_expression<Lexer, Handler, RetVal>(lexer_, handler),
-      proof_,
-    });
+  RetVal read(Handler& handler) {
+    return parse_expression<Lexer, Handler, RetVal>(lexer_, handler);
   }
 
 private:
   Lexer& lexer_;
-  const field_value_reading_proof& proof_;
 };
 
 template <typename Lexer>
@@ -146,13 +119,8 @@ struct object_reader {
     bool has_field = lexer_.template next<read_field_name_handler, bool>(rfn_handler);
     while (has_field) {
       lexer_.template next<read_field_colon_handler, void>(rfc_handler);
-      field_value_reading_proof proof;
-      field_value_reader<Lexer> read_field_value(lexer_, proof);
-      const field_value_reading_proof& ret_proof =
-        read_field(field_name, read_field_value);
-      if (proof != ret_proof) {
-        throw std::runtime_error("invalid field-value-reading proof");
-      }
+      field_value_reader<Lexer> read_field_value(lexer_);
+      read_field(field_name, read_field_value);
       post_field_handler pf_handler;
       has_field = lexer_.template next<post_field_handler, bool>(pf_handler);
       if (!has_field) continue;

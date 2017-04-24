@@ -27,7 +27,7 @@ struct expect_empty_object_handler {
     ){
       no_op_handler noh;
       good = false;
-      return read_field_value.template read<no_op_handler, empty>(noh).second;
+      read_field_value.template read<no_op_handler, empty>(noh);
     });
     return good;
   }
@@ -53,10 +53,7 @@ struct expect_object_single_field_handler {
       field_names.push_back(field_name);
       expect_number_handler enh;
       auto result = read_field_value.template read<expect_number_handler, bool>(enh);
-      if (!result.first) {
-        throw std::runtime_error("not a number");
-      }
-      return result.second;
+      if (!result) throw std::runtime_error("not a number");
     });
     return field_names == std::vector<std::string>({ "foo" });
   }

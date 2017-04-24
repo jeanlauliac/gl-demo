@@ -5,6 +5,7 @@
 #include "lib/io.h"
 #include "lib/istream_char_reader.h"
 #include "lib/json/lexer.h"
+#include "lib/manifest.h"
 #include "lib/path.h"
 #include "lib/path_glob.h"
 #include "lib/substitution.h"
@@ -382,43 +383,13 @@ update_map get_update_map(
 
 struct no_targets_error {};
 
-struct json_manifest {};
-
-struct start_object_handler {
-  start_object() { return true; }
-  end_object() { return false; }
-  start_array() { return false; }
-  end_array() { return false; }
-};
-
-struct end_object_handler {
-  start_object() { return false; }
-  end_object() { return true; }
-  start_array() { return false; }
-  end_array() { return false; }
-};
-
-template <typename Parser>
-json_manifest parse_manifest(Parser& parser) {
-  json_manifest result;
-  parse_manifest_handler handler;
-  if (next(parser, start_object_handler())) {
-    throw std::runtime_error("expected JSON object");
-  }
-  if (next(parser, end_object_handler())) {
-    throw std::runtime_error("expected JSON object");
-  }
-  return result;
-}
-
-json_manifest read_manifest(const std::string& root_path) {
+manifest::manifest read_manifest(const std::string& root_path) {
   std::ifstream file;
   file.exceptions(std::ifstream::badbit);
   file.open(root_path + io::UPDFILE_SUFFIX);
   istream_char_reader<std::ifstream> reader(file);
   json::lexer<istream_char_reader<std::ifstream>> lexer(reader);
-  json::parser<istream_char_reader<std::ifstream>> parser(lexer);
-  return parse_manifest(parser);
+  return manifest::parse(lexer);
 }
 
 update_manifest get_manifest(const std::string& root_path) {

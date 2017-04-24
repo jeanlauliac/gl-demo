@@ -378,71 +378,8 @@ update_manifest get_manifest(const std::string& root_path) {
     get_package_command_line(),
   };
   result.source_patterns = manifest_content.source_patterns;
+  result.rules = manifest_content.rules;
 
-  result.rules = {
-    {
-      .command_line_ix = 0,
-      .inputs = { manifest::update_rule_input::from_source(0) },
-      .output = substitution::parse("dist/($1).cpp"),
-    },
-    {
-      .command_line_ix = 1,
-      .inputs = { manifest::update_rule_input::from_source(1) },
-      .output = substitution::parse("dist/($1).o"),
-    },
-    {
-      .command_line_ix = 2,
-      .inputs = { manifest::update_rule_input::from_source(2) },
-      .output = substitution::parse("dist/($1).o"),
-    },
-    {
-      .command_line_ix = 3,
-      .inputs = { manifest::update_rule_input::from_source(0) },
-      .output = substitution::parse("dist/(tests).cpp"),
-    },
-    {
-      .command_line_ix = 1,
-      .inputs = { manifest::update_rule_input::from_source(3) },
-      .output = substitution::parse("dist/($1).o"),
-    },
-    {
-      .command_line_ix = 1,
-      .inputs = { manifest::update_rule_input::from_source(4) },
-      .output = substitution::parse("dist/($1).o"),
-    },
-    {
-      .command_line_ix = 4,
-      .inputs = {
-        manifest::update_rule_input::from_rule(1),
-        manifest::update_rule_input::from_rule(2),
-        manifest::update_rule_input::from_rule(4),
-      },
-      .output = substitution::parse("dist/upd"),
-    },
-    {
-      .command_line_ix = 1,
-      .inputs = {
-        manifest::update_rule_input::from_rule(0),
-        manifest::update_rule_input::from_rule(3),
-      },
-      .output = substitution::parse("dist/($1).o"),
-    },
-    {
-      .command_line_ix = 4,
-      .inputs = {
-        manifest::update_rule_input::from_rule(1),
-        manifest::update_rule_input::from_rule(2),
-        manifest::update_rule_input::from_rule(5),
-        manifest::update_rule_input::from_rule(7),
-      },
-      .output = substitution::parse("dist/tests"),
-    },
-    {
-      .command_line_ix = 5,
-      .inputs = { manifest::update_rule_input::from_source(5) },
-      .output = substitution::parse("dist/package.cpp"),
-    },
-  };
   return result;
 }
 

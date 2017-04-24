@@ -405,14 +405,7 @@ update_manifest get_manifest(const std::string& root_path) {
     get_package_command_line(),
   };
   result.source_patterns = manifest_content.source_patterns;
-  // result.source_patterns = {
-  //   path_glob::parse("(src/lib/**/*).cppt"),
-  //   path_glob::parse("(src/lib/**/*).cpp"),
-  //   path_glob::parse("(src/lib/**/*).c"),
-  //   path_glob::parse("(src/main).cpp"),
-  //   path_glob::parse("(tools/lib/testing).cpp"),
-  //   path_glob::parse("package.json"),
-  // };
+
   result.rules = {
     {
       .command_line_ix = 0,

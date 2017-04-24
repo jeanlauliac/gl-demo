@@ -68,7 +68,9 @@ struct manifest_expression_handler {
     ) {
       if (field_name == "source_patterns") {
         parse_source_patterns(read_field_value, result.source_patterns);
+        return;
       }
+      throw std::runtime_error("doesn't know field `" + field_name + "`");
     });
     return result;
   }

@@ -5,8 +5,8 @@
 namespace upd {
 namespace json {
 
-template <typename Lexer, typename Handler, typename RetVal>
-RetVal parse_expression(Lexer& lexer, Handler& handler);
+template <typename Lexer, typename Handler>
+typename Handler::return_type parse_expression(Lexer& lexer, Handler& handler);
 
 struct unexpected_end_error {};
 struct unexpected_number_error {};
@@ -102,9 +102,14 @@ template <typename Lexer>
 struct field_value_reader {
   field_value_reader(Lexer& lexer): lexer_(lexer) {}
 
-  template <typename Handler, typename RetVal>
-  RetVal read(Handler& handler) {
-    return parse_expression<Lexer, Handler, RetVal>(lexer_, handler);
+  template <typename Handler>
+  typename Handler::return_type read(Handler& handler) {
+    return parse_expression<Lexer, Handler>(lexer_, handler);
+  }
+
+  template <typename Handler>
+  typename Handler::return_type read(const Handler& handler) {
+    return parse_expression<Lexer, const Handler>(lexer_, handler);
   }
 
 private:
@@ -215,7 +220,7 @@ struct array_reader {
     array_post_item_handler api_handler;
     has_more_items = lexer_.next(api_handler);
     while (has_more_items) {
-      parse_expression<Lexer, ItemHandler, void>(lexer_, item_handler);
+      parse_expression<Lexer, ItemHandler>(lexer_, item_handler);
       has_more_items = lexer_.next(api_handler);
     };
   }
@@ -224,17 +229,17 @@ private:
   Lexer& lexer_;
 };
 
-template <typename Lexer, typename Handler, typename RetVal>
+template <typename Lexer, typename Handler>
 struct parse_expression_handler {
-  typedef RetVal return_type;
+  typedef typename Handler::return_type return_type;
   parse_expression_handler(Lexer& lexer, Handler& handler):
     lexer_(lexer), handler_(handler) {}
 
-  RetVal end() const {
+  return_type end() const {
     throw unexpected_end_error();
   }
 
-  RetVal punctuation(punctuation_type type) const {
+  return_type punctuation(punctuation_type type) const {
     if (type == punctuation_type::brace_open) {
       object_reader<Lexer> reader(lexer_);
       return handler_.object(reader);
@@ -246,11 +251,11 @@ struct parse_expression_handler {
     throw unexpected_punctuation_error();
   }
 
-  RetVal string_literal(const std::string& literal) const {
+  return_type string_literal(const std::string& literal) const {
     return handler_.string_literal(literal);
   }
 
-  RetVal number_literal(float literal) const {
+  return_type number_literal(float literal) const {
     return handler_.number_literal(literal);
   }
 
@@ -259,10 +264,9 @@ private:
   Handler& handler_;
 };
 
-template <typename Lexer, typename Handler, typename RetVal>
-RetVal parse_expression(Lexer& lexer, Handler& handler) {
-  typedef parse_expression_handler<Lexer, Handler, RetVal> lexer_handler;
-  lexer_handler lx_handler(lexer, handler);
+template <typename Lexer, typename Handler>
+typename Handler::return_type parse_expression(Lexer& lexer, Handler& handler) {
+  parse_expression_handler<Lexer, Handler> lx_handler(lexer, handler);
   return lexer.next(lx_handler);
 }
 

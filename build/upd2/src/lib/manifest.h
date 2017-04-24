@@ -62,6 +62,8 @@ struct unexpected_element_error {};
 
 template <typename RetVal>
 struct all_unexpected_elements_handler {
+  typedef RetVal return_type;
+
   template <typename ObjectReader>
   RetVal object(ObjectReader& read_object) const {
     throw unexpected_element_error();
@@ -113,7 +115,7 @@ void parse_source_patterns(
   std::vector<path_glob::pattern>& source_patterns
 ) {
   source_patterns_handler handler(source_patterns);
-  read_field_value.template read<source_patterns_handler, void>(handler);
+  read_field_value.read(handler);
 }
 
 struct expected_integer_number_error {};
@@ -145,13 +147,11 @@ struct update_rule_array_handler: public all_unexpected_elements_handler<void> {
       json::field_value_reader<typename ObjectReader::lexer_type>& read_field_value
     ) {
       if (field_name == "command_line_ix") {
-        rule.command_line_ix = read_field_value.template
-          read<const read_size_t_handler, size_t>(read_size_t_handler());
+        rule.command_line_ix = read_field_value.read(read_size_t_handler());
         return;
       }
       if (field_name == "output") {
-        rule.output = read_field_value.template
-          read<const read_rule_output_handler, substitution::pattern>(read_rule_output_handler());
+        rule.output = read_field_value.read(read_rule_output_handler());
         return;
       }
       throw std::runtime_error("doesn't know field `" + field_name + "`");
@@ -182,10 +182,12 @@ void parse_update_rules(
   std::vector<update_rule>& rules
 ) {
   update_rules_handler handler(rules);
-  read_field_value.template read<update_rules_handler, void>(handler);
+  read_field_value.read(handler);
 }
 
 struct manifest_expression_handler: public all_unexpected_elements_handler<manifest> {
+  typedef manifest return_type;
+
   template <typename ObjectReader>
   manifest object(ObjectReader& read_object) const {
     manifest result;
@@ -209,7 +211,7 @@ struct manifest_expression_handler: public all_unexpected_elements_handler<manif
 
 template <typename Lexer>
 manifest parse(Lexer& lexer) {
-  return json::parse_expression<Lexer, const manifest_expression_handler, manifest>
+  return json::parse_expression<Lexer, const manifest_expression_handler>
     (lexer, manifest_expression_handler());
 }
 

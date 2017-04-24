@@ -104,12 +104,12 @@ struct field_value_reader {
 
   template <typename Handler>
   typename Handler::return_type read(Handler& handler) {
-    return parse_expression<Lexer, Handler>(lexer_, handler);
+    return parse_expression(lexer_, handler);
   }
 
   template <typename Handler>
   typename Handler::return_type read(const Handler& handler) {
-    return parse_expression<Lexer, const Handler>(lexer_, handler);
+    return parse_expression(lexer_, handler);
   }
 
 private:
@@ -214,14 +214,12 @@ struct array_reader {
   template <typename ItemHandler>
   void operator()(ItemHandler& item_handler) {
     typedef read_array_first_item_handler<Lexer, ItemHandler> first_item_handler;
-    first_item_handler rafi_handler(lexer_, item_handler);
-    bool has_more_items = lexer_.next(rafi_handler);
+    bool has_more_items = lexer_.next(first_item_handler(lexer_, item_handler));
     if (!has_more_items) return;
-    array_post_item_handler api_handler;
-    has_more_items = lexer_.next(api_handler);
+    has_more_items = lexer_.next(array_post_item_handler());
     while (has_more_items) {
-      parse_expression<Lexer, ItemHandler>(lexer_, item_handler);
-      has_more_items = lexer_.next(api_handler);
+      parse_expression(lexer_, item_handler);
+      has_more_items = lexer_.next(array_post_item_handler());
     };
   }
 
@@ -267,6 +265,12 @@ private:
 template <typename Lexer, typename Handler>
 typename Handler::return_type parse_expression(Lexer& lexer, Handler& handler) {
   parse_expression_handler<Lexer, Handler> lx_handler(lexer, handler);
+  return lexer.next(lx_handler);
+}
+
+template <typename Lexer, typename Handler>
+typename Handler::return_type parse_expression(Lexer& lexer, const Handler& handler) {
+  parse_expression_handler<Lexer, const Handler> lx_handler(lexer, handler);
   return lexer.next(lx_handler);
 }
 

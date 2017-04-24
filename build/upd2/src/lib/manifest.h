@@ -144,7 +144,7 @@ struct update_rule_array_handler: public all_unexpected_elements_handler<void> {
     update_rule rule;
     read_object([&rule](
       const std::string& field_name,
-      json::field_value_reader<typename ObjectReader::lexer_type>& read_field_value
+      typename ObjectReader::field_value_reader& read_field_value
     ) {
       if (field_name == "command_line_ix") {
         rule.command_line_ix = read_field_value.read(read_size_t_handler());
@@ -193,7 +193,7 @@ struct manifest_expression_handler: public all_unexpected_elements_handler<manif
     manifest result;
     read_object([&result](
       const std::string& field_name,
-      json::field_value_reader<typename ObjectReader::lexer_type>& read_field_value
+      typename ObjectReader::field_value_reader& read_field_value
     ) {
       if (field_name == "source_patterns") {
         parse_source_patterns(read_field_value, result.source_patterns);

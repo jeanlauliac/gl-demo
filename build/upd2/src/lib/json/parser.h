@@ -119,6 +119,8 @@ private:
 template <typename Lexer>
 struct object_reader {
   typedef Lexer lexer_type;
+  typedef field_value_reader<Lexer> field_value_reader;
+
   object_reader(Lexer& lexer): lexer_(lexer) {}
 
   template <typename FieldReader>
@@ -129,7 +131,7 @@ struct object_reader {
     bool has_field = lexer_.next(rfn_handler);
     while (has_field) {
       lexer_.next(rfc_handler);
-      field_value_reader<Lexer> read_field_value(lexer_);
+      field_value_reader read_field_value(lexer_);
       read_field(field_name, read_field_value);
       post_field_handler pf_handler;
       has_field = lexer_.next(pf_handler);

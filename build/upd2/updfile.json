@@ -6,5 +6,69 @@
     "(src/main).cpp",
     "(tools/lib/testing).cpp",
     "package.json"
+  ],
+  "rules": [
+    {
+      "command_line_ix": 0,
+      "inputs": [{"source_ix": 0}],
+      "output": "dist/($1).cpp"
+    },
+    {
+      "command_line_ix": 1,
+      "inputs": [{"source_ix": 1}],
+      "output": "dist/($1).o"
+    },
+    {
+      "command_line_ix": 2,
+      "inputs": [{"source_ix": 2}],
+      "output": "dist/($1).o"
+    },
+    {
+      "command_line_ix": 3,
+      "inputs": [{"source_ix": 0}],
+      "output": "dist/(tests).cpp"
+    },
+    {
+      "command_line_ix": 1,
+      "inputs": [{"source_ix": 3}],
+      "output": "dist/($1).o"
+    },
+    {
+      "command_line_ix": 1,
+      "inputs": [{"source_ix": 4}],
+      "output": "dist/($1).o"
+    },
+    {
+      "command_line_ix": 4,
+      "inputs": [
+        {"rule_ix": 1},
+        {"rule_ix": 2},
+        {"rule_ix": 4}
+      ],
+      "output": "dist/upd"
+    },
+    {
+      "command_line_ix": 1,
+      "inputs": [
+        {"rule_ix": 0},
+        {"rule_ix": 3}
+      ],
+      "output": "dist/($1).o"
+    },
+    {
+      "command_line_ix": 4,
+      "inputs": [
+        {"rule_ix": 1},
+        {"rule_ix": 2},
+        {"rule_ix": 5},
+        {"rule_ix": 7}
+      ],
+      "output": "dist/tests"
+    },
+    {
+      "command_line_ix": 5,
+      "inputs": [{"source_ix": 5}],
+      "output": "dist/package.cpp"
+    }
   ]
 }

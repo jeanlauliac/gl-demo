@@ -21,7 +21,8 @@ typedef json::lexer<string_char_reader> string_lexer;
     ],
     "rules": [
       {
-        "command_line_ix": 0
+        "command_line_ix": 0,
+        "output": "dist/($1).o"
       }
     ]
   }
@@ -36,6 +37,7 @@ typedef json::lexer<string_char_reader> string_lexer;
     .rules = {
       {
         .command_line_ix = 0,
+        .output = substitution::parse("dist/($1).o")
       },
     },
   };

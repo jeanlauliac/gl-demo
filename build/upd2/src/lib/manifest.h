@@ -123,6 +123,20 @@ struct read_size_t_handler {
 };
 
 template <typename Lexer>
+struct read_rule_output_handler {
+  substitution::pattern object(json::object_reader<Lexer>& read_object) const {
+    throw unexpected_element_error();
+  }
+  substitution::pattern array(json::array_reader<Lexer>& read_array) const {
+    throw unexpected_element_error();
+  }
+  substitution::pattern string_literal(const std::string& substitution_pattern_string) const {
+    return substitution::parse(substitution_pattern_string);
+  }
+  substitution::pattern number_literal(float number) const { throw unexpected_element_error(); }
+};
+
+template <typename Lexer>
 struct update_rule_array_handler {
   update_rule_array_handler(std::vector<update_rule>& rules):
     rules_(rules) {}
@@ -135,6 +149,11 @@ struct update_rule_array_handler {
       if (field_name == "command_line_ix") {
         rule.command_line_ix = read_field_value.template
           read<const read_size_t_handler<Lexer>, size_t>(read_size_t_handler<Lexer>());
+        return;
+      }
+      if (field_name == "output") {
+        rule.output = read_field_value.template
+          read<const read_rule_output_handler<Lexer>, substitution::pattern>(read_rule_output_handler<Lexer>());
         return;
       }
       throw std::runtime_error("doesn't know field `" + field_name + "`");

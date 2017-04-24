@@ -20,8 +20,19 @@ struct lexer {
     char_reader_(char_reader),
     has_lookahead_(false) {}
 
-  template <typename Handler, typename RetVal>
-  RetVal next(Handler& handler) {
+  template <typename Handler>
+  typename Handler::return_type next(Handler& handler) {
+    return this->_next(handler);
+  }
+
+  template <typename Handler>
+  typename Handler::return_type next(const Handler& handler) {
+    return this->_next(handler);
+  }
+
+private:
+  template <typename Handler>
+  typename Handler::return_type _next(Handler& handler) {
     do { next_char_(); } while (good_ && is_whitespace_());
     if (!good_) return handler.end();
     switch (c_) {
@@ -39,17 +50,16 @@ struct lexer {
         return handler.punctuation(punctuation_type::comma);
       case '"':
         next_char_();
-        return read_string_<Handler, RetVal>(handler);
+        return read_string_(handler);
     }
     if (c_ >= '0' && c_ <= '9') {
-      return read_number_<Handler, RetVal>(handler);
+      return read_number_(handler);
     }
     throw std::runtime_error(std::string("unhandled JSON character: `") + c_ + '`');
   }
 
-private:
-  template <typename Handler, typename RetVal>
-  RetVal read_string_(Handler& handler) {
+  template <typename Handler>
+  typename Handler::return_type read_string_(Handler& handler) {
     std::string value;
     while (good_ && c_ != '"') {
       if (c_ == '\\') {
@@ -63,8 +73,8 @@ private:
     return handler.string_literal(value);
   }
 
-  template <typename Handler, typename RetVal>
-  RetVal read_number_(Handler& handler) {
+  template <typename Handler>
+  typename Handler::return_type read_number_(Handler& handler) {
     float value = 0;
     do {
       value = value * 10 + (c_ - '0');
@@ -91,11 +101,6 @@ private:
   bool good_;
   char c_;
 };
-
-template <typename CharReader, typename Handler>
-bool next(lexer<CharReader>& lx, const Handler& handler) {
-  return lx.template next<const Handler, bool>(handler);
-}
 
 }
 }

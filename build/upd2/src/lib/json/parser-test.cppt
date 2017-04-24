@@ -71,14 +71,14 @@ bool parse_expression_as_bool(Lexer& lexer, const Handler& handler) {
   string_char_reader reader("{}");
   string_lexer lx(reader);
   @expect(parse_expression_as_bool(lx, expect_empty_object_handler()));
-  @expect(json::next(lx, expect_end_handler()));
+  @expect(lx.next(expect_end_handler()));
 }
 
 @case "parses object with a field" {
   string_char_reader reader("{\"foo\": 42}");
   string_lexer lx(reader);
   @expect(parse_expression_as_bool(lx, expect_object_single_field_handler()));
-  @expect(json::next(lx, expect_end_handler()));
+  @expect(lx.next(expect_end_handler()));
 }
 
 struct array_of_numbers_handler {
@@ -111,7 +111,7 @@ private:
   string_char_reader reader("[]");
   string_lexer lx(reader);
   @expect(parse_expression_as_bool(lx, expect_number_array_handler({})));
-  @expect(json::next(lx, expect_end_handler()));
+  @expect(lx.next(expect_end_handler()));
 }
 
 @case "parses array of numbers" {
@@ -120,5 +120,5 @@ private:
   @expect(parse_expression_as_bool(lx, expect_number_array_handler(
     { 3, 5, 7, 13 }
   )));
-  @expect(json::next(lx, expect_end_handler()));
+  @expect(lx.next(expect_end_handler()));
 }

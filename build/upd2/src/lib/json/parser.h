@@ -14,6 +14,7 @@ struct unexpected_string_error {};
 struct unexpected_punctuation_error {};
 
 struct read_field_name_handler {
+  typedef bool return_type;
   read_field_name_handler(std::string& field_name): field_name_(field_name) {}
 
   bool end() const { throw unexpected_end_error(); }
@@ -37,6 +38,7 @@ private:
 };
 
 struct read_new_field_name_handler {
+  typedef bool return_type;
   read_new_field_name_handler(std::string& field_name): field_name_(field_name) {}
 
   bool end() const { throw unexpected_end_error(); }
@@ -59,6 +61,7 @@ private:
 };
 
 struct post_field_handler {
+  typedef bool return_type;
   bool end() const { throw unexpected_end_error(); }
 
   bool punctuation(punctuation_type type) const {
@@ -77,6 +80,7 @@ struct post_field_handler {
 };
 
 struct read_field_colon_handler {
+  typedef void return_type;
   void end() const { throw unexpected_end_error(); }
 
   void punctuation(punctuation_type type) const {
@@ -117,16 +121,16 @@ struct object_reader {
     std::string field_name;
     read_field_name_handler rfn_handler(field_name);
     read_field_colon_handler rfc_handler;
-    bool has_field = lexer_.template next<read_field_name_handler, bool>(rfn_handler);
+    bool has_field = lexer_.next(rfn_handler);
     while (has_field) {
-      lexer_.template next<read_field_colon_handler, void>(rfc_handler);
+      lexer_.next(rfc_handler);
       field_value_reader<Lexer> read_field_value(lexer_);
       read_field(field_name, read_field_value);
       post_field_handler pf_handler;
-      has_field = lexer_.template next<post_field_handler, bool>(pf_handler);
+      has_field = lexer_.next(pf_handler);
       if (!has_field) continue;
       read_new_field_name_handler rnfn_handler(field_name);
-      lexer_.template next<read_new_field_name_handler, bool>(rnfn_handler);
+      lexer_.next(rnfn_handler);
     }
   }
 
@@ -139,6 +143,7 @@ struct array_reader;
 
 template <typename Lexer, typename ItemHandler>
 struct read_array_first_item_handler {
+  typedef bool return_type;
   read_array_first_item_handler(Lexer& lexer, ItemHandler& item_handler):
     lexer_(lexer), item_handler_(item_handler) {}
 
@@ -177,6 +182,8 @@ private:
 };
 
 struct array_post_item_handler {
+  typedef bool return_type;
+
   bool end() const { throw unexpected_end_error(); }
 
   bool punctuation(punctuation_type type) const {
@@ -203,13 +210,13 @@ struct array_reader {
   void operator()(ItemHandler& item_handler) {
     typedef read_array_first_item_handler<Lexer, ItemHandler> first_item_handler;
     first_item_handler rafi_handler(lexer_, item_handler);
-    bool has_more_items = lexer_.template next<first_item_handler, bool>(rafi_handler);
+    bool has_more_items = lexer_.next(rafi_handler);
     if (!has_more_items) return;
     array_post_item_handler api_handler;
-    has_more_items = lexer_.template next<array_post_item_handler, bool>(api_handler);
+    has_more_items = lexer_.next(api_handler);
     while (has_more_items) {
       parse_expression<Lexer, ItemHandler, void>(lexer_, item_handler);
-      has_more_items = lexer_.template next<array_post_item_handler, bool>(api_handler);
+      has_more_items = lexer_.next(api_handler);
     };
   }
 
@@ -219,6 +226,7 @@ private:
 
 template <typename Lexer, typename Handler, typename RetVal>
 struct parse_expression_handler {
+  typedef RetVal return_type;
   parse_expression_handler(Lexer& lexer, Handler& handler):
     lexer_(lexer), handler_(handler) {}
 
@@ -255,7 +263,7 @@ template <typename Lexer, typename Handler, typename RetVal>
 RetVal parse_expression(Lexer& lexer, Handler& handler) {
   typedef parse_expression_handler<Lexer, Handler, RetVal> lexer_handler;
   lexer_handler lx_handler(lexer, handler);
-  return lexer.template next<lexer_handler, RetVal>(lx_handler);
+  return lexer.next(lx_handler);
 }
 
 }

@@ -3,6 +3,7 @@
 #include "lexer.h"
 
 struct always_false_handler {
+  typedef bool return_type;
   bool end() const { return false; }
   bool punctuation(upd::json::punctuation_type) const { return false; }
   bool string_literal(const std::string&) const { return false; }

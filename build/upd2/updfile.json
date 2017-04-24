@@ -1,2 +1,10 @@
 {
+  "source_patterns": [
+    "(src/lib/**/*).cppt",
+    "(src/lib/**/*).cpp",
+    "(src/lib/**/*).c",
+    "(src/main).cpp",
+    "(tools/lib/testing).cpp",
+    "package.json"
+  ]
 }

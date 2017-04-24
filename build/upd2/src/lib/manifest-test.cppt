@@ -16,12 +16,18 @@ typedef json::lexer<string_char_reader> string_lexer;
 @case "parses complex manifest" {
   string_char_reader reader(R"JSON({
     "source_patterns": [
-      4
-    ],
-}
+      "(src/lib/**/*).cppt",
+      "(src/main).cpp"
+    ]
+  }
 )JSON");
   string_lexer lx(reader);
   auto result = manifest::parse(lx);
-  manifest::manifest expected;
+  manifest::manifest expected = {
+    .source_patterns = {
+      path_glob::parse("(src/lib/**/*).cppt"),
+      path_glob::parse("(src/main).cpp"),
+    },
+  };
   @expect(result == expected);
 }

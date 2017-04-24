@@ -17,14 +17,30 @@ inline bool operator==(const manifest& left, const manifest& right) {
 struct unexpected_element_error {};
 
 template <typename Lexer>
+struct source_pattern_array_handler {
+  source_pattern_array_handler(std::vector<path_glob::pattern>& source_patterns):
+    source_patterns_(source_patterns) {}
+  void object(json::object_reader<Lexer>& read_object) const { throw unexpected_element_error(); }
+  void array(json::array_reader<Lexer>& read_array) const { throw unexpected_element_error(); }
+  void string_literal(const std::string& pattern_string) const {
+    source_patterns_.push_back(path_glob::parse(pattern_string));
+  }
+  void number_literal(float number) { throw unexpected_element_error(); }
+
+private:
+  std::vector<path_glob::pattern>& source_patterns_;
+};
+
+template <typename Lexer>
 struct source_patterns_handler {
   source_patterns_handler(std::vector<path_glob::pattern>& source_patterns):
     source_patterns_(source_patterns) {}
   void object(json::object_reader<Lexer>& read_object) const {
     throw unexpected_element_error();
   }
-  void array(json::array_reader<Lexer>& read_object) const {
-    throw std::runtime_error("not implemented");
+  void array(json::array_reader<Lexer>& read_array) const {
+    source_pattern_array_handler<Lexer> handler(source_patterns_);
+    read_array(handler);
   }
   void string_literal(const std::string&) const { throw unexpected_element_error(); }
   void number_literal(float) const { throw unexpected_element_error(); }

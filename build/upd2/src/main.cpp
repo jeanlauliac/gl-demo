@@ -280,39 +280,12 @@ void output_dot_graph(
   os << "}" << std::endl;
 }
 
-enum class update_rule_input_type { source, rule };
-
-struct update_rule_input {
-  static update_rule_input from_source(size_t ix) {
-    return {
-      .type = update_rule_input_type::source,
-      .input_ix = ix,
-    };
-  }
-
-  static update_rule_input from_rule(size_t ix) {
-    return {
-      .type = update_rule_input_type::rule,
-      .input_ix = ix,
-    };
-  }
-
-  update_rule_input_type type;
-  size_t input_ix;
-};
-
-struct update_rule {
-  size_t command_line_ix;
-  std::vector<update_rule_input> inputs;
-  substitution::pattern output;
-};
-
 struct cannot_refer_to_later_rule_error {};
 
 struct update_manifest {
   std::vector<command_line_template> command_line_templates;
   std::vector<path_glob::pattern> source_patterns;
-  std::vector<update_rule> rules;
+  std::vector<manifest::update_rule> rules;
 };
 
 std::vector<std::vector<captured_string>>
@@ -343,13 +316,13 @@ update_map get_update_map(
     const auto& rule = manifest.rules[i];
     std::unordered_map<std::string, std::pair<std::vector<std::string>, std::vector<size_t>>> data_by_path;
     for (const auto& input: rule.inputs) {
-      if (input.type == update_rule_input_type::rule) {
+      if (input.type == manifest::update_rule_input_type::rule) {
         if (input.input_ix >= i) {
           throw cannot_refer_to_later_rule_error();
         }
       }
       const auto& input_captures =
-        input.type == update_rule_input_type::source
+        input.type == manifest::update_rule_input_type::source
         ? matches[input.input_ix]
         : rule_captured_paths[input.input_ix];
       for (const auto& input_capture: input_captures) {
@@ -409,64 +382,64 @@ update_manifest get_manifest(const std::string& root_path) {
   result.rules = {
     {
       .command_line_ix = 0,
-      .inputs = { update_rule_input::from_source(0) },
+      .inputs = { manifest::update_rule_input::from_source(0) },
       .output = substitution::parse("dist/($1).cpp"),
     },
     {
       .command_line_ix = 1,
-      .inputs = { update_rule_input::from_source(1) },
+      .inputs = { manifest::update_rule_input::from_source(1) },
       .output = substitution::parse("dist/($1).o"),
     },
     {
       .command_line_ix = 2,
-      .inputs = { update_rule_input::from_source(2) },
+      .inputs = { manifest::update_rule_input::from_source(2) },
       .output = substitution::parse("dist/($1).o"),
     },
     {
       .command_line_ix = 3,
-      .inputs = { update_rule_input::from_source(0) },
+      .inputs = { manifest::update_rule_input::from_source(0) },
       .output = substitution::parse("dist/(tests).cpp"),
     },
     {
       .command_line_ix = 1,
-      .inputs = { update_rule_input::from_source(3) },
+      .inputs = { manifest::update_rule_input::from_source(3) },
       .output = substitution::parse("dist/($1).o"),
     },
     {
       .command_line_ix = 1,
-      .inputs = { update_rule_input::from_source(4) },
+      .inputs = { manifest::update_rule_input::from_source(4) },
       .output = substitution::parse("dist/($1).o"),
     },
     {
       .command_line_ix = 4,
       .inputs = {
-        update_rule_input::from_rule(1),
-        update_rule_input::from_rule(2),
-        update_rule_input::from_rule(4),
+        manifest::update_rule_input::from_rule(1),
+        manifest::update_rule_input::from_rule(2),
+        manifest::update_rule_input::from_rule(4),
       },
       .output = substitution::parse("dist/upd"),
     },
     {
       .command_line_ix = 1,
       .inputs = {
-        update_rule_input::from_rule(0),
-        update_rule_input::from_rule(3),
+        manifest::update_rule_input::from_rule(0),
+        manifest::update_rule_input::from_rule(3),
       },
       .output = substitution::parse("dist/($1).o"),
     },
     {
       .command_line_ix = 4,
       .inputs = {
-        update_rule_input::from_rule(1),
-        update_rule_input::from_rule(2),
-        update_rule_input::from_rule(5),
-        update_rule_input::from_rule(7),
+        manifest::update_rule_input::from_rule(1),
+        manifest::update_rule_input::from_rule(2),
+        manifest::update_rule_input::from_rule(5),
+        manifest::update_rule_input::from_rule(7),
       },
       .output = substitution::parse("dist/tests"),
     },
     {
       .command_line_ix = 5,
-      .inputs = { update_rule_input::from_source(5) },
+      .inputs = { manifest::update_rule_input::from_source(5) },
       .output = substitution::parse("dist/package.cpp"),
     },
   };

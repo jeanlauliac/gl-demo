@@ -18,6 +18,11 @@ typedef json::lexer<string_char_reader> string_lexer;
     "source_patterns": [
       "(src/lib/**/*).cppt",
       "(src/main).cpp"
+    ],
+    "rules": [
+      {
+        "command_line_ix": 0
+      }
     ]
   }
 )JSON");
@@ -27,6 +32,11 @@ typedef json::lexer<string_char_reader> string_lexer;
     .source_patterns = {
       path_glob::parse("(src/lib/**/*).cppt"),
       path_glob::parse("(src/main).cpp"),
+    },
+    .rules = {
+      {
+        .command_line_ix = 0,
+      },
     },
   };
   @expect(result == expected);

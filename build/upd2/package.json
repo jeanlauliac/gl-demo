@@ -11,6 +11,6 @@
     "tap-mocha-reporter": "^3.0.0"
   },
   "scripts": {
-    "test": "bootstrap/upd dist/tests && dist/tests | faucet"
+    "test": "bootstrap/upd dist/unit_tests && dist/unit_tests | faucet"
   }
 }

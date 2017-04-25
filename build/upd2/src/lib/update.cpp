@@ -127,7 +127,10 @@ void update_file(
     for (auto dep_path: depfile_data->dependency_paths) {
       if (dep_path.at(0) == '/') {
         if (dep_path.compare(0, root_folder_path.size(), root_folder_path) != 0) {
-          throw std::runtime_error("depfile has a file out of root");
+          // TODO: track out-of-root deps separately
+          // throw std::runtime_error("depfile has a file `" + dep_path +
+          //   "` out of root `" + root_folder_path + "`");
+          continue;
         }
         dep_path = dep_path.substr(root_folder_path.size());
       }

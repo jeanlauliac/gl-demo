@@ -1,4 +1,6 @@
 /.upd
+/.build_files
+/updfile.json
 /build/upd/.upd
 /build/upd/dist
 /build/upd/node_modules

@@ -81,8 +81,16 @@
       "output": "dist/(tests).cpp"
     },
     {
+      "command_line_ix": 5,
+      "inputs": [{"source_ix": 5}],
+      "output": "dist/(package).cpp"
+    },
+    {
       "command_line_ix": 1,
-      "inputs": [{"source_ix": 3}],
+      "inputs": [
+        {"source_ix": 3},
+        {"rule_ix": 4}
+      ],
       "output": "dist/($1).o"
     },
     {
@@ -95,7 +103,7 @@
       "inputs": [
         {"rule_ix": 1},
         {"rule_ix": 2},
-        {"rule_ix": 4}
+        {"rule_ix": 5}
       ],
       "output": "dist/upd"
     },
@@ -112,15 +120,10 @@
       "inputs": [
         {"rule_ix": 1},
         {"rule_ix": 2},
-        {"rule_ix": 5},
-        {"rule_ix": 7}
+        {"rule_ix": 6},
+        {"rule_ix": 8}
       ],
       "output": "dist/unit_tests"
-    },
-    {
-      "command_line_ix": 5,
-      "inputs": [{"source_ix": 5}],
-      "output": "dist/package.cpp"
     }
   ]
 }

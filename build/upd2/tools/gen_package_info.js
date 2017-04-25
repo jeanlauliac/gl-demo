@@ -18,8 +18,11 @@ cli(function () {
   const content = fs.readFileSync(sourcePath, 'utf8');
   const json = JSON.parse(content);
   const targetStream = fs.createWriteStream(targetPath);
-  targetStream.write('namespace upd {\n');
-  targetStream.write("}\n");
+  targetStream.write('namespace upd {\nnamespace package{\n\n');
+  targetStream.write(`const char* NAME = ${JSON.stringify(json.name)};\n`);
+  targetStream.write(`const char* VERSION = ${JSON.stringify(json.version)};\n`);
+  targetStream.write(`const char* DESCRIPTION = ${JSON.stringify(json.description)};\n`);
+  targetStream.write("}\n}\n");
   targetStream.end();
   const depfile = fs.createWriteStream(depfilePath);
   const modulePaths = Object.values(require.cache)

@@ -1,5 +1,5 @@
 {
-  "name": "upd2",
+  "name": "upd",
   "version": "0.1",
   "description": "Update files, fast.",
   "main": "dist/index.js",

@@ -12,6 +12,7 @@
 #include "lib/update.h"
 #include "lib/update_log.h"
 #include "lib/xxhash64.h"
+#include "package.h"
 #include <array>
 #include <cstdlib>
 #include <dirent.h>
@@ -383,7 +384,8 @@ int run_with_options(const cli::options& cli_opts) {
       return 2;
     }
     if (cli_opts.action == cli::action::version) {
-      std::cout << "upd v0.1" << std::endl;
+      std::cout << package::NAME << " version "
+                << package::VERSION << std::endl;
       return 0;
     }
     if (cli_opts.action == cli::action::help) {

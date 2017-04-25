@@ -1,2 +1,0 @@
-#!/bin/sh
-./runner $@ | node_modules/.bin/tap-mocha-reporter classic

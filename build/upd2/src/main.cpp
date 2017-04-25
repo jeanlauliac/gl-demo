@@ -347,22 +347,25 @@ void compile_itself(
 }
 
 int run_with_options(const cli::options& cli_opts) {
+  bool color_diags =
+    cli_opts.color_diagnostics == cli::color_mode::always ||
+    (cli_opts.color_diagnostics == cli::color_mode::auto_ && isatty(2));
   try {
     if (!(
       cli_opts.action == cli::action::update ||
       cli_opts.action == cli::action::dot_graph
     )) {
       if (!cli_opts.relative_target_paths.empty()) {
-        cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "this operation doesn't accept target arguments" << std::endl;
+        cli::fatal_error(std::cerr, color_diags) << "this operation doesn't accept target arguments" << std::endl;
         return 2;
       }
       if (cli_opts.update_all_files) {
-        cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "this operation doesn't accept `--all`" << std::endl;
+        cli::fatal_error(std::cerr, color_diags) << "this operation doesn't accept `--all`" << std::endl;
         return 2;
       }
     }
     if (cli_opts.update_all_files && !cli_opts.relative_target_paths.empty()) {
-      cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "cannot have both explicit targets and `--all`" << std::endl;
+      cli::fatal_error(std::cerr, color_diags) << "cannot have both explicit targets and `--all`" << std::endl;
       return 2;
     }
     if (cli_opts.action == cli::action::version) {
@@ -382,29 +385,29 @@ int run_with_options(const cli::options& cli_opts) {
     compile_itself(root_path, working_path, cli_opts.action == cli::action::dot_graph, cli_opts.update_all_files, cli_opts.relative_target_paths);
     return 0;
   } catch (io::cannot_find_updfile_error) {
-    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "cannot find updfile.json in the current directory or in any of the parent directories" << std::endl;
+    cli::fatal_error(std::cerr, color_diags) << "cannot find updfile.json in the current directory or in any of the parent directories" << std::endl;
     return 2;
   } catch (io::ifstream_failed_error error) {
-    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "failed to read file `" << error.file_path << "`" << std::endl;
+    cli::fatal_error(std::cerr, color_diags) << "failed to read file `" << error.file_path << "`" << std::endl;
     return 2;
   } catch (update_log::corruption_error) {
-    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "update log is corrupted; delete or revert the `.upd/log` file" << std::endl;
+    cli::fatal_error(std::cerr, color_diags) << "update log is corrupted; delete or revert the `.upd/log` file" << std::endl;
     return 2;
   } catch (unknown_target_error error) {
-    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "unknown output file: " << error.relative_path << std::endl;
+    cli::fatal_error(std::cerr, color_diags) << "unknown output file: " << error.relative_path << std::endl;
     return 2;
   } catch (relative_path_out_of_root_error error) {
-    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "encountered a path out of the project root: " << error.relative_path << std::endl;
+    cli::fatal_error(std::cerr, color_diags) << "encountered a path out of the project root: " << error.relative_path << std::endl;
     return 2;
   } catch (no_targets_error error) {
-    cli::fatal_error(std::cerr, cli_opts.color_diagnostics) << "specify at least one target to update" << std::endl;
+    cli::fatal_error(std::cerr, color_diags) << "specify at least one target to update" << std::endl;
     return 2;
   }
 }
 
 int run(int argc, char *argv[]) {
   try {
-    auto cli_opts = cli::parse_options(argc, argv);
+    auto cli_opts = cli::parse_options(argv);
     return run_with_options(cli_opts);
   } catch (cli::unexpected_argument_error error) {
     std::cerr << "upd: fatal: invalid argument: `" << error.arg << "`" << std::endl;
@@ -412,6 +415,14 @@ int run(int argc, char *argv[]) {
   } catch (cli::incompatible_options_error error) {
     std::cerr << "upd: fatal: options `" << error.first_option
       << "` and `" << error.last_option << "` are in conflict" << std::endl;
+    return 1;
+  } catch (cli::invalid_color_mode_error error) {
+    std::cerr << "upd: fatal: `" << error.value
+      << "` is not a valid color mode" << std::endl;
+    return 1;
+  } catch (cli::option_requires_argument_error error) {
+    std::cerr << "upd: fatal: option `" << error.option
+      << "` requires an argument" << std::endl;
     return 1;
   }
 }

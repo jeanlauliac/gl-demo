@@ -16,11 +16,24 @@ void setup_action(
   result.action = new_action;
 }
 
-options parse_options(int argc, const char* const argv[]) {
+color_mode parse_color_mode(const std::string& str) {
+  if (str == "auto") {
+    return color_mode::auto_;
+  }
+  if (str == "never") {
+    return color_mode::never;
+  }
+  if (str == "always") {
+    return color_mode::always;
+  }
+  throw invalid_color_mode_error(str);
+}
+
+options parse_options(const char* const argv[]) {
   options result;
   std::string action_arg;
   bool reading_options = true;
-  for (++argv, --argc; argc > 0; ++argv, --argc) {
+  for (++argv; *argv != nullptr; ++argv) {
     const auto arg = std::string(*argv);
     if (reading_options && arg.size() >= 1 && arg[0] == '-') {
       if (arg.size() >= 2 && arg[1] == '-') {
@@ -33,7 +46,11 @@ options parse_options(int argc, const char* const argv[]) {
         } else if (arg == "--dot-graph") {
           setup_action(result, action_arg, arg, action::dot_graph);
         } else if (arg == "--color-diagnostics") {
-          result.color_diagnostics = true;
+          ++argv;
+          if (*argv == nullptr) {
+            throw option_requires_argument_error("--color-diagnostics");
+          }
+          result.color_diagnostics = parse_color_mode(*argv);
         } else if (arg == "--all") {
           result.update_all_files = true;
         } else if (arg == "--") {
@@ -64,7 +81,10 @@ Updates
   --all                   Include all the known files in the update, or graph
 
 General options
-  --color-diagnostics     Use ANSI color escape codes to stderr
+  --color-diagnostics {auto|always|never}
+                          Use ANSI color escape codes to stderr; `auto` means
+                          it'll output colors if stderr is a TTY,
+                          and is the default
   --                      Make the remaining of arguments targets (no options)
 )HELP";
 }

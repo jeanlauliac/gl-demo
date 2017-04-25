@@ -17,12 +17,23 @@ enum class action {
   version,
 };
 
+struct invalid_color_mode_error {
+  invalid_color_mode_error(const std::string& value): value(value) {}
+  const std::string value;
+};
+
+enum class color_mode {
+  always,
+  auto_,
+  never,
+};
+
 struct options {
   options():
-    color_diagnostics(false),
+    color_diagnostics(color_mode::auto_),
     action(action::update),
     update_all_files(false) {};
-  bool color_diagnostics;
+  color_mode color_diagnostics;
   action action;
   std::vector<std::string> relative_target_paths;
   bool update_all_files;
@@ -31,16 +42,21 @@ struct options {
 struct incompatible_options_error {
   incompatible_options_error(const std::string& first_option, const std::string& last_option):
     first_option(first_option), last_option(last_option) {}
-  std::string first_option;
-  std::string last_option;
+  const std::string first_option;
+  const std::string last_option;
 };
 
 struct unexpected_argument_error {
   unexpected_argument_error(const std::string& arg): arg(arg) {}
-  std::string arg;
+  const std::string arg;
 };
 
-options parse_options(int argc, const char* const argv[]);
+struct option_requires_argument_error {
+  option_requires_argument_error(const std::string& option): option(option) {}
+  const std::string option;
+};
+
+options parse_options(const char* const argv[]);
 void print_help();
 
 template <typename OStream>

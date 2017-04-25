@@ -346,26 +346,40 @@ void compile_itself(
 
 }
 
+template <typename OStream>
+struct err_functor {
+  err_functor(OStream& os, bool color_diagnostics):
+    os_(os), cd_(color_diagnostics) {}
+  OStream& operator()() {
+    return cli::fatal_error(os_, cd_);
+  }
+
+private:
+  OStream& os_;
+  bool cd_;
+};
+
 int run_with_options(const cli::options& cli_opts) {
   bool color_diags =
     cli_opts.color_diagnostics == cli::color_mode::always ||
     (cli_opts.color_diagnostics == cli::color_mode::auto_ && isatty(2));
+  err_functor<std::ostream> err(std::cerr, color_diags);
   try {
     if (!(
       cli_opts.action == cli::action::update ||
       cli_opts.action == cli::action::dot_graph
     )) {
       if (!cli_opts.relative_target_paths.empty()) {
-        cli::fatal_error(std::cerr, color_diags) << "this operation doesn't accept target arguments" << std::endl;
+        err() << "this operation doesn't accept target arguments" << std::endl;
         return 2;
       }
       if (cli_opts.update_all_files) {
-        cli::fatal_error(std::cerr, color_diags) << "this operation doesn't accept `--all`" << std::endl;
+        err() << "this operation doesn't accept `--all`" << std::endl;
         return 2;
       }
     }
     if (cli_opts.update_all_files && !cli_opts.relative_target_paths.empty()) {
-      cli::fatal_error(std::cerr, color_diags) << "cannot have both explicit targets and `--all`" << std::endl;
+      err() << "cannot have both explicit targets and `--all`" << std::endl;
       return 2;
     }
     if (cli_opts.action == cli::action::version) {
@@ -385,24 +399,19 @@ int run_with_options(const cli::options& cli_opts) {
     compile_itself(root_path, working_path, cli_opts.action == cli::action::dot_graph, cli_opts.update_all_files, cli_opts.relative_target_paths);
     return 0;
   } catch (io::cannot_find_updfile_error) {
-    cli::fatal_error(std::cerr, color_diags) << "cannot find updfile.json in the current directory or in any of the parent directories" << std::endl;
-    return 2;
+    err() << "cannot find updfile.json in the current directory or in any of the parent directories" << std::endl;
   } catch (io::ifstream_failed_error error) {
-    cli::fatal_error(std::cerr, color_diags) << "failed to read file `" << error.file_path << "`" << std::endl;
-    return 2;
+    err() << "failed to read file `" << error.file_path << "`" << std::endl;
   } catch (update_log::corruption_error) {
-    cli::fatal_error(std::cerr, color_diags) << "update log is corrupted; delete or revert the `.upd/log` file" << std::endl;
-    return 2;
+    err() << "update log is corrupted; delete or revert the `.upd/log` file" << std::endl;
   } catch (unknown_target_error error) {
-    cli::fatal_error(std::cerr, color_diags) << "unknown output file: " << error.relative_path << std::endl;
-    return 2;
+    err() << "unknown output file: " << error.relative_path << std::endl;
   } catch (relative_path_out_of_root_error error) {
-    cli::fatal_error(std::cerr, color_diags) << "encountered a path out of the project root: " << error.relative_path << std::endl;
-    return 2;
+    err() << "encountered a path out of the project root: " << error.relative_path << std::endl;
   } catch (no_targets_error error) {
-    cli::fatal_error(std::cerr, color_diags) << "specify at least one target to update" << std::endl;
-    return 2;
+    err() << "specify at least one target to update" << std::endl;
   }
+  return 2;
 }
 
 int run(int argc, char *argv[]) {

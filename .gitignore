@@ -5,6 +5,7 @@
 /build/upd2/.upd
 /build/upd2/dist
 /build/upd2/node_modules
+/build/upd2/updfile.json
 /dist
 /node_modules
 /resources/index.h

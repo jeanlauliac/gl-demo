@@ -2,6 +2,8 @@
 
 const updfile = require('./tools/lib/updfile');
 
+const BUILD_DIR = ".build_files";
+
 const manifest = new updfile.Manifest();
 
 const compile_cpp_cli = manifest.cli_template('clang++', [
@@ -29,19 +31,19 @@ const test_cpp_files = manifest.rule(
     {variables: ["input_files", "output_file", "dependency_file"]},
   ]),
   [cppt_sources],
-  "dist/($1).cpp"
+  `${BUILD_DIR}/($1).cpp`
 );
 
 const compiled_cpp_files = manifest.rule(
   compile_cpp_cli,
   [manifest.source("(src/lib/**/*).cpp")],
-  "dist/($1).o"
+  `${BUILD_DIR}/($1).o`
 );
 
 const compiled_c_files = manifest.rule(
   compile_c_cli,
   [manifest.source("(src/lib/**/*).c")],
-  "dist/($1).o"
+  `${BUILD_DIR}/($1).o`
 );
 
 const tests_cpp_file = manifest.rule(
@@ -49,7 +51,7 @@ const tests_cpp_file = manifest.rule(
     {variables: ["output_file", "dependency_file", "input_files"]}
   ]),
   [cppt_sources],
-  "dist/(tests).cpp"
+  `${BUILD_DIR}/(tests).cpp`
 );
 
 const package_cpp_file = manifest.rule(
@@ -57,19 +59,19 @@ const package_cpp_file = manifest.rule(
     {variables: ["output_file", "dependency_file", "input_files"]}
   ]),
   [manifest.source("package.json")],
-  "dist/(package).cpp"
+  `${BUILD_DIR}/(package).cpp`
 );
 
 const compiled_main_files = manifest.rule(
   compile_cpp_cli,
   [manifest.source("(src/main).cpp"), package_cpp_file],
-  "dist/($1).o"
+  `${BUILD_DIR}/($1).o`
 );
 
 const compiled_test_files = manifest.rule(
   compile_cpp_cli,
   [manifest.source("(tools/lib/testing).cpp"), test_cpp_files, tests_cpp_file],
-  "dist/($1).o"
+  `${BUILD_DIR}/($1).o`
 );
 
 const link_cpp_cli = manifest.cli_template('clang++', [

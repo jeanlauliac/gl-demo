@@ -316,17 +316,21 @@ void compile_itself(
     }
     build_update_plan(plan, output_files_by_path, *target_desc);
   }
+
   if (update_all_files) {
     for (auto const& target_desc: output_files_by_path) {
       build_update_plan(plan, output_files_by_path, target_desc);
     }
-  }
-  if (plan.pending_output_file_paths.size() == 0) {
+  } else if (plan.pending_output_file_paths.size() == 0) {
     throw no_targets_error();
   }
   if (print_graph) {
     output_dot_graph(std::cout, updm, plan, manifest.command_line_templates);
     return;
+  }
+
+  if (mkdir((root_path + "/" + CACHE_FOLDER).c_str(), 0700) != 0 && errno != EEXIST) {
+    throw std::runtime_error("cannot create upd hidden directory");
   }
 
   std::string log_file_path = root_path + "/" + CACHE_FOLDER + "/log";

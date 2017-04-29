@@ -146,6 +146,7 @@ private:
   static pending_dirs_type generate_initial_pending_dirs_(
     const std::vector<pattern>& patterns
   ) {
+    if (patterns.empty()) return pending_dirs_type();
     std::vector<bookmark> initial_bookmarks;
     for (size_t i = 0; i < patterns.size(); ++i) {
       initial_bookmarks.push_back({

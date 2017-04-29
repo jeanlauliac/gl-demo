@@ -1,0 +1,18 @@
+'use strict';
+
+const child_process = require('child_process');
+const path = require('path');
+
+(function main() {
+  const result = child_process.spawnSync(
+    path.resolve(__dirname, '../../dist/upd'),
+    ['--all'],
+    {cwd: __dirname, stdio: 'inherit'}
+  );
+  if (result.signal != null) {
+    throw Error(`upd exited with signal ${result.signal}`);
+  }
+  if (result.status != 0) {
+    throw Error(`upd exited with code ${result.status}`);
+  }
+})();

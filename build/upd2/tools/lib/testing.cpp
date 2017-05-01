@@ -21,4 +21,18 @@ void write_plan(int last_index) {
   std::cout << "1.." << last_index << std::endl;
 }
 
+std::string indent_string(const std::string& target, size_t indent) {
+  std::ostringstream os;
+  std::string indent_spaces(indent, ' ');
+  size_t prevPos = 0;
+  size_t pos = target.find_first_of('\n');
+  while (pos != std::string::npos) {
+    os << indent_spaces << target.substr(prevPos, pos - prevPos + 1);
+    prevPos = pos + 1;
+    pos = target.find_first_of('\n', prevPos);
+  }
+  os << indent_spaces << target.substr(prevPos);
+  return os.str();
+}
+
 }

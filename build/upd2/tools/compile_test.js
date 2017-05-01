@@ -97,7 +97,15 @@ function writeTestFunction(stream, caseCount, caseName, blockContent, reporterNa
     let exprStr;
     [exprStr, i] = cppExpr;
     const strContent = exprStr.replace(/([\\"])/g, '\\$1').replace(/\n/g, '\\n');
-    stream.write(`testing::expect(${exprStr}, "${strContent}")`);
+    // Quick-and-dirty, of course we'd want to check parentheses and stuff.
+    const dbEqualIx = exprStr.indexOf('==');
+    if (dbEqualIx >= 0) {
+      const targetExp = exprStr.substring(0, dbEqualIx);
+      const expectationExp = exprStr.substring(dbEqualIx + 2);
+      stream.write(`testing::expect_equal(${targetExp}, ${expectationExp}, "${strContent}")`);
+    } else {
+      stream.write(`testing::expect(${exprStr}, "${strContent}")`);
+    }
   }
   stream.write('}');
   return functionName;

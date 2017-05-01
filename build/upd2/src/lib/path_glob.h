@@ -12,6 +12,12 @@ namespace path_glob {
 
 enum class capture_point_type { wildcard, ent_name };
 
+/**
+ * A "capture point" describe the location in a path pattern where a particular
+ * capture group starts or ends. For example, in `src/(** / *).cpp`, the single
+ * capture group starts from a wildcard, on the second segment, and ends inside
+ * a path entity name ("ent" name).
+ */
 struct capture_point {
   bool is_wildcard(size_t target_segment_ix) const {
     return
@@ -25,11 +31,33 @@ struct capture_point {
       segment_ix == target_segment_ix;
   }
 
+  /**
+   * Index of the pattern segment, described by the pattern object provided
+   * separately. The pattern parser must ensure that this is always pointing
+   * at an existing segment.
+   */
   size_t segment_ix;
+  /**
+   * The type of the path part we want to capture, either a wildcard or an
+   * entity name. If we're capturing a wildcard, its entire match will be
+   * included, whether it starts or end the capture. If it's an entity name,
+   * the `ent_name_segment_ix` decribes the further sub-division to be included.
+   */
   capture_point_type type;
+  /**
+   * This field is exclusively valid for a capture point of type `ent_name`.
+   * It describe where the capture should start or end inside the entity
+   * name itself. For example, for `(src/ *).cpp` the capture ends at the
+   * second ent-name sub-segment (the period), of the second pattern segment
+   * (`*.cpp`).
+   */
   size_t ent_name_segment_ix;
 };
 
+/**
+ * `ent_name_segment_ix` is only valid for a capture point of type `ent-name`,
+ * that explains why we ignore it otherwise.
+ */
 inline bool operator==(const capture_point& left, const capture_point& right) {
   return
     left.type == right.type &&
@@ -39,6 +67,12 @@ inline bool operator==(const capture_point& left, const capture_point& right) {
     );
 }
 
+/**
+ * A capture group describes where a capture should start end end within a path
+ * pattern. For example, in `src/(** / *).cpp` there is a single capture group
+ * that starts by the folder wildcard, and ends at the extension period of the
+ * file name.
+ */
 struct capture_group {
   capture_point from;
   capture_point to;
@@ -50,13 +84,34 @@ inline bool operator==(const capture_group& left, const capture_group& right) {
     left.to == right.to;
 }
 
+/**
+ * A path pattern segment is the most basic unit that we are using to match a
+ * file path. These are computed by parsing a pattern string. For example, the
+ * pattern string `src/ ** / *.cpp` will output two segments. The first segment
+ * is `src` and describe a simple path entity name, no wildcard. The second
+ * segment is `** / *.cpp`. This one is a bit more complex: it describes both
+ * an entity name, `*.cpp`, and a prefix wildcard.
+ */
 struct segment {
   void clear() {
     ent_name.clear();
     has_wildcard = false;
   }
 
+  /**
+   * The entity name we're trying to match. For example `*.cpp`, that would
+   * match all the C++ files of a particular directory.
+   */
   glob::pattern ent_name;
+  /**
+   * If `true`, then we're trying to match a folder wildcard. This field is the
+   * only difference between, for example, `** / *.cpp`, and `*.cpp`: they have
+   * the same entity name pattern, but one has an additional prefix wildcard. It
+   * means when we're trying to match this segment, we'll both process folders,
+   * always matching the wildcard, and names matching the entity name pattern.
+   * An entity (file or folder) is allowed to match both the wildcard and the
+   * entity name pattern.
+   */
   bool has_wildcard;
 };
 
@@ -67,8 +122,11 @@ inline bool operator==(const segment& left, const segment& right) {
 }
 
 /**
- * The pattern to match a full file path, represented as each of its successive
- * entity names. For example
+ * A pattern describes how a complete file path should look like, along with
+ * sub-sequences we'd like to keep note of, called "capture groups". A pattern
+ * object is generated as the output of parsing a pattern string. For example,
+ * the pattern string `src/(** / *).cpp` would result in a pattern object that
+ * has two segments and a single capture group.
  */
 struct pattern {
   std::vector<capture_group> capture_groups;
@@ -95,8 +153,24 @@ struct invalid_pattern_string_error {
   invalid_pattern_string_reason reason;
 };
 
+/**
+ * Parses a string, for example `src/(** / *).cpp`, into its corresponding
+ * pattern object. Parsing has two goals:
+ *
+ *   * it checks that the pattern is valid, for example, that all the capture
+ *     group parentheses are properly closed, or that wildcards are correct;
+ *   * it generates a representation of the pattern that is easier and more
+ *     performant for the pattern matcher to work with than a raw string, for
+ *     example handling special characters escaping.
+ */
 pattern parse(const std::string& pattern_string);
 
+/**
+ * A match object describes a single possible result of a pattern search. For
+ * example a pattern `src/(** / *).cpp` may generate a match which `local_path`
+ * is `src/lib/foo.cpp`; and which single captured group is `lib/foo`
+ * (described by the start and end indices instead of strings, for performance).
+ */
 struct match {
   std::string get_captured_string(size_t index) const {
     const auto& group = captured_groups[index];

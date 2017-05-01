@@ -160,17 +160,6 @@ private:
   void push_wildcard_match_(const std::string& name, const bookmark& target) {
     auto captured_from_ids = target.captured_from_ids;
     auto captured_to_ids = target.captured_to_ids;
-    const auto& pattern_ = patterns_[target.pattern_ix];
-    for (size_t i = 0; i < pattern_.capture_groups.size(); ++i) {
-      const auto& group = pattern_.capture_groups[i];
-      if (
-        group.from.type == capture_point_type::wildcard &&
-        group.from.segment_ix == target.segment_ix &&
-        captured_from_ids.count(i) == 0
-      ) {
-        captured_from_ids[i] = path_prefix_.size();
-      }
-    }
     pending_dirs_[path_prefix_ + name + '/'].push_back({
       .segment_ix = target.segment_ix,
       .captured_from_ids = std::move(captured_from_ids),
@@ -189,6 +178,7 @@ private:
     update_captures_for_ent_name_(
       target,
       match_indices,
+      name.size(),
       captured_from_ids,
       captured_to_ids
     );
@@ -211,6 +201,7 @@ private:
     update_captures_for_ent_name_(
       target,
       match_indices,
+      name.size(),
       captured_from_ids,
       captured_to_ids
     );
@@ -229,6 +220,7 @@ private:
   void update_captures_for_ent_name_(
     const bookmark& target,
     const std::vector<size_t> match_indices,
+    size_t ent_name_size,
     std::unordered_map<size_t, size_t>& captured_from_ids,
     std::unordered_map<size_t, size_t>& captured_to_ids
   ) {
@@ -248,6 +240,12 @@ private:
       ) {
         auto ent_name_ix = match_indices[group.to.ent_name_segment_ix];
         captured_to_ids[i] = path_prefix_.size() + ent_name_ix;
+      }
+      if (
+        group.from.type == capture_point_type::wildcard &&
+        group.from.segment_ix == target.segment_ix + 1
+      ) {
+        captured_from_ids[i] = path_prefix_.size() + ent_name_size + 1;
       }
     }
   }

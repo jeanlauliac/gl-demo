@@ -181,6 +181,23 @@ typedef std::unordered_map<std::string, captures> matches;
   @expect(mts == expected);
 }
 
+@case "find and capture files, even at top-level" {
+  auto pattern = upd::path_glob::parse("(**/*).cpp");
+  upd::path_glob::matcher<mock_dir_reader> mtcr("/root/src", pattern);
+  upd::path_glob::match mt;
+  matches mts;
+  while (mtcr.next(mt)) mts[mt.local_path] = mt.captured_groups;
+  matches expected = {
+    { "beep1/foo.cpp", { { 0, 9, } } },
+    { "beep1/bar.cpp", { { 0, 9 } } },
+    { "beep1/subdir.cpp/smth.cpp", { { 0, 21 } } },
+    { "beep2/smth.cpp", { { 0, 10 } } },
+    { "boop/foo.cpp", { { 0, 8 } } },
+    { "main.cpp", { { 0, 4 } } },
+  };
+  @expect(mts == expected);
+}
+
 typedef std::tuple<size_t, size_t, size_t> multi_captures;
 typedef std::unordered_map<std::string, multi_captures> multi_matches;
 

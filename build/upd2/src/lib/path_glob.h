@@ -239,8 +239,8 @@ private:
       initial_bookmarks.push_back({
         .pattern_ix = i,
         .segment_ix = 0,
-        .captured_from_ids = std::vector<size_t>(capture_group_count, 0),
-        .captured_to_ids = std::vector<size_t>(capture_group_count, 0),
+        .captured_from_ids = std::vector<size_t>(capture_group_count, 1),
+        .captured_to_ids = std::vector<size_t>(capture_group_count, 1),
       });
     }
     return pending_dirs_type({ { "/", std::move(initial_bookmarks) } });

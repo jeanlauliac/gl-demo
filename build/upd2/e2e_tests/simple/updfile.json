@@ -1,0 +1,26 @@
+{
+  "command_line_templates": [
+    {
+      "binary_path": "update.js",
+      "arguments": [
+        {
+          "variables": [
+            "output_file",
+            "dependency_file",
+            "input_files"
+          ]
+        }
+      ]
+    }
+  ],
+  "source_patterns": [
+    "src/(**/*).in"
+  ],
+  "rules": [
+    {
+      "command_line_ix": 0,
+      "inputs": [{"source_ix": 0}],
+      "output": "dist/result.out"
+    }
+  ]
+}

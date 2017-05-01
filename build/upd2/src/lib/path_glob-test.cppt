@@ -22,6 +22,7 @@ MOCK_ENTS_BY_DIR_PATH = {
     { .name = "..", .type = DT_DIR },
     { .name = "beep1", .type = DT_DIR },
     { .name = "boop", .type = DT_DIR },
+    { .name = "main.cpp", .type = DT_REG },
     { .name = "beep2", .type = DT_DIR }
   } },
   { "/root/src/beep1", {
@@ -154,7 +155,8 @@ private:
     "src/beep1/bar.cpp",
     "src/beep1/subdir.cpp/smth.cpp",
     "src/beep2/smth.cpp",
-    "src/boop/foo.cpp"
+    "src/boop/foo.cpp",
+    "src/main.cpp",
   };
   @expect(mts == expected);
 }
@@ -174,6 +176,7 @@ typedef std::unordered_map<std::string, captures> matches;
     { "src/beep1/subdir.cpp/smth.cpp", { { 4, 25 } } },
     { "src/beep2/smth.cpp", { { 4, 14 } } },
     { "src/boop/foo.cpp", { { 4, 12 } } },
+    { "src/main.cpp", { { 4, 8 } } },
   };
   @expect(mts == expected);
 }

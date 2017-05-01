@@ -188,8 +188,8 @@ private:
   struct bookmark {
     size_t pattern_ix;
     size_t segment_ix;
-    std::unordered_map<size_t, size_t> captured_from_ids;
-    std::unordered_map<size_t, size_t> captured_to_ids;
+    std::vector<size_t> captured_from_ids;
+    std::vector<size_t> captured_to_ids;
   };
   typedef std::unordered_map<std::string, std::vector<bookmark>>
     pending_dirs_type;
@@ -235,9 +235,12 @@ private:
     if (patterns.empty()) return pending_dirs_type();
     std::vector<bookmark> initial_bookmarks;
     for (size_t i = 0; i < patterns.size(); ++i) {
+      size_t capture_group_count = patterns[i].capture_groups.size();
       initial_bookmarks.push_back({
         .pattern_ix = i,
         .segment_ix = 0,
+        .captured_from_ids = std::vector<size_t>(capture_group_count),
+        .captured_to_ids = std::vector<size_t>(capture_group_count),
       });
     }
     return pending_dirs_type({ { "/", std::move(initial_bookmarks) } });
@@ -297,8 +300,8 @@ private:
     next_match.pattern_ix = target.pattern_ix;
     for (size_t i = 0; i < pattern_.capture_groups.size(); ++i) {
       next_match.captured_groups[i] = {
-        captured_from_ids.at(i) - 1,
-        captured_to_ids.at(i) - 1,
+        captured_from_ids[i] - 1,
+        captured_to_ids[i] - 1,
       };
     }
   }
@@ -307,8 +310,8 @@ private:
     const bookmark& target,
     const std::vector<size_t> match_indices,
     size_t ent_name_size,
-    std::unordered_map<size_t, size_t>& captured_from_ids,
-    std::unordered_map<size_t, size_t>& captured_to_ids
+    std::vector<size_t>& captured_from_ids,
+    std::vector<size_t>& captured_to_ids
   ) {
     const auto& pattern_ = patterns_[target.pattern_ix];
     for (size_t i = 0; i < pattern_.capture_groups.size(); ++i) {

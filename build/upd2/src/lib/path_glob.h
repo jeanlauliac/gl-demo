@@ -13,6 +13,18 @@ namespace path_glob {
 enum class capture_point_type { wildcard, ent_name };
 
 struct capture_point {
+  bool is_wildcard(size_t target_segment_ix) const {
+    return
+      type == capture_point_type::wildcard &&
+      segment_ix == target_segment_ix;
+  }
+
+  bool is_ent_name(size_t target_segment_ix) const {
+    return
+      type == capture_point_type::ent_name &&
+      segment_ix == target_segment_ix;
+  }
+
   size_t segment_ix;
   capture_point_type type;
   size_t ent_name_segment_ix;
@@ -227,24 +239,15 @@ private:
     const auto& pattern_ = patterns_[target.pattern_ix];
     for (size_t i = 0; i < pattern_.capture_groups.size(); ++i) {
       const auto& group = pattern_.capture_groups[i];
-      if (
-        group.from.type == capture_point_type::ent_name &&
-        group.from.segment_ix == target.segment_ix
-      ) {
+      if (group.from.is_ent_name(target.segment_ix)) {
         auto ent_name_ix = match_indices[group.from.ent_name_segment_ix];
         captured_from_ids[i] = path_prefix_.size() + ent_name_ix;
       }
-      if (
-        group.to.type == capture_point_type::ent_name &&
-        group.to.segment_ix == target.segment_ix
-      ) {
+      if (group.to.is_ent_name(target.segment_ix)) {
         auto ent_name_ix = match_indices[group.to.ent_name_segment_ix];
         captured_to_ids[i] = path_prefix_.size() + ent_name_ix;
       }
-      if (
-        group.from.type == capture_point_type::wildcard &&
-        group.from.segment_ix == target.segment_ix + 1
-      ) {
+      if (group.from.is_wildcard(target.segment_ix + 1)) {
         captured_from_ids[i] = path_prefix_.size() + ent_name_size + 1;
       }
     }

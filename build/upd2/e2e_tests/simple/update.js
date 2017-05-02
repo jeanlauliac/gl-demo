@@ -8,7 +8,9 @@ function writeDepFile(depFilePath, destFilePath, sourceFilePaths) {
   const sourceFileDepList = sourceFilePaths
     .map(filePath => filePath.replace(/ /g, '\\\\ '))
     .join('\n  ');
-  fs.writeFileSync(depFilePath, `${destFilePath}: ${sourceFileDepList}\n`);
+  const os = fs.createWriteStream(depFilePath);
+  os.write(`${destFilePath}: ${sourceFileDepList}\n`);
+  os.end();
 }
 
 (function main() {

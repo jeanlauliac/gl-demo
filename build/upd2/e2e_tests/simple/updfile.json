@@ -1,7 +1,7 @@
 {
   "command_line_templates": [
     {
-      "binary_path": "update.js",
+      "binary_path": "./update.js",
       "arguments": [
         {
           "variables": [

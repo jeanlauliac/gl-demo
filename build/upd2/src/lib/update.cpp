@@ -103,7 +103,8 @@ void update_file(
   const command_line_template& param_cli,
   const std::vector<std::string>& local_src_paths,
   const std::string& local_target_path,
-  const std::string& local_depfile_path
+  const std::string& local_depfile_path,
+  bool print_commands
 ) {
   auto root_folder_path = root_path + '/';
   auto command_line = reify_command_line(param_cli, {
@@ -115,6 +116,9 @@ void update_file(
     return;
   }
   std::cout << "updating: " << local_target_path << std::endl;
+  if (print_commands) {
+    std::cout << "$ " << command_line << std::endl;
+  }
   auto depfile_path = root_path + '/' + local_depfile_path;
   auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
   hash_cache.invalidate(root_path + '/' + local_target_path);

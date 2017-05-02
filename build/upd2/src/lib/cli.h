@@ -32,11 +32,13 @@ struct options {
   options():
     color_diagnostics(color_mode::auto_),
     action(action::update),
-    update_all_files(false) {};
+    update_all_files(false),
+    print_commands(false) {};
   color_mode color_diagnostics;
   action action;
   std::vector<std::string> relative_target_paths;
   bool update_all_files;
+  bool print_commands;
 };
 
 struct incompatible_options_error {

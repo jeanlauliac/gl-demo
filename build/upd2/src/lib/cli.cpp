@@ -53,6 +53,8 @@ options parse_options(const char* const argv[]) {
           result.color_diagnostics = parse_color_mode(*argv);
         } else if (arg == "--all") {
           result.update_all_files = true;
+        } else if (arg == "--print-commands") {
+          result.print_commands = true;
         } else if (arg == "--") {
           reading_options = false;
         } else {

@@ -116,7 +116,8 @@ void execute_update_plan(
   const update_map& updm,
   update_plan& plan,
   std::vector<command_line_template> command_line_templates,
-  const std::string& local_depfile_path
+  const std::string& local_depfile_path,
+  bool print_commands
 ) {
   while (!plan.queued_output_file_paths.empty()) {
     auto local_target_path = plan.queued_output_file_paths.front();
@@ -131,7 +132,8 @@ void execute_update_plan(
       command_line_tpl,
       target_file.local_input_file_paths,
       local_target_path,
-      local_depfile_path
+      local_depfile_path,
+      print_commands
     );
     plan.pending_output_file_paths.erase(local_target_path);
     auto descendants_iter = plan.descendants_by_path.find(local_target_path);
@@ -300,7 +302,8 @@ void compile_itself(
   const std::string& working_path,
   bool print_graph,
   bool update_all_files,
-  const std::vector<std::string>& relative_target_paths
+  const std::vector<std::string>& relative_target_paths,
+  bool print_commands
 ) {
   auto manifest = get_manifest(root_path);
   const update_map updm = get_update_map(root_path, manifest);
@@ -343,7 +346,7 @@ void compile_itself(
     throw std::runtime_error("cannot make depfile FIFO");
   }
 
-  execute_update_plan(log_cache, hash_cache, root_path, updm, plan, manifest.command_line_templates, local_depfile_path);
+  execute_update_plan(log_cache, hash_cache, root_path, updm, plan, manifest.command_line_templates, local_depfile_path, print_commands);
 
   std::cout << "done" << std::endl;
   log_cache.close();
@@ -402,7 +405,14 @@ int run_with_options(const cli::options& cli_opts) {
       std::cout << root_path << std::endl;
       return 0;
     }
-    compile_itself(root_path, working_path, cli_opts.action == cli::action::dot_graph, cli_opts.update_all_files, cli_opts.relative_target_paths);
+    compile_itself(
+      root_path,
+      working_path,
+      cli_opts.action == cli::action::dot_graph,
+      cli_opts.update_all_files,
+      cli_opts.relative_target_paths,
+      cli_opts.print_commands
+    );
     return 0;
   } catch (io::cannot_find_updfile_error) {
     err() << "cannot find updfile.json in the current directory or in any of the parent directories" << std::endl;

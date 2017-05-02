@@ -70,6 +70,47 @@ struct command_line {
   std::vector<std::string> args;
 };
 
+template <typename OStream>
+OStream& shell_escape(OStream& os, const std::string& value) {
+  for (size_t ix = 0; ix < value.size(); ++ix) {
+    char c = value[ix];
+    switch (c) {
+      case '\0':
+        os << "\\\\0";
+        continue;
+      case '\\':
+        os << "\\\\";
+        continue;
+      case '"':
+        os << "\\\"";
+        continue;
+      case '\'':
+        os << "\\'";
+        continue;
+      case '\n':
+        os << "\\\\n";
+        continue;
+      case '\r':
+        os << "\\\\r";
+        continue;
+      case ' ':
+        os << "\\ ";
+        continue;
+    }
+    os << c;
+  }
+  return os;
+}
+
+template <typename OStream>
+OStream& operator<<(OStream& os, command_line value) {
+  shell_escape(os, value.binary_path);
+  for (const auto& arg: value.args) {
+    shell_escape(os << ' ', arg);
+  }
+  return os;
+}
+
 /**
  * Describe the data necessary to replace variables in a command line template.
  */

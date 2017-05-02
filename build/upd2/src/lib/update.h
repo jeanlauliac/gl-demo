@@ -41,7 +41,8 @@ void update_file(
   const command_line_template& param_cli,
   const std::vector<std::string>& local_src_paths,
   const std::string& local_target_path,
-  const std::string& local_depfile_path
+  const std::string& local_depfile_path,
+  bool print_commands
 );
 
 }

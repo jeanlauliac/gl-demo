@@ -1,8 +1,11 @@
 #pragma once
 
+#include "directory_cache.h"
 #include "update_log.h"
 #include "xxhash64.h"
 #include <future>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 namespace upd {
@@ -42,7 +45,8 @@ void update_file(
   const std::vector<std::string>& local_src_paths,
   const std::string& local_target_path,
   const std::string& local_depfile_path,
-  bool print_commands
+  bool print_commands,
+  directory_cache<mkdir>& dir_cache
 );
 
 }

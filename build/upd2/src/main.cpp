@@ -1,6 +1,7 @@
 #include "lib/cli.h"
 #include "lib/command_line_template.h"
 #include "lib/depfile.h"
+#include "lib/directory_cache.h"
 #include "lib/inspect.h"
 #include "lib/io.h"
 #include "lib/istream_char_reader.h"
@@ -117,7 +118,8 @@ void execute_update_plan(
   update_plan& plan,
   std::vector<command_line_template> command_line_templates,
   const std::string& local_depfile_path,
-  bool print_commands
+  bool print_commands,
+  directory_cache<mkdir>& dir_cache
 ) {
   while (!plan.queued_output_file_paths.empty()) {
     auto local_target_path = plan.queued_output_file_paths.front();
@@ -133,7 +135,8 @@ void execute_update_plan(
       target_file.local_input_file_paths,
       local_target_path,
       local_depfile_path,
-      print_commands
+      print_commands,
+      dir_cache
     );
     plan.pending_output_file_paths.erase(local_target_path);
     auto descendants_iter = plan.descendants_by_path.find(local_target_path);
@@ -346,7 +349,9 @@ void compile_itself(
     throw std::runtime_error("cannot make depfile FIFO");
   }
 
-  execute_update_plan(log_cache, hash_cache, root_path, updm, plan, manifest.command_line_templates, local_depfile_path, print_commands);
+  directory_cache<mkdir> dir_cache(root_path);
+  execute_update_plan(log_cache, hash_cache, root_path, updm, plan,
+    manifest.command_line_templates, local_depfile_path, print_commands, dir_cache);
 
   std::cout << "done" << std::endl;
   log_cache.close();

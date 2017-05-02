@@ -120,7 +120,7 @@ void update_file(
   if (print_commands) {
     std::cout << "$ " << command_line << std::endl;
   }
-  dir_cache.create(local_target_path);
+  dir_cache.create(io::dirname_string(local_target_path));
   auto depfile_path = root_path + '/' + local_depfile_path;
   auto read_depfile_future = std::async(std::launch::async, &depfile::read, depfile_path);
   hash_cache.invalidate(root_path + '/' + local_target_path);

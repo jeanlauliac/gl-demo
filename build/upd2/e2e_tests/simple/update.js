@@ -7,7 +7,7 @@ const fs = require('fs');
 function writeDepFile(depFilePath, destFilePath, sourceFilePaths) {
   const sourceFileDepList = sourceFilePaths
     .map(filePath => filePath.replace(/ /g, '\\\\ '))
-    .join('\n  ');
+    .join('\\\n  ');
   const os = fs.createWriteStream(depFilePath);
   os.write(`${destFilePath}: ${sourceFileDepList}\n`);
   os.end();

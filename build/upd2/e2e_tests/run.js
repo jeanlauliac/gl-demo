@@ -5,36 +5,77 @@
 const child_process = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const rimraf = require('rimraf');
 
-function runTestDir(name, dirPath) {
+const ROOT_NAME = '.test-root';
+const ROOT_PATH = path.resolve(__dirname, ROOT_NAME);
+const UPDFILE = path.join(ROOT_NAME, 'udpfile.json');
+
+const expectToMatchSnapshot = (() => {
+  const id = 1;
+  return filePath => {
+    const result = fs.readFileSync(filePath, 'utf8');
+    const snapshot = fs.readFileSync(path.join(__dirname, 'snapshots', id.toString()));
+    if (snapshot !== result) {
+      throw Error('snapshot does not match');
+    }
+    ++id;
+  };
+})();
+
+function runUpd(args) {
   const result = child_process.spawnSync(
-    process.execPath,
-    [path.resolve(dirPath, 'test.js')],
-    {cwd: dirPath}
+    path.resolve(__dirname, '../dist/upd'),
+    args,
+    {cwd: ROOT_PATH, stdio: ['pipe', 'pipe', 'inherit']}
   );
-  if (result.stdout.length > 0) {
-    console.error(`==== [${name}] stdout ====`);
-    process.stderr.write(result.stdout);
+  if (result.signal != null) {
+    throw Error(`upd exited with signal ${result.signal}`);
   }
-  if (result.stderr.length > 0) {
-    console.error(`==== [${name}] stderr ====`);
-    process.stderr.write(result.stderr);
+  if (result.status != 0) {
+    throw Error(`upd exited with code ${result.status}`);
   }
-  return result.signal == null && result.status == 0;
+  return result.stdout;
+}
+
+function runTestSuite() {
+  rimraf.sync(ROOT_PATH);
+  fs.mkdirSync(ROOT_PATH);
+  fs.writeFileSync(UPDFILE, JSON.stringify({}));
+  const reportedRoot = runUpd(['--root']);
+  if (reportedRoot !== ROOT_PATH + '\n') {
+    throw new Error('invalid root: `' + reportedRoot + '\'');
+  }
+  runUpd(['--all']);
+  fs.writeFileSync(UPDFILE, JSON.stringify({
+    "command_line_templates": [
+      {
+        "binary_path": "../mock_update.js",
+        "arguments": [
+          {
+            "variables": ["output_file", "dependency_file", "input_files"]
+          }
+        ]
+      }
+    ],
+    "source_patterns": ["src/(**/*).in"],
+    "rules": [
+      {
+        "command_line_ix": 0,
+        "inputs": [{"source_ix": 0}],
+        "output": "dist/result.out"
+      }
+    ]
+  }, null, 2));
+  fs.writeFileSync(path.join(ROOT_PATH, 'foo.in'), 'This is foo.\n');
+  fs.writeFileSync(path.join(ROOT_PATH, 'bar.in'), 'This is bar.\n');
+  fs.mkdirSync(path.join(ROOT_PATH, 'sub'));
+  fs.writeFileSync(path.join(ROOT_PATH, 'sub', 'glo.in'), 'This is glo.\n');
+  runUpd(['dist/result.out']);
+  expectToMatchSnapshot(path.join(ROOT_PATH, 'dist/result.out'));
 }
 
 (function main() {
-  console.log('TAP version 13');
-  const ents = fs.readdirSync(__dirname);
-  let ix = 0;
-  for (const ent of ents) {
-    const dirPath = path.resolve(__dirname, ent);
-    const st = fs.lstatSync(dirPath);
-    if (st.isDirectory(dirPath)) {
-      ++ix;
-      const good = runTestDir(ent, dirPath);
-      console.log(`${good ? 'ok' : 'not ok'} ${ix} - e2e test '${ent}'`);
-    }
-  }
-  console.log(`1..${ix}`);
+  runTestSuite();
+  rimraf.sync(ROOT_PATH);
 })();

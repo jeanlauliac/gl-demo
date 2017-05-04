@@ -9,6 +9,7 @@
 /build/upd2/dist
 /build/upd2/node_modules
 /build/upd2/updfile.json
+/build/upd2/e2e_tests/.test-root
 /dist
 /node_modules
 /resources/index.h

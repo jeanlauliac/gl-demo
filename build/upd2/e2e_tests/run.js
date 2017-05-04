@@ -12,10 +12,10 @@ const ROOT_PATH = path.resolve(__dirname, ROOT_NAME);
 const UPDFILE = path.join(ROOT_NAME, 'updfile.json');
 
 const expectToMatchSnapshot = (() => {
-  const id = 1;
+  let id = 1;
   return filePath => {
     const result = fs.readFileSync(filePath, 'utf8');
-    const snapshot = fs.readFileSync(path.join(__dirname, 'snapshots', id.toString()));
+    const snapshot = fs.readFileSync(path.join(__dirname, 'snapshots', id.toString()), 'utf8');
     if (snapshot !== result) {
       throw Error('snapshot does not match');
     }
@@ -68,10 +68,12 @@ function runTestSuite() {
       }
     ]
   }, null, 2));
-  fs.writeFileSync(path.join(ROOT_PATH, 'foo.in'), 'This is foo.\n');
-  fs.writeFileSync(path.join(ROOT_PATH, 'bar.in'), 'This is bar.\n');
-  fs.mkdirSync(path.join(ROOT_PATH, 'sub'));
-  fs.writeFileSync(path.join(ROOT_PATH, 'sub', 'glo.in'), 'This is glo.\n');
+  const srcDir = path.join(ROOT_PATH, 'src');
+  fs.mkdirSync(srcDir);
+  fs.writeFileSync(path.join(srcDir, 'foo.in'), 'This is foo.\n');
+  fs.writeFileSync(path.join(srcDir, 'bar.in'), 'This is bar.\n');
+  fs.mkdirSync(path.join(srcDir, 'sub'));
+  fs.writeFileSync(path.join(srcDir, 'sub', 'glo.in'), 'This is glo.\n');
   runUpd(['dist/result.out']);
   expectToMatchSnapshot(path.join(ROOT_PATH, 'dist/result.out'));
 }

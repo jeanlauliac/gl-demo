@@ -9,7 +9,7 @@ const rimraf = require('rimraf');
 
 const ROOT_NAME = '.test-root';
 const ROOT_PATH = path.resolve(__dirname, ROOT_NAME);
-const UPDFILE = path.join(ROOT_NAME, 'udpfile.json');
+const UPDFILE = path.join(ROOT_NAME, 'updfile.json');
 
 const expectToMatchSnapshot = (() => {
   const id = 1;
@@ -42,8 +42,9 @@ function runTestSuite() {
   rimraf.sync(ROOT_PATH);
   fs.mkdirSync(ROOT_PATH);
   fs.writeFileSync(UPDFILE, JSON.stringify({}));
-  const reportedRoot = runUpd(['--root']);
-  if (reportedRoot !== ROOT_PATH + '\n') {
+  const reportedRootCout = runUpd(['--root']).toString('utf8');
+  const reportedRoot = reportedRootCout.substr(0, reportedRootCout.length - 1);
+  if (reportedRoot !== ROOT_PATH) {
     throw new Error('invalid root: `' + reportedRoot + '\'');
   }
   runUpd(['--all']);

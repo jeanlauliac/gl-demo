@@ -211,6 +211,11 @@ struct update_manifest {
   std::vector<manifest::update_rule> rules;
 };
 
+struct no_source_matches_error {
+  no_source_matches_error(size_t index): source_pattern_index(index) {}
+  size_t source_pattern_index;
+};
+
 std::vector<std::vector<captured_string>>
 crawl_source_patterns(
   const std::string& root_path,
@@ -224,6 +229,9 @@ crawl_source_patterns(
       .value = std::move(match.local_path),
       .captured_groups = std::move(match.captured_groups),
     });
+  }
+  for (size_t i = 0; i < matches.size(); ++i) {
+    if (matches[i].empty()) throw no_source_matches_error(i);
   }
   return matches;
 }
@@ -431,6 +439,9 @@ int run_with_options(const cli::options& cli_opts) {
     err() << "encountered a path out of the project root: " << error.relative_path << std::endl;
   } catch (no_targets_error error) {
     err() << "specify at least one target to update" << std::endl;
+  } catch (no_source_matches_error error) {
+    err() << "the source pattern #" << error.source_pattern_index
+      << " matched no files on the filesystem" << std::endl;
   }
   return 2;
 }

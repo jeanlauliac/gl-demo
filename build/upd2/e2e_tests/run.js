@@ -9,7 +9,7 @@ const rimraf = require('rimraf');
 
 const ROOT_NAME = '.test-root';
 const ROOT_PATH = path.resolve(__dirname, ROOT_NAME);
-const UPDFILE = path.join(ROOT_NAME, 'updfile.json');
+const UPDFILE = path.join(ROOT_PATH, 'updfile.json');
 
 const expectToMatchSnapshot = (() => {
   let id = 1;

@@ -11,17 +11,13 @@ const ROOT_NAME = '.test-root';
 const ROOT_PATH = path.resolve(__dirname, ROOT_NAME);
 const UPDFILE = path.join(ROOT_PATH, 'updfile.json');
 
-const expectToMatchSnapshot = (() => {
-  let id = 1;
-  return filePath => {
-    const result = fs.readFileSync(filePath, 'utf8');
-    const snapshot = fs.readFileSync(path.join(__dirname, 'snapshots', id.toString()), 'utf8');
-    if (snapshot !== result) {
-      throw Error('snapshot does not match');
-    }
-    ++id;
-  };
-})();
+function expectToMatchSnapshot(name, filePath) {
+  const result = fs.readFileSync(filePath, 'utf8');
+  const snapshot = fs.readFileSync(path.join(__dirname, 'snapshots', name), 'utf8');
+  if (snapshot !== result) {
+    throw Error(`snapshot \`${name}' does not match file ${filePath}`);
+  }
+}
 
 function runUpd(args) {
   const result = child_process.spawnSync(
@@ -75,7 +71,14 @@ function runTestSuite() {
   fs.mkdirSync(path.join(srcDir, 'sub'));
   fs.writeFileSync(path.join(srcDir, 'sub', 'glo.in'), 'This is glo.\n');
   runUpd(['dist/result.out']);
-  expectToMatchSnapshot(path.join(ROOT_PATH, 'dist/result.out'));
+  expectToMatchSnapshot('first_result', path.join(ROOT_PATH, 'dist/result.out'));
+  fs.writeFileSync(path.join(srcDir, 'foo.h'), 'Foo header.\n');
+  fs.writeFileSync(path.join(srcDir, 'foo.in'), '#include foo.h\nThis is foo, second.\n');
+  runUpd(['dist/result.out']);
+  expectToMatchSnapshot('include_header_result', path.join(ROOT_PATH, 'dist/result.out'));
+  fs.writeFileSync(path.join(srcDir, 'foo.h'), 'Foo header, modified.\n');
+  runUpd(['dist/result.out']);
+  expectToMatchSnapshot('header_modified_result', path.join(ROOT_PATH, 'dist/result.out'));
 }
 
 (function main() {

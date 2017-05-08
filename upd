@@ -1,6 +1,2 @@
-#!/usr/bin/env node
-var path = require('path');
-require('babel-register')({
-  only: [path.join(__dirname, 'build/gl-demo.js')],
-});
-require('./build/gl-demo');
+#!/bin/bash
+build/upd2/dist/upd $@

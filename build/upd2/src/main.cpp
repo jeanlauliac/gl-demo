@@ -231,7 +231,9 @@ crawl_source_patterns(
     });
   }
   for (size_t i = 0; i < matches.size(); ++i) {
-    if (matches[i].empty()) throw no_source_matches_error(i);
+    auto& fileMatches = matches[i];
+    if (fileMatches.empty()) throw no_source_matches_error(i);
+    std::sort(fileMatches.begin(), fileMatches.end());
   }
   return matches;
 }

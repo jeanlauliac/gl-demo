@@ -20,4 +20,14 @@ struct captured_string {
   groups captured_groups;
 };
 
+/**
+ * This allows us to readily sort a vector of captured string.
+ */
+inline
+bool operator<(const captured_string& left, const captured_string& right) {
+  if (left.value < right.value) return true;
+  if (left.value > right.value) return false;
+  return left.captured_groups < right.captured_groups;
+}
+
 }

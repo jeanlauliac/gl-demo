@@ -205,12 +205,6 @@ void output_dot_graph(
 
 struct cannot_refer_to_later_rule_error {};
 
-struct update_manifest {
-  std::vector<command_line_template> command_line_templates;
-  std::vector<path_glob::pattern> source_patterns;
-  std::vector<manifest::update_rule> rules;
-};
-
 struct no_source_matches_error {
   no_source_matches_error(size_t index): source_pattern_index(index) {}
   size_t source_pattern_index;
@@ -240,7 +234,7 @@ crawl_source_patterns(
 
 update_map get_update_map(
   const std::string& root_path,
-  const update_manifest& manifest
+  const manifest::manifest& manifest
 ) {
   update_map result;
   auto matches = crawl_source_patterns(root_path, manifest.source_patterns);
@@ -298,18 +292,6 @@ manifest::manifest read_manifest(const std::string& root_path) {
   return manifest::parse(lexer);
 }
 
-update_manifest get_manifest(const std::string& root_path) {
-  update_manifest result;
-
-  auto manifest_content = read_manifest(root_path);
-
-  result.source_patterns = manifest_content.source_patterns;
-  result.rules = manifest_content.rules;
-  result.command_line_templates = manifest_content.command_line_templates;
-
-  return result;
-}
-
 void compile_itself(
   const std::string& root_path,
   const std::string& working_path,
@@ -318,7 +300,7 @@ void compile_itself(
   const std::vector<std::string>& relative_target_paths,
   bool print_commands
 ) {
-  auto manifest = get_manifest(root_path);
+  auto manifest = read_manifest(root_path);
   const update_map updm = get_update_map(root_path, manifest);
   const auto& output_files_by_path = updm.output_files_by_path;
   update_plan plan;

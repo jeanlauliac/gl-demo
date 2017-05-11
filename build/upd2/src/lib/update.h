@@ -10,6 +10,23 @@
 
 namespace upd {
 
+struct output_file {
+  size_t command_line_ix;
+  std::vector<std::string> local_input_file_paths;
+  std::unordered_set<std::string> local_dependency_file_paths;
+};
+
+typedef std::unordered_map<std::string, output_file> output_files_by_path_t;
+
+struct update_map {
+  output_files_by_path_t output_files_by_path;
+};
+
+struct undeclared_rule_dependency_error {
+  std::string local_target_path;
+  std::string local_dependency_path;
+};
+
 XXH64_hash_t hash_command_line(const command_line& command_line);
 
 XXH64_hash_t hash_files(
@@ -46,7 +63,9 @@ void update_file(
   const std::string& local_target_path,
   const std::string& local_depfile_path,
   bool print_commands,
-  directory_cache<mkdir>& dir_cache
+  directory_cache<mkdir>& dir_cache,
+  const update_map& updm,
+  const std::unordered_set<std::string>& local_dependency_file_paths
 );
 
 }

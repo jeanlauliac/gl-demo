@@ -105,7 +105,9 @@ void update_file(
   const std::string& local_target_path,
   const std::string& local_depfile_path,
   bool print_commands,
-  directory_cache<mkdir>& dir_cache
+  directory_cache<mkdir>& dir_cache,
+  const update_map& updm,
+  const std::unordered_set<std::string>& local_dependency_file_paths
 ) {
   auto root_folder_path = root_path + '/';
   auto command_line = reify_command_line(param_cli, {
@@ -129,6 +131,7 @@ void update_file(
   depfile_writer.close();
   std::unique_ptr<depfile::depfile_data> depfile_data = read_depfile_future.get();
   std::vector<std::string> dep_local_paths;
+  std::unordered_set<std::string> local_src_path_set(local_src_paths.begin(), local_src_paths.end());
   if (depfile_data) {
     for (auto dep_path: depfile_data->dependency_paths) {
       if (dep_path.at(0) == '/') {
@@ -139,6 +142,16 @@ void update_file(
           continue;
         }
         dep_path = dep_path.substr(root_folder_path.size());
+      }
+      if (local_src_path_set.find(dep_path) != local_src_path_set.end()) {
+        continue;
+      }
+      if (updm.output_files_by_path.find(dep_path) != updm.output_files_by_path.end() &&
+          local_dependency_file_paths.count(dep_path) == 0) {
+        throw undeclared_rule_dependency_error({
+          .local_target_path = local_target_path,
+          .local_dependency_path = dep_path,
+        });
       }
       dep_local_paths.push_back(dep_path);
     }

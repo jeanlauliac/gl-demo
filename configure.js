@@ -44,7 +44,8 @@ const compiled_cpp_files = manifest.rule(
     manifest.source("(main).cpp"),
     resource_cpp_files,
   ],
-  ".build_files/($1).o"
+  ".build_files/($1).o",
+  [resource_index_file]
 );
 
 manifest.rule(

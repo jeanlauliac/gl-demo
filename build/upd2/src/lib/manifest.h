@@ -38,6 +38,7 @@ inline bool operator==(const update_rule_input& left, const update_rule_input& r
 struct update_rule {
   size_t command_line_ix;
   std::vector<update_rule_input> inputs;
+  std::vector<update_rule_input> dependencies;
   substitution::pattern output;
 };
 
@@ -45,6 +46,7 @@ inline bool operator==(const update_rule& left, const update_rule& right) {
   return
     left.command_line_ix == right.command_line_ix &&
     left.inputs == right.inputs &&
+    left.dependencies == right.dependencies &&
     left.output == right.output;
 }
 
@@ -204,6 +206,10 @@ struct update_rule_array_handler: public all_unexpected_elements_handler<void> {
       }
       if (field_name == "inputs") {
         rule.inputs = read_field_value.read(rule_inputs_handler());
+        return;
+      }
+      if (field_name == "dependencies") {
+        rule.dependencies = read_field_value.read(rule_inputs_handler());
         return;
       }
       throw std::runtime_error("doesn't know field `" + field_name + "`");

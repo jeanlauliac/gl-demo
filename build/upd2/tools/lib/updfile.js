@@ -25,8 +25,9 @@ class Manifest {
     return {source_ix: this._result.source_patterns.length - 1};
   }
 
-  rule(cli_template, inputs, output_pattern) {
+  rule(cli_template, inputs, output_pattern, dependencies) {
     this._result.rules.push({
+      dependencies: dependencies || [],
       command_line_ix: cli_template.cli_ix,
       inputs: inputs,
       output: output_pattern,

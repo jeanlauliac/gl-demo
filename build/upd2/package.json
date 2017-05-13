@@ -1,8 +1,7 @@
 {
-  "name": "upd",
-  "version": "0.1",
+  "name": "@jeanlauliac/upd",
+  "version": "0.1.1",
   "description": "Update files, fast.",
-  "main": "dist/index.js",
   "author": "Jean Lauliac <jean@lauliac.com>",
   "license": "MIT",
   "dependencies": {
@@ -12,6 +11,12 @@
     "tap-mocha-reporter": "^3.0.0"
   },
   "scripts": {
-    "test": "bootstrap/upd dist/unit_tests && dist/unit_tests | faucet && e2e_tests/run.js"
-  }
+    "test": "bootstrap/upd dist/unit_tests && dist/unit_tests | faucet && e2e_tests/run.js",
+    "install": "./configure"
+  },
+  "files": [
+    "src",
+    "configure.js",
+  ],
+  "homepage": "https://github.com/jeanlauliac/gl-demo/tree/master/build/upd2"
 }

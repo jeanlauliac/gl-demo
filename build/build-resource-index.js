@@ -25,7 +25,7 @@ try {
   fs.writeSync(fd, `#pragma once\n`);
   const resourceHeaderPath = path.relative(
     path.dirname(indexFilePath),
-    path.resolve(__dirname, '../ds/Resource.h')
+    path.resolve(__dirname, '../ds/resource.h')
   );
   fs.writeSync(fd, `#include "${resourceHeaderPath}"\n\n`);
   for (let i = 0; i < resources.length; ++i) {
@@ -45,7 +45,7 @@ try {
       currentNamespaces.push(ns);
       fs.writeSync(fd, `namespace ${ns} {\n`);
     }
-    fs.writeSync(fd, `extern const ds::Resource ${res.name};\n`);
+    fs.writeSync(fd, `extern const ds::resource ${res.name};\n`);
   }
   while (currentNamespaces.length > 0) {
     fs.writeSync(fd, '}\n');

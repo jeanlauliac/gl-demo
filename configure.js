@@ -34,7 +34,6 @@ const compile_cpp_cli = manifest.cli_template('clang++', [
   {literals: ["-I", "/usr/local/include"], variables: ["input_files"]},
 ]);
 
-// FIXME: this should actually depend on `.build_files/resources.h`
 const compiled_cpp_files = manifest.rule(
   compile_cpp_cli,
   [

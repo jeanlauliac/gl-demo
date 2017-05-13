@@ -7,7 +7,7 @@
 
 namespace ds {
 
-glpp::Shader loadAndCompileShader(const Resource& resource, GLenum shaderType) {
+glpp::Shader loadAndCompileShader(const resource& resource, GLenum shaderType) {
   glpp::Shader shader(shaderType);
   const char* cstr = reinterpret_cast<const char*>(resource.data);
   shader.source(1, &cstr, nullptr);
@@ -16,7 +16,7 @@ glpp::Shader loadAndCompileShader(const Resource& resource, GLenum shaderType) {
   shader.getShaderiv(GL_COMPILE_STATUS, &status);
   if (!status) {
     std::ostringstream errorMessage;
-    errorMessage << resource.filePath
+    errorMessage << resource.file_path
       << ": shader compilation failed:" << std::endl;
     GLint logLength;
     shader.getShaderiv(GL_INFO_LOG_LENGTH, &logLength);
@@ -29,8 +29,8 @@ glpp::Shader loadAndCompileShader(const Resource& resource, GLenum shaderType) {
 }
 
 glpp::Program loadAndLinkProgram(
-  const Resource& vertexShader,
-  const Resource& fragmentShader
+  const resource& vertexShader,
+  const resource& fragmentShader
 ) {
   glpp::Program program;
   program.attachShader(

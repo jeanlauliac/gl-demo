@@ -135,6 +135,18 @@ std::string inspect(
   return insp.result();
 }
 
+template <typename Value, size_t Size>
+std::string inspect(
+  const std::array<Value, Size>& collection,
+  const inspect_options& options
+) {
+  collection_inspector insp("std::array", options);
+  for (auto iter = collection.begin(); iter != collection.end(); ++iter) {
+    insp.push_back(*iter);
+  }
+  return insp.result();
+}
+
 template <size_t Ix, typename... Values>
 typename std::enable_if<Ix == sizeof...(Values), void>::type
 inspect_tuple(collection_inspector&, const std::tuple<Values...>&) {}

@@ -321,7 +321,9 @@ private:
         captured_from_ids[i] = path_prefix_.size() + ent_name_ix;
       }
       if (group.to.is_ent_name(target.segment_ix)) {
-        auto ent_name_ix = match_indices[group.to.ent_name_segment_ix];
+        auto ent_name_ix = group.to.ent_name_segment_ix < match_indices.size()
+          ? match_indices[group.to.ent_name_segment_ix]
+          : ent_name_size;
         captured_to_ids[i] = path_prefix_.size() + ent_name_ix;
       }
       if (group.from.is_wildcard(target.segment_ix + 1)) {

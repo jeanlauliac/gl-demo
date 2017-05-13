@@ -16,7 +16,7 @@
   },
   "files": [
     "src",
-    "configure.js",
+    "configure.js"
   ],
   "homepage": "https://github.com/jeanlauliac/gl-demo/tree/master/build/upd2"
 }

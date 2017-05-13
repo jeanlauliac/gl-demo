@@ -204,7 +204,11 @@ typedef std::unordered_map<std::string, multi_captures> multi_matches;
 @case "handle several patterns at once" {
   auto pattern1 = upd::path_glob::parse("src/(**/f*).cpp");
   auto pattern2 = upd::path_glob::parse("src/(**/sm*).cpp");
-  upd::path_glob::matcher<mock_dir_reader> mtcr("/root", { pattern1, pattern2 });
+  auto pattern3 = upd::path_glob::parse("src/(boop/*.*)");
+  upd::path_glob::matcher<mock_dir_reader> mtcr(
+    "/root",
+    { pattern1, pattern2, pattern3 }
+  );
   upd::path_glob::match mt;
   multi_matches mts;
   while (mtcr.next(mt)) mts[mt.local_path] = {

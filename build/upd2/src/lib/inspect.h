@@ -135,6 +135,30 @@ std::string inspect(
   return insp.result();
 }
 
+template <size_t Ix, typename... Values>
+typename std::enable_if<Ix == sizeof...(Values), void>::type
+inspect_tuple(collection_inspector&, const std::tuple<Values...>&) {}
+
+template <size_t Ix, typename... Values>
+typename std::enable_if<Ix < sizeof...(Values), void>::type
+inspect_tuple(
+  collection_inspector& insp,
+  const std::tuple<Values...>& tuple
+) {
+  insp.push_back(std::get<Ix>(tuple));
+  inspect_tuple<Ix + 1, Values...>(insp, tuple);
+}
+
+template <typename... Values>
+std::string inspect(
+  const std::tuple<Values...>& tuple,
+  const inspect_options& options
+) {
+  collection_inspector insp("std::tuple", options);
+  inspect_tuple<0, Values...>(insp, tuple);
+  return insp.result();
+}
+
 template <typename TValue>
 std::string inspect(
   const std::unordered_set<TValue>& collection,

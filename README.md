@@ -1,4 +1,5 @@
 # gl-demo
 
     $ yarn
-    $ ./upd && ./dist/gl-demo
+    $ ./configure && ./upd --all
+    $ ./dist/gl-demo

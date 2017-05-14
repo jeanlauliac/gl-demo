@@ -1,19 +1,16 @@
+#include "context.h"
 #include <stdexcept>
-#include "Context.h"
 
 namespace glfwpp {
 
-Context::Context() {
+context::context() {
   if (!glfwInit()) {
     throw std::runtime_error("cannot initialize GLFW");
   }
 }
 
-Context::~Context() {
+context::~context() {
   glfwTerminate();
-}
-
-Context::Context(Context&&) {
 }
 
 }

@@ -3,19 +3,20 @@
 
 namespace glfwpp {
 
-class Window {
-public:
-  Window(int width, int height, const char *title, GLFWmonitor *monitor, GLFWwindow *share);
-  Window(const Window&& window);
-  ~Window();
-  void getFramebufferSize(int* width, int* height) const;
-  int shouldClose() const;
-  void swapBuffers();
+struct window {
+  window(int width, int height, const char *title, GLFWmonitor *monitor, GLFWwindow *share);
+  window(const window&& window);
+  window(window&) = delete;
+  ~window();
+
+  void get_framebuffer_size(int* width, int* height) const;
+  int should_close() const;
+  void swap_buffers();
   GLFWwindow* handle() const {
     return handle_;
   }
+
 private:
-  Window(Window&);
   GLFWwindow* handle_;
 };
 

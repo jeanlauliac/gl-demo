@@ -1,32 +1,32 @@
+#include "window.h"
 #include <stdexcept>
-#include "Window.h"
 
 namespace glfwpp {
 
-Window::Window(int width, int height, const char *title, GLFWmonitor *monitor, GLFWwindow *share) {
+window::window(int width, int height, const char *title, GLFWmonitor *monitor, GLFWwindow *share) {
   handle_ = glfwCreateWindow(width, height, title, monitor, share);
   if (!handle_) {
     throw std::runtime_error("failed to create window");
   }
 }
 
-Window::Window(const Window&& window) {
+window::window(const window&& window) {
   handle_ = window.handle_;
 }
 
-Window::~Window() {
+window::~window() {
   glfwDestroyWindow(handle_);
 }
 
-void Window::getFramebufferSize(int* width, int* height) const {
+void window::get_framebuffer_size(int* width, int* height) const {
   glfwGetFramebufferSize(handle_, width, height);
 }
 
-int Window::shouldClose() const {
+int window::should_close() const {
   return glfwWindowShouldClose(handle_);
 }
 
-void Window::swapBuffers() {
+void window::swap_buffers() {
   glfwSwapBuffers(handle_);
 }
 

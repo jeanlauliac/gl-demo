@@ -1,29 +1,26 @@
 #pragma once
+#include "window.h"
 #include <GLFW/glfw3.h>
-#include "Window.h"
 
 namespace glfwpp {
 
-class Context {
-public:
-  Context();
-  ~Context();
-  Context(Context&&);
+struct context {
+  context();
+  ~context();
+  context(context&) = delete;
+  context(context&&) {}
 
-  void windowHint(int target, int value) {
+  void window_hint(int target, int value) {
     glfwWindowHint(target, value);
   }
 
-  void makeContextCurrent(const Window& window) {
+  void make_context_current(const window& window) {
     glfwMakeContextCurrent(window.handle());
   }
 
-  GLFWkeyfun setKeyCallback(const Window& window, GLFWkeyfun cbfun) {
+  GLFWkeyfun set_key_callback(const window& window, GLFWkeyfun cbfun) {
     return glfwSetKeyCallback(window.handle(), cbfun);
   }
-
-private:
-  Context(Context&);
 };
 
 }

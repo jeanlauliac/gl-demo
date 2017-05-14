@@ -7,8 +7,8 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include "glfwpp/Context.h"
-#include "glfwpp/Window.h"
+#include "glfwpp/context.h"
+#include "glfwpp/window.h"
 #include "glpp/Buffers.h"
 #include "glpp/Program.h"
 #include "glpp/Shader.h"
@@ -39,7 +39,7 @@ struct Options {
   WindowMode windowMode;
 };
 
-static Options parseOptions(int argc, char* argv[]) {
+static Options parse_options(int argc, char* argv[]) {
   Options options;
   for (++argv, --argc; argc > 0; ++argv, --argc) {
     const auto arg = std::string(*argv);
@@ -63,29 +63,29 @@ Options:
   return 0;
 }
 
-static glfwpp::Window createWindow(
-  glfwpp::Context& context,
+static glfwpp::window create_window(
+  glfwpp::context& context,
   WindowMode windowMode
 ) {
   if (windowMode == WindowMode::WINDOW) {
-    return glfwpp::Window(800, 600, "Demo", nullptr, nullptr);
+    return glfwpp::window(800, 600, "Demo", nullptr, nullptr);
   }
   GLFWmonitor* monitor = glfwGetPrimaryMonitor();
   const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-  context.windowHint(GLFW_RED_BITS, mode->redBits);
-  context.windowHint(GLFW_GREEN_BITS, mode->greenBits);
-  context.windowHint(GLFW_BLUE_BITS, mode->blueBits);
-  context.windowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-  return glfwpp::Window(mode->width, mode->height, "Demo", monitor, nullptr);
+  context.window_hint(GLFW_RED_BITS, mode->redBits);
+  context.window_hint(GLFW_GREEN_BITS, mode->greenBits);
+  context.window_hint(GLFW_BLUE_BITS, mode->blueBits);
+  context.window_hint(GLFW_REFRESH_RATE, mode->refreshRate);
+  return glfwpp::window(mode->width, mode->height, "Demo", monitor, nullptr);
 }
 
-static glfwpp::Context createContext() {
-  glfwpp::Context context;
-  context.windowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  context.windowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-  context.windowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  context.windowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-  context.windowHint(GLFW_RESIZABLE, GL_FALSE);
+static glfwpp::context create_context() {
+  glfwpp::context context;
+  context.window_hint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  context.window_hint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+  context.window_hint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+  context.window_hint(GLFW_CONTEXT_VERSION_MINOR, 1);
+  context.window_hint(GLFW_RESIZABLE, GL_FALSE);
   return context;
 }
 
@@ -100,9 +100,9 @@ void enableGlew() {
   }
 }
 
-glm::mat4 getPerspectiveProjection(const glfwpp::Window& window) {
+glm::mat4 getPerspectiveProjection(const glfwpp::window& window) {
   int width, height;
-  window.getFramebufferSize(&width, &height);
+  window.get_framebuffer_size(&width, &height);
   float ratio = static_cast<float>(width) / static_cast<float>(height);
   return glm::perspective(1.221f, ratio, 0.01f, 100.0f);
 }
@@ -132,15 +132,15 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T>& vector) {
 }
 
 int run(int argc, char* argv[]) {
-  const auto options = parseOptions(argc, argv);
+  const auto options = parse_options(argc, argv);
   if (options.showHelp) {
     return showHelp();
   }
-  auto context = createContext();
+  auto context = create_context();
   glfwSetErrorCallback(errorCallback);
-  auto window = createWindow(context, options.windowMode);
-  context.makeContextCurrent(window);
-  context.setKeyCallback(window, keyCallback);
+  auto window = create_window(context, options.windowMode);
+  context.make_context_current(window);
+  context.set_key_callback(window, keyCallback);
   enableGlew();
 
   glEnable(GL_DEPTH_TEST);
@@ -219,7 +219,7 @@ int run(int argc, char* argv[]) {
   glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
 
   auto rot = 0.0f;
-  while (!window.shouldClose()) {
+  while (!window.should_close()) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     auto ident = glm::mat4();
@@ -233,7 +233,7 @@ int run(int argc, char* argv[]) {
     auto vertexCount = cube.triangles.size() * 3;
     glDrawElements(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0);
 
-    window.swapBuffers();
+    window.swap_buffers();
     glfwPollEvents();
   }
   return 0;

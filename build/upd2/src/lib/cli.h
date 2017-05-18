@@ -13,6 +13,7 @@ enum class action {
   dot_graph,
   help,
   root,
+  shell_script,
   update,
   version,
 };

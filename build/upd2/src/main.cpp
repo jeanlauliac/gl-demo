@@ -50,6 +50,29 @@ struct unknown_target_error {
  */
 struct update_plan {
   /**
+   * Remove a file from the plan. This potientially allows descendants to be
+   * available for update.
+   */
+  void erase(const std::string& local_target_path) {
+    pending_output_file_paths.erase(local_target_path);
+    auto descendants_iter = descendants_by_path.find(local_target_path);
+    if (descendants_iter == descendants_by_path.end()) {
+      return;
+    }
+    for (auto const& descendant_path: descendants_iter->second) {
+      auto count_iter = pending_input_counts_by_path.find(descendant_path);
+      if (count_iter == pending_input_counts_by_path.end()) {
+        throw std::runtime_error("update plan is corrupted");
+      }
+      int& input_count = count_iter->second;
+      --input_count;
+      if (input_count == 0) {
+        queued_output_file_paths.push(descendant_path);
+      }
+    }
+  }
+
+  /**
    * The paths of all the output files that are ready to be updated immediately.
    * These files' dependencies either have already been updated, or they are
    * source files written manually.
@@ -149,22 +172,7 @@ void execute_update_plan(
       updm,
       target_file.local_dependency_file_paths
     );
-    plan.pending_output_file_paths.erase(local_target_path);
-    auto descendants_iter = plan.descendants_by_path.find(local_target_path);
-    if (descendants_iter == plan.descendants_by_path.end()) {
-      continue;
-    }
-    for (auto const& descendant_path: descendants_iter->second) {
-      auto count_iter = plan.pending_input_counts_by_path.find(descendant_path);
-      if (count_iter == plan.pending_input_counts_by_path.end()) {
-        throw std::runtime_error("update plan is corrupted");
-      }
-      int& input_count = count_iter->second;
-      --input_count;
-      if (input_count == 0) {
-        plan.queued_output_file_paths.push(descendant_path);
-      }
-    }
+    plan.erase(local_target_path);
   }
 }
 
@@ -194,24 +202,35 @@ void output_dot_graph(
         << command_line_tpl.binary_path << "\"];" << std::endl;
     }
 
-    plan.pending_output_file_paths.erase(local_target_path);
-    auto descendants_iter = plan.descendants_by_path.find(local_target_path);
-    if (descendants_iter == plan.descendants_by_path.end()) {
-      continue;
-    }
-    for (auto const& descendant_path: descendants_iter->second) {
-      auto count_iter = plan.pending_input_counts_by_path.find(descendant_path);
-      if (count_iter == plan.pending_input_counts_by_path.end()) {
-        throw std::runtime_error("update plan is corrupted");
-      }
-      int& input_count = count_iter->second;
-      --input_count;
-      if (input_count == 0) {
-        plan.queued_output_file_paths.push(descendant_path);
-      }
-    }
+    plan.erase(local_target_path);
   }
   os << "}" << std::endl;
+}
+
+template <typename OStream>
+void output_shell_script(
+  OStream& os,
+  const update_map& updm,
+  update_plan& plan,
+  std::vector<command_line_template> command_line_templates
+) {
+  os << "#!/bin/bash" << std::endl
+    << "# generated with `upd --shell-script`" << std::endl
+    << "set -ev" << std::endl << std::endl;
+  while (!plan.queued_output_file_paths.empty()) {
+    auto local_target_path = plan.queued_output_file_paths.front();
+    plan.queued_output_file_paths.pop();
+    auto target_descriptor = *updm.output_files_by_path.find(local_target_path);
+    auto const& target_file = target_descriptor.second;
+    auto const& command_line_tpl = command_line_templates[target_file.command_line_ix];
+    auto command_line = reify_command_line(command_line_tpl, {
+      .dependency_file = "/dev/null",
+      .input_files = target_file.local_input_file_paths,
+      .output_files = { local_target_path }
+    });
+    os << command_line << std::endl;
+    plan.erase(local_target_path);
+  }
 }
 
 struct cannot_refer_to_later_rule_error {};
@@ -335,7 +354,8 @@ void compile_itself(
   bool print_graph,
   bool update_all_files,
   const std::vector<std::string>& relative_target_paths,
-  bool print_commands
+  bool print_commands,
+  bool print_shell_script
 ) {
   auto manifest = read_manifest(root_path);
   const update_map updm = get_update_map(root_path, manifest);
@@ -361,6 +381,10 @@ void compile_itself(
   }
   if (print_graph) {
     output_dot_graph(std::cout, updm, plan, manifest.command_line_templates);
+    return;
+  }
+  if (print_shell_script) {
+    output_shell_script(std::cout, updm, plan, manifest.command_line_templates);
     return;
   }
 
@@ -407,7 +431,8 @@ int run_with_options(const cli::options& cli_opts) {
   try {
     if (!(
       cli_opts.action == cli::action::update ||
-      cli_opts.action == cli::action::dot_graph
+      cli_opts.action == cli::action::dot_graph ||
+      cli_opts.action == cli::action::shell_script
     )) {
       if (!cli_opts.relative_target_paths.empty()) {
         err() << "this operation doesn't accept target arguments" << std::endl;
@@ -443,7 +468,8 @@ int run_with_options(const cli::options& cli_opts) {
       cli_opts.action == cli::action::dot_graph,
       cli_opts.update_all_files,
       cli_opts.relative_target_paths,
-      cli_opts.print_commands
+      cli_opts.print_commands,
+      cli_opts.action == cli::action::shell_script
     );
     return 0;
   } catch (io::cannot_find_updfile_error) {

@@ -45,6 +45,8 @@ options parse_options(const char* const argv[]) {
           setup_action(result, action_arg, arg, action::help);
         } else if (arg == "--dot-graph") {
           setup_action(result, action_arg, arg, action::dot_graph);
+        } else if (arg == "--shell-script") {
+          setup_action(result, action_arg, arg, action::shell_script);
         } else if (arg == "--color-diagnostics") {
           ++argv;
           if (*argv == nullptr) {
@@ -78,6 +80,8 @@ Operations
   --root                  Output the root directory path
   --version               Output the semantic version numbers
   --dot-graph             Output a DOT-formatted graph of the output files
+  --shell-script          Output a `bash' shell script meant to updates all the
+                          specified output files
 
 Updates
   --all                   Include all the known files in the update, or graph

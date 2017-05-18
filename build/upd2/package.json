@@ -17,7 +17,11 @@
   },
   "files": [
     "src",
-    "bootstrap/gen_upd.sh"
+    "bootstrap/gen_upd.sh",
+    "tools/gen_package_info.js",
+    "tools/lib/cli.js",
+    "tools/lib/reporting.js",
+    "tools/lib/updfile.js"
   ],
   "homepage": "https://github.com/jeanlauliac/gl-demo/tree/master/build/upd2"
 }

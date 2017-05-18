@@ -382,10 +382,8 @@ void compile_itself(
   execute_update_plan(log_cache, hash_cache, root_path, updm, plan,
     manifest.command_line_templates, local_depfile_path, print_commands, dir_cache);
 
-  std::cout << "done" << std::endl;
   log_cache.close();
   update_log::rewrite_file(log_file_path, temp_log_file_path, log_cache.records());
-
 }
 
 template <typename OStream>

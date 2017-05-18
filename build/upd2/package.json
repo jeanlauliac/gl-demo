@@ -1,6 +1,6 @@
 {
   "name": "@jeanlauliac/upd",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Update files, fast.",
   "author": "Jean Lauliac <jean@lauliac.com>",
   "license": "MIT",
@@ -11,12 +11,13 @@
     "tap-mocha-reporter": "^3.0.0"
   },
   "scripts": {
-    "test": "bootstrap/upd dist/unit_tests && dist/unit_tests | faucet && e2e_tests/run.js",
-    "install": "./configure"
+    "test": "dist/upd dist/unit_tests && dist/unit_tests | faucet && e2e_tests/run.js",
+    "install": "bash bootstrap/gen_upd.sh",
+    "prepublishOnly": "dist/upd dist/upd --shell-script > bootstrap/gen_upd.sh"
   },
   "files": [
     "src",
-    "configure.js"
+    "bootstrap/gen_upd.sh"
   ],
   "homepage": "https://github.com/jeanlauliac/gl-demo/tree/master/build/upd2"
 }

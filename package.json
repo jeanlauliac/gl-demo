@@ -12,5 +12,8 @@
   "bugs": {
     "url": "https://github.com/jeanlauliac/gl-demo/issues"
   },
-  "homepage": "https://github.com/jeanlauliac/gl-demo#readme"
+  "homepage": "https://github.com/jeanlauliac/gl-demo#readme",
+  "dependencies": {
+    "@jeanlauliac/upd": "^0.2.0"
+  }
 }

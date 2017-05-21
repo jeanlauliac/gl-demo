@@ -8,7 +8,7 @@ const path = require('path');
 const allResourceFilePaths = process.argv.slice(3);
 const resources = allResourceFilePaths.map(resourceFilePath => {
   const namespaces = path.dirname(path.relative(
-    path.join(__dirname, '..'),
+    path.join(__dirname, '../src'),
     resourceFilePath
   )).split(path.sep);
   return {
@@ -25,7 +25,7 @@ try {
   fs.writeSync(fd, `#pragma once\n`);
   const resourceHeaderPath = path.relative(
     path.dirname(indexFilePath),
-    path.resolve(__dirname, '../ds/resource.h')
+    path.resolve(__dirname, '../src/ds/resource.h')
   );
   fs.writeSync(fd, `#include "${resourceHeaderPath}"\n\n`);
   for (let i = 0; i < resources.length; ++i) {

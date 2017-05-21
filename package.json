@@ -1,4 +1,5 @@
 {
+  "private": true,
   "name": "gl-demo",
   "version": "0.1.0",
   "description": "Demoscene experiments",

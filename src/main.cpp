@@ -16,7 +16,7 @@
 #include "ds/shaders.h"
 #include "ds/SystemException.h"
 #include "ds/cube.h"
-#include ".build_files/resources.h"
+#include "resources.h"
 
 static void errorCallback(int error, const char* description)
 {

@@ -1,2 +1,0 @@
-#!/bin/bash
-build/upd2/dist/upd $@

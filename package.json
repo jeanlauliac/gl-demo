@@ -14,6 +14,7 @@
   },
   "homepage": "https://github.com/jeanlauliac/gl-demo#readme",
   "dependencies": {
-    "@jeanlauliac/upd": "^0.2.0"
+    "@jeanlauliac/upd": "^0.2.0",
+    "@jeanlauliac/upd-configure": "^0.1.0"
   }
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-const updfile = require('./build/upd2/tools/lib/updfile');
+const {Manifest} = require('@jeanlauliac/upd-configure');
 
-const manifest = new updfile.Manifest();
+const manifest = new Manifest();
 
 const resource_sources = [
   manifest.source("(resources/**/*.vs)"),

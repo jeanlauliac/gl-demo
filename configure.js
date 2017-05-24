@@ -27,6 +27,14 @@ const resource_index_file = manifest.rule(
   `${BUILD_DIR}/headers/resources.h`
 );
 
+const generated_cpps = manifest.rule(
+  manifest.cli_template('node', [
+    {variables: ["input_files", "output_file"]},
+  ]),
+  [manifest.source('build/gen_(icosahedron)_cpp.js')],
+  `${BUILD_DIR}/(generated_cpps/$1).cpp`
+);
+
 const compile_cpp_cli = manifest.cli_template('clang++', [
   {literals: ["-c", "-o"], variables: ["output_file"]},
   {
@@ -43,6 +51,7 @@ const compiled_cpp_files = manifest.rule(
   compile_cpp_cli,
   [
     manifest.source("(src/**/*).cpp"),
+    generated_cpps,
     resource_cpp_files,
   ],
   `${BUILD_DIR}/($1).o`,

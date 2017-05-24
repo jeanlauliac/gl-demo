@@ -1,4 +1,4 @@
-#include "ds/cube.h"
+#include "ds/icosahedron.h"
 #include "ds/shaders.h"
 #include "ds/system_error.h"
 #include "glfwpp/context.h"
@@ -154,9 +154,9 @@ int run(int argc, char* argv[]) {
   );
   program.use();
 
-  auto cube = ds::get_cube();
+  auto object = ds::icosahedron;
 
-  std::vector<GLfloat> colorData(cube.vertices.size() * 3);
+  std::vector<GLfloat> colorData(object.vertices.size() * 3);
   srand(42);
   for(int i = 0; i < colorData.size(); i += 3) {
     float t = (float)rand()/(float)RAND_MAX;
@@ -166,13 +166,13 @@ int run(int argc, char* argv[]) {
   }
 
   // Allocate space and upload the data from CPU to GPU
-  auto cubeVerticesByteCount = sizeof(ds::vertex) * cube.vertices.size();
+  auto objectVerticesByteCount = sizeof(ds::vertex) * object.vertices.size();
   auto colorsByteCount = sizeof(GLfloat) * colorData.size();
   glBindBuffer(GL_ARRAY_BUFFER, vbo.handles()[0]);
-  auto totalSize = cubeVerticesByteCount + colorsByteCount;
+  auto totalSize = objectVerticesByteCount + colorsByteCount;
   glBufferData(GL_ARRAY_BUFFER, totalSize, nullptr, GL_STATIC_DRAW);
-  glBufferSubData(GL_ARRAY_BUFFER, 0, cubeVerticesByteCount, cube.vertices.data());
-  glBufferSubData(GL_ARRAY_BUFFER, cubeVerticesByteCount, colorsByteCount, colorData.data());
+  glBufferSubData(GL_ARRAY_BUFFER, 0, objectVerticesByteCount, object.vertices.data());
+  glBufferSubData(GL_ARRAY_BUFFER, objectVerticesByteCount, colorsByteCount, colorData.data());
 
   GLint positionAttribute = program.getAttribLocation("position");
   glVertexAttribPointer(
@@ -197,21 +197,25 @@ int run(int argc, char* argv[]) {
   glEnableVertexAttribArray(normalAttribute);
 
   GLint colorAttribute = program.getAttribLocation("color");
-  glVertexAttribPointer(colorAttribute, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<void*>(cubeVerticesByteCount));
+  glVertexAttribPointer(colorAttribute, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<void*>(objectVerticesByteCount));
   glEnableVertexAttribArray(colorAttribute);
 
   // Transfer the data from indices to eab
   GLuint eab;
   glGenBuffers(1, &eab);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eab);
-  auto trianglesByteSize = sizeof(cube.triangles[0]) * cube.triangles.size();
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, trianglesByteSize, cube.triangles.data(), GL_STATIC_DRAW);
+  auto trianglesByteSize = sizeof(object.triangles[0]) * object.triangles.size();
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, trianglesByteSize, object.triangles.data(), GL_STATIC_DRAW);
 
   GLint modelUniform = program.getUniformLocation("Model");
   GLint viewUniform = program.getUniformLocation("View");
   GLint projectionUniform = program.getUniformLocation("Projection");
 
-  glm::mat4 view;
+  glm::mat4 view = glm::lookAt(
+    glm::vec3(3, 3, 3),
+    glm::vec3(0, 0, 0),
+    glm::vec3(0, 1, 0)
+  );
   glUniformMatrix4fv(viewUniform, 1, GL_FALSE, glm::value_ptr(view));
   glm::mat4 projection = getPerspectiveProjection(window);
   glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
@@ -222,13 +226,13 @@ int run(int argc, char* argv[]) {
 
     auto ident = glm::mat4();
     auto model =
-      glm::translate(ident, glm::vec3(0.0f, 0.0f, -2.0f)) *
+      glm::translate(ident, glm::vec3(0.0f, 0.0f, 0.0f)) *
       glm::rotate(ident, 0.7f, glm::vec3(1.0f, 0.0f, 0.0f)) *
       glm::rotate(ident, rot, glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
     rot += 0.01f;
 
-    auto vertexCount = cube.triangles.size() * 3;
+    auto vertexCount = object.triangles.size() * 3;
     glDrawElements(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0);
 
     window.swap_buffers();

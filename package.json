@@ -9,7 +9,8 @@
     "url": "git+https://github.com/jeanlauliac/gl-demo.git"
   },
   "scripts": {
-    "start": "node_modules/.bin/@jeanlauliac/upd dist/gl-demo && dist/gl-demo"
+    "start": "yarn run build && dist/gl-demo",
+    "build": "node_modules/.bin/@jeanlauliac/upd dist/gl-demo"
   },
   "author": "Jean Lauliac <jean@lauliac.com>",
   "license": "MIT",

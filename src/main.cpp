@@ -1,22 +1,21 @@
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <vector>
+#include "ds/SystemException.h"
+#include "ds/cube.h"
+#include "ds/shaders.h"
 #include "glfwpp/context.h"
 #include "glfwpp/window.h"
 #include "glpp/Buffers.h"
 #include "glpp/Program.h"
 #include "glpp/Shader.h"
 #include "glpp/VertexArrays.h"
-#include "ds/shaders.h"
-#include "ds/SystemException.h"
-#include "ds/cube.h"
+#include "opengl.h"
 #include "resources.h"
+#include <fstream>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <iostream>
+#include <sstream>
+#include <vector>
 
 static void errorCallback(int error, const char* description)
 {
@@ -30,31 +29,31 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
   }
 }
 
-enum class WindowMode { WINDOW, FULLSCREEN, };
+enum class window_mode { WINDOW, FULLSCREEN, };
 
-struct Options {
-  Options(): showHelp(false), windowMode(WindowMode::WINDOW) {}
+struct options {
+  options(): show_help(false), window_mode(window_mode::WINDOW) {}
 
-  bool showHelp;
-  WindowMode windowMode;
+  bool show_help;
+  window_mode window_mode;
 };
 
-static Options parse_options(int argc, char* argv[]) {
-  Options options;
+static options parse_options(int argc, char* argv[]) {
+  options result;
   for (++argv, --argc; argc > 0; ++argv, --argc) {
     const auto arg = std::string(*argv);
     if (arg == "--fullscreen" || arg == "-f") {
-      options.windowMode = WindowMode::FULLSCREEN;
+      result.window_mode = window_mode::FULLSCREEN;
     } else if (arg == "--help" || arg == "-h") {
-      options.showHelp = true;
+      result.show_help = true;
     } else {
       throw std::runtime_error("unknown argument: `" + arg + "`");
     }
   }
-  return options;
+  return result;
 }
 
-static int showHelp() {
+static int show_help() {
   std::cout << R"END(Usage: gl-demo [options]
 Options:
   --fullscreen, -f          Create a fullscreen window
@@ -65,9 +64,9 @@ Options:
 
 static glfwpp::window create_window(
   glfwpp::context& context,
-  WindowMode windowMode
+  window_mode window_mode
 ) {
-  if (windowMode == WindowMode::WINDOW) {
+  if (window_mode == window_mode::WINDOW) {
     return glfwpp::window(800, 600, "Demo", nullptr, nullptr);
   }
   GLFWmonitor* monitor = glfwGetPrimaryMonitor();
@@ -133,12 +132,12 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T>& vector) {
 
 int run(int argc, char* argv[]) {
   const auto options = parse_options(argc, argv);
-  if (options.showHelp) {
-    return showHelp();
+  if (options.show_help) {
+    return show_help();
   }
   auto context = create_context();
   glfwSetErrorCallback(errorCallback);
-  auto window = create_window(context, options.windowMode);
+  auto window = create_window(context, options.window_mode);
   context.make_context_current(window);
   context.set_key_callback(window, keyCallback);
   enableGlew();

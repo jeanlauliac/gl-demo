@@ -1,10 +1,10 @@
-#include "ds/SystemException.h"
 #include "ds/cube.h"
 #include "ds/shaders.h"
+#include "ds/system_error.h"
 #include "glfwpp/context.h"
 #include "glfwpp/window.h"
-#include "glpp/Buffers.h"
-#include "glpp/Program.h"
+#include "glpp/buffers.h"
+#include "glpp/program.h"
 #include "glpp/shader.h"
 #include "glpp/vertex_arrays.h"
 #include "opengl.h"
@@ -147,12 +147,11 @@ int run(int argc, char* argv[]) {
 
   glpp::vertex_arrays<1> vao;
   glBindVertexArray(vao.handles()[0]);
-  glpp::Buffers<1> vbo;
-  glpp::Program program =
-    ds::loadAndLinkProgram(
-      resources::shaders::BASIC_VS,
-      resources::shaders::BASIC_FS
-    );
+  glpp::buffers<1> vbo;
+  glpp::program program = ds::load_and_link_program(
+    resources::shaders::BASIC_VS,
+    resources::shaders::BASIC_FS
+  );
   program.use();
 
   auto cube = ds::get_cube();
@@ -241,8 +240,8 @@ int run(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
   try {
     run(argc, argv);
-  } catch (ds::SystemException ex) {
-    std::cout << "Oooops: " << ex.message << std::endl;
+  } catch (ds::system_error error) {
+    std::cout << "Oooops: " << error.message << std::endl;
     return 2;
   }
 }

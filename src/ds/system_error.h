@@ -9,8 +9,8 @@ namespace ds {
  * environment issues: ex. missing files. They are to be displayed to the user
  * directly, without a stack trace.
  */
-struct SystemException {
-  SystemException(std::string message): message(message) {}
+struct system_error {
+  system_error(std::string message): message(message) {}
   std::string message;
 };
 

@@ -1,13 +1,13 @@
+#include "shaders.h"
+#include "system_error.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include "SystemException.h"
-#include "shaders.h"
 
 namespace ds {
 
-glpp::shader loadAndCompileShader(const resource& resource, GLenum shaderType) {
+glpp::shader load_and_compile_shader(const resource& resource, GLenum shaderType) {
   glpp::shader result(shaderType);
   const char* cstr = reinterpret_cast<const char*>(resource.data);
   result.source(1, &cstr, nullptr);
@@ -23,29 +23,29 @@ glpp::shader loadAndCompileShader(const resource& resource, GLenum shaderType) {
     std::vector<char> log(logLength);
     result.getInfoLog(log.size(), nullptr, &log[0]);
     errorMessage << &log[0] << std::endl;
-    throw ds::SystemException(errorMessage.str());
+    throw ds::system_error(errorMessage.str());
   }
   return result;
 }
 
-glpp::Program loadAndLinkProgram(
+glpp::program load_and_link_program(
   const resource& vertexShader,
   const resource& fragmentShader
 ) {
-  glpp::Program program;
-  program.attachShader(
-    loadAndCompileShader(vertexShader, GL_VERTEX_SHADER)
+  glpp::program result;
+  result.attachShader(
+    load_and_compile_shader(vertexShader, GL_VERTEX_SHADER)
   );
-  program.attachShader(
-    loadAndCompileShader(fragmentShader, GL_FRAGMENT_SHADER)
+  result.attachShader(
+    load_and_compile_shader(fragmentShader, GL_FRAGMENT_SHADER)
   );
-  program.link();
+  result.link();
   GLint status;
-  program.getProgramiv(GL_LINK_STATUS, &status);
+  result.getProgramiv(GL_LINK_STATUS, &status);
   if (!status) {
     throw std::runtime_error("shader program linking failed");
   }
-  return program;
+  return result;
 }
 
 }

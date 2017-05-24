@@ -4,12 +4,12 @@
 
 namespace glpp {
 
-class Program {
+class program {
 public:
-  Program();
-  Program(const Program&& shader);
-  ~Program();
-  Program(Program&) = delete;
+  program();
+  program(const program&&);
+  ~program();
+  program(program&) = delete;
   void attachShader(const shader& shader);
   GLint getAttribLocation(const GLchar* name);
   void getProgramiv(GLenum pname, GLint* params);

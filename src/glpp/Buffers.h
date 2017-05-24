@@ -4,22 +4,23 @@
 namespace glpp {
 
 template <int TCount>
-class Buffers {
+class buffers {
 public:
-  Buffers() {
+  buffers() {
     glGenBuffers(TCount, handles_);
   }
-  Buffers(const Buffers&& other) {
+  buffers(const buffers&& other) {
     handles_ = other.handles_;
   }
-  ~Buffers() {
+  ~buffers() {
     glDeleteBuffers(TCount, handles_);
   }
+  buffers(buffers&) = delete;
   const GLuint* handles() const {
     return handles_;
   }
+
 private:
-  Buffers(Buffers&);
   GLuint handles_[TCount];
 };
 

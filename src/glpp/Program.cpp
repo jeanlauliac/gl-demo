@@ -1,40 +1,40 @@
-#include "Program.h"
+#include "program.h"
 
 namespace glpp {
 
-Program::Program() {
+program::program() {
   handle_ = glCreateProgram();
 }
 
-Program::Program(const Program&& program) {
-  handle_ = program.handle_;
+program::program(const program&& other) {
+  handle_ = other.handle_;
 }
 
-Program::~Program() {
+program::~program() {
   glDeleteProgram(handle_);
 }
 
-void Program::attachShader(const shader& target) {
+void program::attachShader(const shader& target) {
   glAttachShader(handle_, target.handle());
 }
 
-GLint Program::getAttribLocation(const GLchar* name) {
+GLint program::getAttribLocation(const GLchar* name) {
   return glGetAttribLocation(handle_, name);
 }
 
-void Program::getProgramiv(GLenum pname, GLint* params) {
+void program::getProgramiv(GLenum pname, GLint* params) {
   glGetProgramiv(handle_, pname, params);
 }
 
-GLint Program::getUniformLocation(const GLchar* name) {
+GLint program::getUniformLocation(const GLchar* name) {
   return glGetUniformLocation(handle_, name);
 }
 
-void Program::link() {
+void program::link() {
   glLinkProgram(handle_);
 }
 
-void Program::use() {
+void program::use() {
   glUseProgram(handle_);
 }
 

@@ -1,8 +1,8 @@
 #pragma once
-#include "Mesh.h"
+#include "mesh.h"
 
 namespace ds {
 
-Mesh getCube();
+mesh get_cube();
 
 }

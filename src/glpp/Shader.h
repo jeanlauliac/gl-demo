@@ -3,11 +3,12 @@
 
 namespace glpp {
 
-class Shader {
+class shader {
 public:
-  Shader(GLenum shaderType);
-  Shader(const Shader&& shader);
-  ~Shader();
+  shader(GLenum shaderType);
+  shader(const shader&& shader);
+  ~shader();
+  shader(shader&) = delete;
   void source(GLsizei count, const GLchar **string, const GLint *length);
   void compile();
   void getShaderiv(GLenum pname, GLint *params);
@@ -15,8 +16,8 @@ public:
   GLuint handle() const {
     return handle_;
   }
+
 private:
-  Shader(Shader&);
   GLuint handle_;
 };
 

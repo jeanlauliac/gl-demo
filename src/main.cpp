@@ -5,8 +5,8 @@
 #include "glfwpp/window.h"
 #include "glpp/Buffers.h"
 #include "glpp/Program.h"
-#include "glpp/Shader.h"
-#include "glpp/VertexArrays.h"
+#include "glpp/shader.h"
+#include "glpp/vertex_arrays.h"
 #include "opengl.h"
 #include "resources.h"
 #include <fstream>
@@ -110,7 +110,7 @@ std::ostream &operator<<(std::ostream &os, const glm::vec3& vec) {
   return os << "[" << vec.x << ", " << vec.y << ", " << vec.z << "]";
 }
 
-std::ostream &operator<<(std::ostream &os, const ds::Vertex& vertex) {
+std::ostream &operator<<(std::ostream &os, const ds::vertex& vertex) {
   return
     os << "CubeVertex {position: " << vertex.position
     << ", normal: " << vertex.normal << "}";
@@ -145,7 +145,7 @@ int run(int argc, char* argv[]) {
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
 
-  glpp::VertexArrays<1> vao;
+  glpp::vertex_arrays<1> vao;
   glBindVertexArray(vao.handles()[0]);
   glpp::Buffers<1> vbo;
   glpp::Program program =
@@ -155,7 +155,7 @@ int run(int argc, char* argv[]) {
     );
   program.use();
 
-  auto cube = ds::getCube();
+  auto cube = ds::get_cube();
 
   std::vector<GLfloat> colorData(cube.vertices.size() * 3);
   srand(42);
@@ -167,7 +167,7 @@ int run(int argc, char* argv[]) {
   }
 
   // Allocate space and upload the data from CPU to GPU
-  auto cubeVerticesByteCount = sizeof(ds::Vertex) * cube.vertices.size();
+  auto cubeVerticesByteCount = sizeof(ds::vertex) * cube.vertices.size();
   auto colorsByteCount = sizeof(GLfloat) * colorData.size();
   glBindBuffer(GL_ARRAY_BUFFER, vbo.handles()[0]);
   auto totalSize = cubeVerticesByteCount + colorsByteCount;
@@ -181,8 +181,8 @@ int run(int argc, char* argv[]) {
     3,
     GL_FLOAT,
     GL_FALSE,
-    sizeof(ds::Vertex),
-    reinterpret_cast<void*>(offsetof(ds::Vertex, position))
+    sizeof(ds::vertex),
+    reinterpret_cast<void*>(offsetof(ds::vertex, position))
   );
   glEnableVertexAttribArray(positionAttribute);
 
@@ -192,8 +192,8 @@ int run(int argc, char* argv[]) {
     3,
     GL_FLOAT,
     GL_FALSE,
-    sizeof(ds::Vertex),
-    reinterpret_cast<void*>(offsetof(ds::Vertex, normal))
+    sizeof(ds::vertex),
+    reinterpret_cast<void*>(offsetof(ds::vertex, normal))
   );
   glEnableVertexAttribArray(normalAttribute);
 

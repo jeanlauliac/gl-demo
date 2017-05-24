@@ -14,8 +14,8 @@ Program::~Program() {
   glDeleteProgram(handle_);
 }
 
-void Program::attachShader(const Shader& shader) {
-  glAttachShader(handle_, shader.handle());
+void Program::attachShader(const shader& target) {
+  glAttachShader(handle_, target.handle());
 }
 
 GLint Program::getAttribLocation(const GLchar* name) {

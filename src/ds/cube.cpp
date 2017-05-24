@@ -3,8 +3,8 @@
 
 namespace ds {
 
-Mesh getCube() {
-  std::vector<Vertex> vertices;
+mesh get_cube() {
+  std::vector<vertex> vertices;
   std::vector<glm::uvec3> triangles;
   for (int dimension = 0; dimension < 3; ++dimension) {
     for (int direction = -1; direction <= 1; direction += 2) {
@@ -17,8 +17,8 @@ Mesh getCube() {
           position[dimension] = static_cast<float>(direction) * 0.5f;
           position[(dimension + 1) % 3] = static_cast<float>(sideways) * 0.5f;
           position[(dimension + 2) % 3] = static_cast<float>(vertically) * 0.5f;
-          Vertex vertex = {.normal = faceNormal, .position = position};
-          vertices.push_back(vertex);
+          vertex newv = {.normal = faceNormal, .position = position};
+          vertices.push_back(newv);
         }
       }
       triangles.push_back(glm::uvec3(base, base + 1, base + 2));

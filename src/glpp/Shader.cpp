@@ -1,32 +1,32 @@
-#include "Shader.h"
+#include "shader.h"
 
 namespace glpp {
 
-Shader::Shader(GLenum shaderType) {
+shader::shader(GLenum shaderType) {
   handle_ = glCreateShader(shaderType);
 }
 
-Shader::Shader(const Shader&& shader) {
+shader::shader(const shader&& shader) {
   handle_ = shader.handle_;
 }
 
-Shader::~Shader() {
+shader::~shader() {
   glDeleteShader(handle_);
 }
 
-void Shader::source(GLsizei count, const GLchar **string, const GLint *length) {
+void shader::source(GLsizei count, const GLchar **string, const GLint *length) {
   glShaderSource(handle_, count, string, length);
 }
 
-void Shader::compile() {
+void shader::compile() {
   glCompileShader(handle_);
 }
 
-void Shader::getShaderiv(GLenum pname, GLint *params) {
+void shader::getShaderiv(GLenum pname, GLint *params) {
   glGetShaderiv(handle_, pname, params);
 }
 
-void Shader::getInfoLog(GLsizei maxLength, GLsizei* length, GLchar* infoLog) {
+void shader::getInfoLog(GLsizei maxLength, GLsizei* length, GLchar* infoLog) {
   glGetShaderInfoLog(handle_, maxLength, length, infoLog);
 }
 

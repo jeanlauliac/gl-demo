@@ -4,22 +4,23 @@
 namespace glpp {
 
 template <int TCount>
-class VertexArrays {
+class vertex_arrays {
 public:
-  VertexArrays() {
+  vertex_arrays() {
     glGenVertexArrays(TCount, handles_);
   }
-  VertexArrays(const VertexArrays&& other) {
+  vertex_arrays(const vertex_arrays&& other) {
     handles_ = other.handles_;
   }
-  ~VertexArrays() {
+  ~vertex_arrays() {
     glDeleteVertexArrays(TCount, handles_);
   }
+  vertex_arrays(vertex_arrays&) = delete;
   const GLuint* handles() const {
     return handles_;
   }
+
 private:
-  VertexArrays(VertexArrays&);
   GLuint handles_[TCount];
 };
 

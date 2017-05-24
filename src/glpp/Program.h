@@ -1,6 +1,6 @@
 #pragma once
 #include "../opengl.h"
-#include "Shader.h"
+#include "shader.h"
 
 namespace glpp {
 
@@ -9,7 +9,8 @@ public:
   Program();
   Program(const Program&& shader);
   ~Program();
-  void attachShader(const Shader& shader);
+  Program(Program&) = delete;
+  void attachShader(const shader& shader);
   GLint getAttribLocation(const GLchar* name);
   void getProgramiv(GLenum pname, GLint* params);
   GLint getUniformLocation(const GLchar* name);
@@ -18,8 +19,8 @@ public:
   }
   void link();
   void use();
+
 private:
-  Program(Shader&);
   GLuint handle_;
 };
 

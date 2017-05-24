@@ -4,13 +4,13 @@
 
 namespace ds {
 
-struct Vertex {
+struct vertex {
   glm::vec3 position;
   glm::vec3 normal;
 };
 
-struct Mesh {
-  std::vector<Vertex> vertices;
+struct mesh {
+  std::vector<vertex> vertices;
   std::vector<glm::uvec3> triangles;
 };
 

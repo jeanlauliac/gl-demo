@@ -14,6 +14,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <vector>
 
@@ -130,6 +131,64 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T>& vector) {
   return std::cout << std::endl << "}";
 }
 
+struct ico_sphere_generator {
+  ds::mesh operator()() {
+    positions_.clear();
+    middle_positions_index_.clear();
+    for (const auto& vertex: ds::icosahedron.vertices) {
+      positions_.push_back(glm::normalize(vertex.position));
+    }
+    std::vector<glm::uvec3> triangles = ds::icosahedron.triangles;
+    for (size_t pass_ix = 0; pass_ix < 4; ++pass_ix) {
+      std::vector<glm::uvec3> new_triangles;
+      for (const auto& triangle: triangles) {
+        auto ix1 = triangle.x;
+        auto ix2 = triangle.y;
+        auto ix3 = triangle.z;
+        auto mid1 = get_middle_position_(ix1, ix2);
+        auto mid2 = get_middle_position_(ix2, ix3);
+        auto mid3 = get_middle_position_(ix3, ix1);
+        new_triangles.push_back({ ix1, mid1, mid3 });
+        new_triangles.push_back({ ix2, mid2, mid1 });
+        new_triangles.push_back({ ix3, mid3, mid2 });
+        new_triangles.push_back({ mid1, mid2, mid3 });
+      }
+      triangles = std::move(new_triangles);
+    }
+    ds::mesh result;
+    result.triangles = std::move(triangles);
+    for (const auto& position: positions_) {
+      result.vertices.push_back({
+        .position = position,
+        .normal = position,
+      });
+    }
+    return result;
+  }
+
+private:
+  size_t get_middle_position_(size_t first, size_t second) {
+    if (first > second) {
+      std::swap(first, second);
+    }
+    std::pair<size_t, size_t> key = {first, second};
+    auto iter = middle_positions_index_.find(key);
+    if (iter != middle_positions_index_.end()) {
+      return iter->second;
+    }
+    const auto& first_vec = positions_[first];
+    const auto& second_vec = positions_[second];
+    glm::vec3 mid_vec = glm::normalize((first_vec + second_vec) * 0.5f);
+    positions_.push_back(mid_vec);
+    auto ix = positions_.size() - 1;
+    middle_positions_index_.insert({ key, ix });
+    return ix;
+  }
+
+  std::vector<glm::vec3> positions_;
+  std::map<std::pair<size_t, size_t>, size_t> middle_positions_index_;
+};
+
 int run(int argc, char* argv[]) {
   const auto options = parse_options(argc, argv);
   if (options.show_help) {
@@ -143,7 +202,9 @@ int run(int argc, char* argv[]) {
   enableGlew();
 
   glEnable(GL_DEPTH_TEST);
+  glEnable(GL_CULL_FACE);
   glDepthFunc(GL_LESS);
+  glFrontFace(GL_CCW);
 
   glpp::vertex_arrays<1> vao;
   glBindVertexArray(vao.handles()[0]);
@@ -154,7 +215,7 @@ int run(int argc, char* argv[]) {
   );
   program.use();
 
-  auto object = ds::icosahedron;
+  auto object = ico_sphere_generator()();
 
   std::vector<GLfloat> colorData(object.vertices.size() * 3);
   srand(42);
@@ -212,7 +273,7 @@ int run(int argc, char* argv[]) {
   GLint projectionUniform = program.getUniformLocation("Projection");
 
   glm::mat4 view = glm::lookAt(
-    glm::vec3(3, 3, 3),
+    glm::vec3(2, 0, 0),
     glm::vec3(0, 0, 0),
     glm::vec3(0, 1, 0)
   );
@@ -227,8 +288,8 @@ int run(int argc, char* argv[]) {
     auto ident = glm::mat4();
     auto model =
       glm::translate(ident, glm::vec3(0.0f, 0.0f, 0.0f)) *
-      glm::rotate(ident, 0.7f, glm::vec3(1.0f, 0.0f, 0.0f)) *
-      glm::rotate(ident, rot, glm::vec3(0.0f, 1.0f, 0.0f));
+      glm::rotate(ident, glm::sin(rot * 1.6f) * 2, glm::vec3(1.0f, 0.0f, 0.0f)) *
+      glm::rotate(ident, glm::cos(rot) * 2, glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
     rot += 0.01f;
 

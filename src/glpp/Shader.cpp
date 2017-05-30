@@ -22,11 +22,11 @@ void shader::compile() {
   glCompileShader(handle_);
 }
 
-void shader::getShaderiv(GLenum pname, GLint *params) {
+void shader::get_shaderiv(GLenum pname, GLint *params) {
   glGetShaderiv(handle_, pname, params);
 }
 
-void shader::getInfoLog(GLsizei maxLength, GLsizei* length, GLchar* infoLog) {
+void shader::get_info_log(GLsizei maxLength, GLsizei* length, GLchar* infoLog) {
   glGetShaderInfoLog(handle_, maxLength, length, infoLog);
 }
 

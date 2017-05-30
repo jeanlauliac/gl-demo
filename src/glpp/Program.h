@@ -10,10 +10,10 @@ public:
   program(const program&&);
   ~program();
   program(program&) = delete;
-  void attachShader(const shader& shader);
-  GLint getAttribLocation(const GLchar* name);
-  void getProgramiv(GLenum pname, GLint* params);
-  GLint getUniformLocation(const GLchar* name);
+  void attach_shader(const shader& shader);
+  GLint get_attrib_location(const GLchar* name);
+  void get_programiv(GLenum pname, GLint* params);
+  GLint get_uniform_location(const GLchar* name);
   GLuint handle() const {
     return handle_;
   }

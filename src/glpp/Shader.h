@@ -11,8 +11,8 @@ public:
   shader(shader&) = delete;
   void source(GLsizei count, const GLchar **string, const GLint *length);
   void compile();
-  void getShaderiv(GLenum pname, GLint *params);
-  void getInfoLog(GLsizei maxLength, GLsizei* length, GLchar* infoLog);
+  void get_shaderiv(GLenum pname, GLint *params);
+  void get_info_log(GLsizei maxLength, GLsizei* length, GLchar* infoLog);
   GLuint handle() const {
     return handle_;
   }

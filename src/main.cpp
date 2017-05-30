@@ -235,7 +235,7 @@ int run(int argc, char* argv[]) {
   glBufferSubData(GL_ARRAY_BUFFER, 0, objectVerticesByteCount, object.vertices.data());
   glBufferSubData(GL_ARRAY_BUFFER, objectVerticesByteCount, colorsByteCount, colorData.data());
 
-  GLint positionAttribute = program.getAttribLocation("position");
+  GLint positionAttribute = program.get_attrib_location("position");
   glVertexAttribPointer(
     positionAttribute,
     3,
@@ -246,7 +246,7 @@ int run(int argc, char* argv[]) {
   );
   glEnableVertexAttribArray(positionAttribute);
 
-  GLint normalAttribute = program.getAttribLocation("normal");
+  GLint normalAttribute = program.get_attrib_location("normal");
   glVertexAttribPointer(
     normalAttribute,
     3,
@@ -257,7 +257,7 @@ int run(int argc, char* argv[]) {
   );
   glEnableVertexAttribArray(normalAttribute);
 
-  GLint colorAttribute = program.getAttribLocation("color");
+  GLint colorAttribute = program.get_attrib_location("color");
   glVertexAttribPointer(colorAttribute, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<void*>(objectVerticesByteCount));
   glEnableVertexAttribArray(colorAttribute);
 
@@ -268,9 +268,9 @@ int run(int argc, char* argv[]) {
   auto trianglesByteSize = sizeof(object.triangles[0]) * object.triangles.size();
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, trianglesByteSize, object.triangles.data(), GL_STATIC_DRAW);
 
-  GLint modelUniform = program.getUniformLocation("Model");
-  GLint viewUniform = program.getUniformLocation("View");
-  GLint projectionUniform = program.getUniformLocation("Projection");
+  GLint modelUniform = program.get_uniform_location("Model");
+  GLint viewUniform = program.get_uniform_location("View");
+  GLint projectionUniform = program.get_uniform_location("Projection");
 
   glm::mat4 view = glm::lookAt(
     glm::vec3(2, 0, 0),
@@ -306,7 +306,7 @@ int main(int argc, char* argv[]) {
   try {
     run(argc, argv);
   } catch (ds::system_error error) {
-    std::cout << "Oooops: " << error.message << std::endl;
+    std::cout << "fatal: " << error.message << std::endl;
     return 2;
   }
 }

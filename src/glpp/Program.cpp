@@ -14,19 +14,19 @@ program::~program() {
   glDeleteProgram(handle_);
 }
 
-void program::attachShader(const shader& target) {
+void program::attach_shader(const shader& target) {
   glAttachShader(handle_, target.handle());
 }
 
-GLint program::getAttribLocation(const GLchar* name) {
+GLint program::get_attrib_location(const GLchar* name) {
   return glGetAttribLocation(handle_, name);
 }
 
-void program::getProgramiv(GLenum pname, GLint* params) {
+void program::get_programiv(GLenum pname, GLint* params) {
   glGetProgramiv(handle_, pname, params);
 }
 
-GLint program::getUniformLocation(const GLchar* name) {
+GLint program::get_uniform_location(const GLchar* name) {
   return glGetUniformLocation(handle_, name);
 }
 

@@ -16,6 +16,7 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <thread>
 #include <vector>
 
 static void errorCallback(int error, const char* description)
@@ -282,6 +283,10 @@ int run(int argc, char* argv[]) {
   glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
 
   auto rot = 0.0f;
+  double targetDelta = 1.0 / 60.0;
+  double lastTime = glfwGetTime();
+  double extraTime = 0;
+
   while (!window.should_close()) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -291,13 +296,28 @@ int run(int argc, char* argv[]) {
       glm::rotate(ident, glm::sin(rot * 1.6f) * 2, glm::vec3(1.0f, 0.0f, 0.0f)) *
       glm::rotate(ident, glm::cos(rot) * 2, glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
-    rot += 0.01f;
+    rot += 0.005f;
 
     auto vertexCount = object.triangles.size() * 3;
     glDrawElements(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0);
 
     window.swap_buffers();
     glfwPollEvents();
+
+    double curTime = glfwGetTime();
+    double elapsedDelta = curTime - lastTime;
+    double spareDelta = extraTime + targetDelta - elapsedDelta;
+    if (spareDelta > 0) {
+      std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(
+        spareDelta * 1000 * 1000
+      )));
+    }
+
+    curTime = glfwGetTime();
+    elapsedDelta = curTime - lastTime;
+    extraTime += targetDelta - elapsedDelta;
+    lastTime = curTime;
+
   }
   return 0;
 }

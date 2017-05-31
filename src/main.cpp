@@ -219,7 +219,7 @@ ds::mesh gen_planet() {
   for (auto& vertex: sphere.vertices) {
     auto length = glm::length(vertex.position);
     if (length < OCEAN_ALTITUDE) {
-      //vertex.position *= OCEAN_ALTITUDE / length;
+      vertex.position *= OCEAN_ALTITUDE / length;
     }
   }
   return sphere;

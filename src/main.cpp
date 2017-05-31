@@ -140,7 +140,7 @@ struct ico_sphere_generator {
       positions_.push_back(glm::normalize(vertex.position));
     }
     std::vector<glm::uvec3> triangles = ds::icosahedron.triangles;
-    for (size_t pass_ix = 0; pass_ix < 4; ++pass_ix) {
+    for (size_t pass_ix = 0; pass_ix < 5; ++pass_ix) {
       std::vector<glm::uvec3> new_triangles;
       for (const auto& triangle: triangles) {
         auto ix1 = triangle.x;
@@ -190,6 +190,41 @@ private:
   std::map<std::pair<size_t, size_t>, size_t> middle_positions_index_;
 };
 
+float rndf() {
+  return (float)rand() / (float)RAND_MAX;
+}
+
+void mod_altitude(glm::vec3& position, float amount) {
+  auto length = glm::length(position);
+  position *= (length + amount) / length;
+}
+
+float OCEAN_ALTITUDE = 1.0f;
+float EPSILON = 0.000001f;
+
+ds::mesh gen_planet() {
+  auto sphere = ico_sphere_generator()();
+  for (size_t i = 0; i < 1000; ++i) {
+    glm::vec3 plane_normal = { rndf() - 0.5f, rndf() - 0.5f, rndf() - 0.5f };
+    glm::vec3 plane_origin = { rndf() - 0.5f, rndf() - 0.5f, rndf() - 0.5f };
+    plane_origin *= 1.4f;
+    for (auto& vertex: sphere.vertices) {
+      if (glm::dot(vertex.position - plane_origin, plane_normal) > 0) {
+        mod_altitude(vertex.position, 0.002f);
+      } else {
+        mod_altitude(vertex.position, -0.002f);
+      }
+    }
+  }
+  for (auto& vertex: sphere.vertices) {
+    auto length = glm::length(vertex.position);
+    if (length < OCEAN_ALTITUDE) {
+      //vertex.position *= OCEAN_ALTITUDE / length;
+    }
+  }
+  return sphere;
+}
+
 int run(int argc, char* argv[]) {
   const auto options = parse_options(argc, argv);
   if (options.show_help) {
@@ -216,15 +251,24 @@ int run(int argc, char* argv[]) {
   );
   program.use();
 
-  auto object = ico_sphere_generator()();
+  auto object = gen_planet();
 
   std::vector<GLfloat> colorData(object.vertices.size() * 3);
   srand(42);
   for(int i = 0; i < colorData.size(); i += 3) {
-    float t = (float)rand()/(float)RAND_MAX;
-    colorData[i] = 9*(1-t)*t*t*t;
-    colorData[i + 1] = 15*(1-t)*(1-t)*t*t;
-    colorData[i + 2] = 8.5*(1-t)*(1-t)*(1-t)*t;
+    //float t = (float)rand()/(float)RAND_MAX;
+    const auto& vertex = object.vertices[i / 3];
+    auto length = glm::length(vertex.position);
+    if (length <= OCEAN_ALTITUDE + EPSILON) {
+      colorData[i] = 0.1f;
+      colorData[i + 1] = 0.5f;
+      colorData[i + 2] = 0.8f;
+      continue;
+    }
+    auto dist = (length - 0.8f) / 0.2f;
+    colorData[i] = 0.9f * dist;
+    colorData[i + 1] = 0.7f * dist;
+    colorData[i + 2] = 0.7f * dist;
   }
 
   // Allocate space and upload the data from CPU to GPU

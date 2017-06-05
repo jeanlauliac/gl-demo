@@ -229,20 +229,27 @@ float get_average_altitude(std::vector<ds::vertex>& vertices) {
   return result;
 }
 
+void shake_vertices(std::uint_fast32_t seed, std::vector<ds::vertex>& vertices) {
+  std::mt19937 mt(seed);
+  std::uniform_real_distribution<float> urd(-0.002f, 0.002f);
+  for (auto& vertex: vertices) {
+    vertex.position += urd(mt);
+  }
+}
+
 struct planet {
   ds::mesh mesh;
   float ocean_altitude;
   std::vector<glm::vec3> altitudes;
 };
 
-planet gen_planet() {
+planet gen_planet(std::uint_fast32_t seed) {
   auto sphere = ico_sphere_generator()();
-  std::mt19937 mt(6342);
+  std::mt19937 mt(seed);
   std::uniform_real_distribution<float> urd(-1, 1);
-  std::uniform_real_distribution<float> urd_dist(-1, 1);
   for (size_t i = 0; i < 1000; ++i) {
     glm::vec3 plane_normal = glm::normalize(glm::vec3({ urd(mt), urd(mt), urd(mt) }));
-    float dist = urd_dist(mt);
+    float dist = urd(mt);
     for (auto& vertex: sphere.vertices) {
       if (glm::dot(vertex.position, plane_normal) >= dist) {
         mod_altitude(vertex.position, 0.001f);
@@ -252,7 +259,8 @@ planet gen_planet() {
     }
   }
   recenter_vertices(sphere.vertices);
-  auto ocean_altitude = get_average_altitude(sphere.vertices);
+  shake_vertices(mt(), sphere.vertices);
+  auto ocean_altitude = get_average_altitude(sphere.vertices) * 1.01f;
   auto i = 0;
   std::vector<glm::vec3> altitudes(sphere.vertices.size());
   for (auto& vertex: sphere.vertices) {
@@ -295,12 +303,11 @@ int run(int argc, char* argv[]) {
   );
   program.use();
 
-  auto planet = gen_planet();
+  auto planet = gen_planet(123);
   auto object = planet.mesh;
 
   std::vector<GLfloat> colorData(object.vertices.size() * 3);
   for(int i = 0; i < colorData.size(); i += 3) {
-    const auto& vertex = object.vertices[i / 3];
     const auto& alt = planet.altitudes[i / 3];
     auto length = glm::length(alt);
     if (length <= planet.ocean_altitude) {

@@ -15,6 +15,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <map>
+#include <random>
 #include <sstream>
 #include <thread>
 #include <vector>
@@ -135,12 +136,12 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T>& vector) {
 struct ico_sphere_generator {
   ds::mesh operator()() {
     positions_.clear();
-    middle_positions_index_.clear();
     for (const auto& vertex: ds::icosahedron.vertices) {
       positions_.push_back(glm::normalize(vertex.position));
     }
     std::vector<glm::uvec3> triangles = ds::icosahedron.triangles;
     for (size_t pass_ix = 0; pass_ix < 5; ++pass_ix) {
+      middle_positions_index_.clear();
       std::vector<glm::uvec3> new_triangles;
       for (const auto& triangle: triangles) {
         auto ix1 = triangle.x;
@@ -190,10 +191,6 @@ private:
   std::map<std::pair<size_t, size_t>, size_t> middle_positions_index_;
 };
 
-float rndf() {
-  return (float)rand() / (float)RAND_MAX;
-}
-
 void mod_altitude(glm::vec3& position, float amount) {
   auto length = glm::length(position);
   position *= (length + amount) / length;
@@ -202,27 +199,74 @@ void mod_altitude(glm::vec3& position, float amount) {
 float OCEAN_ALTITUDE = 1.0f;
 float EPSILON = 0.000001f;
 
-ds::mesh gen_planet() {
+glm::vec3 get_gravity_center(const std::vector<ds::vertex>& vertices) {
+  glm::vec3 result;
+  size_t weight = 0;
+  for (const auto& vertex: vertices) {
+    result = (result * static_cast<float>(weight) + vertex.position) /
+      static_cast<float>(weight + 1);
+    weight++;
+  }
+  return result;
+}
+
+void recenter_vertices(std::vector<ds::vertex>& vertices) {
+  auto center = get_gravity_center(vertices);
+  for (auto& vertex: vertices) {
+    vertex.position -= center;
+  }
+}
+
+float get_average_altitude(std::vector<ds::vertex>& vertices) {
+  float result = 0;
+  size_t weight = 0;
+  for (const auto& vertex: vertices) {
+    result =
+      (result * static_cast<float>(weight) + glm::length(vertex.position)) /
+      static_cast<float>(weight + 1);
+    weight++;
+  }
+  return result;
+}
+
+struct planet {
+  ds::mesh mesh;
+  float ocean_altitude;
+  std::vector<glm::vec3> altitudes;
+};
+
+planet gen_planet() {
   auto sphere = ico_sphere_generator()();
+  std::mt19937 mt(6342);
+  std::uniform_real_distribution<float> urd(-1, 1);
+  std::uniform_real_distribution<float> urd_dist(-1, 1);
   for (size_t i = 0; i < 1000; ++i) {
-    glm::vec3 plane_normal = { rndf() - 0.5f, rndf() - 0.5f, rndf() - 0.5f };
-    glm::vec3 plane_origin = { rndf() - 0.5f, rndf() - 0.5f, rndf() - 0.5f };
-    plane_origin *= 1.4f;
+    glm::vec3 plane_normal = glm::normalize(glm::vec3({ urd(mt), urd(mt), urd(mt) }));
+    float dist = urd_dist(mt);
     for (auto& vertex: sphere.vertices) {
-      if (glm::dot(vertex.position - plane_origin, plane_normal) > 0) {
-        mod_altitude(vertex.position, 0.002f);
+      if (glm::dot(vertex.position, plane_normal) >= dist) {
+        mod_altitude(vertex.position, 0.001f);
       } else {
-        mod_altitude(vertex.position, -0.002f);
+        mod_altitude(vertex.position, -0.001f);
       }
     }
   }
+  recenter_vertices(sphere.vertices);
+  auto ocean_altitude = get_average_altitude(sphere.vertices);
+  auto i = 0;
+  std::vector<glm::vec3> altitudes(sphere.vertices.size());
   for (auto& vertex: sphere.vertices) {
+    altitudes[i++] = vertex.position;
     auto length = glm::length(vertex.position);
-    if (length < OCEAN_ALTITUDE) {
-      vertex.position *= OCEAN_ALTITUDE / length;
+    if (length < ocean_altitude) {
+      vertex.position *= ocean_altitude / length;
     }
   }
-  return sphere;
+  return {
+    .mesh = sphere,
+    .ocean_altitude = ocean_altitude,
+    .altitudes = altitudes,
+  };
 }
 
 int run(int argc, char* argv[]) {
@@ -251,24 +295,26 @@ int run(int argc, char* argv[]) {
   );
   program.use();
 
-  auto object = gen_planet();
+  auto planet = gen_planet();
+  auto object = planet.mesh;
 
   std::vector<GLfloat> colorData(object.vertices.size() * 3);
-  srand(42);
   for(int i = 0; i < colorData.size(); i += 3) {
-    //float t = (float)rand()/(float)RAND_MAX;
     const auto& vertex = object.vertices[i / 3];
-    auto length = glm::length(vertex.position);
-    if (length <= OCEAN_ALTITUDE + EPSILON) {
-      colorData[i] = 0.1f;
-      colorData[i + 1] = 0.5f;
-      colorData[i + 2] = 0.8f;
+    const auto& alt = planet.altitudes[i / 3];
+    auto length = glm::length(alt);
+    if (length <= planet.ocean_altitude) {
+      auto depth = glm::pow(length / planet.ocean_altitude, 5);
+      colorData[i] = 0.1f * depth;
+      colorData[i + 1] = 0.3f * depth;
+      colorData[i + 2] = 0.6f * depth;
       continue;
     }
-    auto dist = (length - 0.8f) / 0.2f;
-    colorData[i] = 0.9f * dist;
-    colorData[i + 1] = 0.7f * dist;
-    colorData[i + 2] = 0.7f * dist;
+    auto height = (length - planet.ocean_altitude) / 0.3f;
+    auto coef = height / 0.4f + 0.6f;
+    colorData[i] = 0.9f * coef;
+    colorData[i + 1] = 0.7f * coef;
+    colorData[i + 2] = 0.7f * coef;
   }
 
   // Allocate space and upload the data from CPU to GPU
@@ -337,8 +383,7 @@ int run(int argc, char* argv[]) {
     auto ident = glm::mat4();
     auto model =
       glm::translate(ident, glm::vec3(0.0f, 0.0f, 0.0f)) *
-      glm::rotate(ident, glm::sin(rot * 1.6f) * 2, glm::vec3(1.0f, 0.0f, 0.0f)) *
-      glm::rotate(ident, glm::cos(rot) * 2, glm::vec3(0.0f, 1.0f, 0.0f));
+      glm::rotate(ident, rot, glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
     rot += 0.005f;
 

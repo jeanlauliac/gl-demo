@@ -12,6 +12,7 @@ out vec4 edge_color;
 void main() {
   gl_Position = Projection * View * Model * position;
   vec4 worldNormal = Model * normal;
-  float power = clamp(dot(worldNormal, vec4(0.0, 1.0, 0.0, 1.0)), 0, 1);
+  vec3 lightDir = normalize(vec3(0.1, 0.3, 1.0));
+  float power = clamp(dot(worldNormal, vec4(lightDir, 1)), 0, 1);
   edge_color = color * power;
 }

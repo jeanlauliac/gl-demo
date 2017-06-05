@@ -247,7 +247,7 @@ planet gen_planet(std::uint_fast32_t seed) {
   auto sphere = ico_sphere_generator()();
   std::mt19937 mt(seed);
   std::uniform_real_distribution<float> urd(-1, 1);
-  for (size_t i = 0; i < 1000; ++i) {
+  for (size_t i = 0; i < 500; ++i) {
     glm::vec3 plane_normal = glm::normalize(glm::vec3({ urd(mt), urd(mt), urd(mt) }));
     float dist = urd(mt);
     for (auto& vertex: sphere.vertices) {

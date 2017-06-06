@@ -20,12 +20,12 @@
 #include <thread>
 #include <vector>
 
-static void errorCallback(int error, const char* description)
+static void error_callback(int error, const char* description)
 {
   std::cerr << description << std::endl;
 }
 
-static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
   if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, GL_TRUE);
@@ -283,10 +283,10 @@ int run(int argc, char* argv[]) {
     return show_help();
   }
   auto context = create_context();
-  glfwSetErrorCallback(errorCallback);
+  glfwSetErrorCallback(error_callback);
   auto window = create_window(context, options.window_mode);
   context.make_context_current(window);
-  context.set_key_callback(window, keyCallback);
+  context.set_key_callback(window, key_callback);
   enableGlew();
 
   glEnable(GL_DEPTH_TEST);
@@ -355,34 +355,34 @@ int run(int argc, char* argv[]) {
   );
   glEnableVertexAttribArray(normalAttribute);
 
-  GLint colorAttribute = program.get_attrib_location("color");
-  glVertexAttribPointer(colorAttribute, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<void*>(objectVerticesByteCount));
-  glEnableVertexAttribArray(colorAttribute);
+  GLint color_attr = program.get_attrib_location("color");
+  glVertexAttribPointer(color_attr, 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<void*>(objectVerticesByteCount));
+  glEnableVertexAttribArray(color_attr);
 
   // Transfer the data from indices to eab
   GLuint eab;
   glGenBuffers(1, &eab);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eab);
-  auto trianglesByteSize = sizeof(object.triangles[0]) * object.triangles.size();
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, trianglesByteSize, object.triangles.data(), GL_STATIC_DRAW);
+  auto triangles_byte_size = sizeof(object.triangles[0]) * object.triangles.size();
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, triangles_byte_size, object.triangles.data(), GL_STATIC_DRAW);
 
-  GLint modelUniform = program.get_uniform_location("Model");
-  GLint viewUniform = program.get_uniform_location("View");
-  GLint projectionUniform = program.get_uniform_location("Projection");
+  GLint model_uniform = program.get_uniform_location("Model");
+  GLint view_uniform = program.get_uniform_location("View");
+  GLint projection_uniform = program.get_uniform_location("Projection");
 
   glm::mat4 view = glm::lookAt(
     glm::vec3(2, 0, 0),
     glm::vec3(0, 0, 0),
     glm::vec3(0, 1, 0)
   );
-  glUniformMatrix4fv(viewUniform, 1, GL_FALSE, glm::value_ptr(view));
+  glUniformMatrix4fv(view_uniform, 1, GL_FALSE, glm::value_ptr(view));
   glm::mat4 projection = getPerspectiveProjection(window);
-  glUniformMatrix4fv(projectionUniform, 1, GL_FALSE, glm::value_ptr(projection));
+  glUniformMatrix4fv(projection_uniform, 1, GL_FALSE, glm::value_ptr(projection));
 
   auto rot = 0.0f;
-  double targetDelta = 1.0 / 60.0;
-  double lastTime = glfwGetTime();
-  double extraTime = 0;
+  double target_delta = 1.0 / 60.0;
+  double last_time = glfwGetTime();
+  double extra_time = 0;
 
   while (!window.should_close()) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -391,7 +391,7 @@ int run(int argc, char* argv[]) {
     auto model =
       glm::translate(ident, glm::vec3(0.0f, 0.0f, 0.0f)) *
       glm::rotate(ident, rot, glm::vec3(0.0f, 1.0f, 0.0f));
-    glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(model_uniform, 1, GL_FALSE, glm::value_ptr(model));
     rot += 0.005f;
 
     auto vertexCount = object.triangles.size() * 3;
@@ -401,18 +401,18 @@ int run(int argc, char* argv[]) {
     glfwPollEvents();
 
     double curTime = glfwGetTime();
-    double elapsedDelta = curTime - lastTime;
-    double spareDelta = extraTime + targetDelta - elapsedDelta;
-    if (spareDelta > 0) {
-      std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(
-        spareDelta * 1000 * 1000
-      )));
+    double elapsed_delta = curTime - last_time;
+    double spare_delta = extra_time + target_delta - elapsed_delta;
+    if (spare_delta > 0) {
+      auto ms = spare_delta * 1000 * 1000;
+      auto chr = std::chrono::microseconds(static_cast<int>(ms));
+      std::this_thread::sleep_for(chr);
     }
 
     curTime = glfwGetTime();
-    elapsedDelta = curTime - lastTime;
-    extraTime += targetDelta - elapsedDelta;
-    lastTime = curTime;
+    elapsed_delta = curTime - last_time;
+    extra_time += target_delta - elapsed_delta;
+    last_time = curTime;
 
   }
   return 0;

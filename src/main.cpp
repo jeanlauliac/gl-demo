@@ -20,6 +20,8 @@
 #include <thread>
 #include <vector>
 
+namespace gl_demo {
+
 static void error_callback(int error, const char* description)
 {
   std::cerr << description << std::endl;
@@ -418,9 +420,11 @@ int run(int argc, char* argv[]) {
   return 0;
 }
 
+}
+
 int main(int argc, char* argv[]) {
   try {
-    run(argc, argv);
+    gl_demo::run(argc, argv);
   } catch (ds::system_error error) {
     std::cout << "fatal: " << error.message << std::endl;
     return 2;
